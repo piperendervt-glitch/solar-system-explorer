@@ -15,15 +15,71 @@ namespace SolarSystem.Unity
     {
         const float NearClip = CameraStackController.DeepNearClip;
 
+        /// <summary>起動引数。付けると HUD を出した状態で始まる (Step 8-0)。</summary>
+        public const string DebugHudArg = "-debugHud";
+
         [SerializeField] UniverseRoot _root;
         [SerializeField] ShipRig _rig;
+        [SerializeField] ScenarioRunner _scenario;
 
         GUIStyle _style;
+        GUIStyle _checkStyle;
+
+        /// <summary>
+        /// HUD を出すか (Step 8-0)。**既定は非表示。** F1 で反転する。
+        /// 起動引数 -debugHud が付いていれば初期表示。
+        /// </summary>
+        public bool Visible { get; set; }
 
         public void Bind(UniverseRoot root, ShipRig rig)
         {
             _root = root;
             _rig = rig;
+        }
+
+        public void BindScenario(ScenarioRunner scenario) => _scenario = scenario;
+
+        void Awake()
+        {
+            // 既定は非表示。引数が付いていれば出した状態で始まる。
+            Visible = HasDebugHudArg();
+        }
+
+        public static bool HasDebugHudArg()
+        {
+            string[] args = System.Environment.GetCommandLineArgs();
+            foreach (string a in args)
+            {
+                if (string.Equals(a, DebugHudArg, System.StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>F1。表示を反転する。</summary>
+        public void Toggle() => Visible = !Visible;
+
+        /// <summary>画面右上に出す確認項目。シナリオが無ければ空。</summary>
+        public string BuildCheckText()
+        {
+            if (_scenario == null || !_scenario.IsActive)
+            {
+                return string.Empty;
+            }
+
+            SolarSystem.Core.Scenario s = _scenario.Current;
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"[{_scenario.Index + 1}/{_scenario.Count}] {s.Name}");
+            sb.AppendLine("F2 次 / F3 前");
+            foreach (string line in s.CheckPoints)
+            {
+                sb.AppendLine($"  - {line}");
+            }
+
+            return sb.ToString().TrimEnd();
         }
 
         /// <summary>表示内容を組み立てる。OnGUI とテストの両方から使う。</summary>
@@ -95,6 +151,13 @@ namespace SolarSystem.Unity
 
         void OnGUI()
         {
+            // F1 オフのときは確認項目ごと消す。
+            // これで「デモ」ではなく「ゲーム画面」のスクショが撮れる。
+            if (!Visible)
+            {
+                return;
+            }
+
             if (_style == null)
             {
                 _style = new GUIStyle(GUI.skin.label)
@@ -105,7 +168,26 @@ namespace SolarSystem.Unity
                 _style.normal.textColor = Color.white;
             }
 
-            GUI.Label(new Rect(12f, 12f, 900f, 200f), BuildText(), _style);
+            GUI.Label(new Rect(12f, 12f, 900f, 220f), BuildText(), _style);
+
+            string check = BuildCheckText();
+            if (string.IsNullOrEmpty(check))
+            {
+                return;
+            }
+
+            if (_checkStyle == null)
+            {
+                _checkStyle = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = 16,
+                    richText = false,
+                    alignment = TextAnchor.UpperRight,
+                };
+                _checkStyle.normal.textColor = new Color(0.75f, 0.95f, 0.8f, 1f);
+            }
+
+            GUI.Label(new Rect(Screen.width - 512f - 12f, 12f, 512f, 160f), check, _checkStyle);
         }
     }
 }

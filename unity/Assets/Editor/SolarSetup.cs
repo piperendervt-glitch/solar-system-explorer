@@ -41,6 +41,21 @@ public static class SolarSetup
     }
 
     /// <summary>
+    /// シナリオの初期状態を撮る (Step 8-0)。
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.CaptureScenario
+    ///   run_unity.ps1 -Method SolarSetup.CaptureScenario -ExtraArgs "-scenario","harness-selftest"
+    ///   run_unity.ps1 -Method SolarSetup.CaptureScenario -ExtraArgs "-hero"
+    ///
+    /// 既定は verify/shots/ へフル解像度 PNG。-hero で docs/screenshots/demo2/ へ 1280x720 JPEG。
+    /// </summary>
+    public static void CaptureScenario()
+    {
+        SolarSystem.Editor.ScenarioCapture.Run();
+        Debug.Log("[SolarSetup] CaptureScenario OK");
+    }
+
+    /// <summary>
     /// Windows 向けスタンドアロンビルド (Step 7)。出力は build/。
     ///
     ///   run_unity.ps1 -Method SolarSetup.Build -TimeoutMinutes 30

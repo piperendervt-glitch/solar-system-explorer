@@ -35,13 +35,22 @@ namespace SolarSystem.Unity
         public void Bind(Light light) => _light = light;
 
         public void Apply(SolarSystemModel model, Vec3d observerAbsolute)
+            => Apply(model, observerAbsolute, null);
+
+        /// <summary>
+        /// 太陽光の向きを決める。
+        /// directionOverride を渡すとモデルの計算値ではなくそちらを使う
+        /// (シナリオで明暗境界線の角度を決めるため / Step 8-0)。
+        /// **光の強さは上書きしない。** 距離由来の逆二乗はそのまま。
+        /// </summary>
+        public void Apply(SolarSystemModel model, Vec3d observerAbsolute, Vec3d? directionOverride)
         {
             if (_light == null || model == null)
             {
                 return;
             }
 
-            Vec3d dir = model.SunlightDirectionAt(observerAbsolute);
+            Vec3d dir = directionOverride ?? model.SunlightDirectionAt(observerAbsolute);
             var forward = new Vector3((float)dir.X, (float)dir.Y, (float)dir.Z);
             LastDirection = forward;
 

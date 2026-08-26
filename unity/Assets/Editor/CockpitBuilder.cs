@@ -44,17 +44,26 @@ namespace SolarSystem.Editor
         {
             public Camera CockpitCamera;
             public InstrumentPanel Panel;
+
+            /// <summary>微振動で揺らす対象 (Step 8-0)。カメラと枠の共通の親。</summary>
+            public Transform ShakeRig;
         }
 
         public static Result Build(Transform shipTransform, int cockpitLayer)
         {
+            // 微振動 (Step 8-0) はカメラと枠を**一緒に**揺らす必要がある。
+            // カメラだけ揺らすと枠が泳いで見える。実機ではカメラは枠に固定されていて、
+            // 枠は静止したまま外の景色が揺れるのが正しい。
+            var rig = new GameObject("CockpitRig");
+            rig.transform.SetParent(shipTransform, false);
+
             var root = new GameObject("Cockpit");
-            root.transform.SetParent(shipTransform, false);
+            root.transform.SetParent(rig.transform, false);
             SetLayerRecursive(root, cockpitLayer);
 
             // ---- カメラ (視点は固定。船の姿勢に従う) ----
             var camGo = new GameObject("Cam_Cockpit");
-            camGo.transform.SetParent(shipTransform, false);
+            camGo.transform.SetParent(rig.transform, false);
             Camera cockpitCam = camGo.AddComponent<Camera>();
 
             // ---- 枠 ----
@@ -102,7 +111,7 @@ namespace SolarSystem.Editor
 
             InstrumentPanel panel = BuildInstrumentSource(root.transform, rt);
 
-            return new Result { CockpitCamera = cockpitCam, Panel = panel };
+            return new Result { CockpitCamera = cockpitCam, Panel = panel, ShakeRig = rig.transform };
         }
 
         /// <summary>

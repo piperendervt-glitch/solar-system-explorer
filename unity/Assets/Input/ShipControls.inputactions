@@ -175,6 +175,33 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "DebugHudToggle",
+                    "type": "Button",
+                    "id": "409e05f0-4e49-4da1-baa3-02cd12642c6b",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "ScenarioNext",
+                    "type": "Button",
+                    "id": "9b4add21-3bd2-4a87-8d6d-1e8b928aa0fd",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "ScenarioPrev",
+                    "type": "Button",
+                    "id": "aa3e35b8-e3fd-4c2c-a49c-ae3e17ba9db3",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -472,6 +499,39 @@
                     "processors": "",
                     "groups": "",
                     "action": "Undock",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "b2780161-aba7-45d4-8168-3b1967801fc4",
+                    "path": "<Keyboard>/f1",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "DebugHudToggle",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "15bd912d-2c7e-4e87-b03f-dba97aff2fb5",
+                    "path": "<Keyboard>/f2",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "ScenarioNext",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "968bc43a-987b-4244-a863-b4e95a6db0f7",
+                    "path": "<Keyboard>/f3",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "ScenarioPrev",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

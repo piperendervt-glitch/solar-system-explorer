@@ -49,6 +49,15 @@ namespace SolarSystem.Unity
         /// <summary>出港 / ドッキング要求の取り消し (Step 5)。</summary>
         public bool Undock;
 
+        /// <summary>デバッグ HUD の表示を反転する (F1 / Step 8-0)。</summary>
+        public bool ToggleDebugHud;
+
+        /// <summary>次のシナリオへ (F2 / Step 8-0)。</summary>
+        public bool ScenarioNext;
+
+        /// <summary>前のシナリオへ (F3 / Step 8-0)。</summary>
+        public bool ScenarioPrev;
+
         /// <summary>手動の操作入力があるか。オートパイロットの解除条件に使う。</summary>
         public bool HasManualActivity =>
             Thrust != 0f || Roll != 0f

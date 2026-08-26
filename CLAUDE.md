@@ -68,6 +68,7 @@ Kenney の 4 パックは `source_assets/audio/kenney/<パック名>/` に展開
 | 描画 | 「眩しい」「暗すぎる」の判断 | 輝度分布の測定 | 閾値の妥当性は人手 |
 | 音 | **音が鳴らない** | `volume` / `pitch` / `Play()` 回数を記録する | batchmode では原理的に不可 |
 | 音 | AudioMixer のスナップショット遷移・ローパスの効き | 露出パラメータの値を検証 | 数値は読めるが音は聴けない |
+| 描画 | **OnGUI（デバッグ HUD・シナリオの確認項目テキスト）** | exe 経由で撮る（Step 7 の `StandaloneCapture`） | `Camera.Render` → RenderTexture の経路には**写らない**。実測済み・PlayMode テストで回帰を見ている |
 | 音 | ループの継ぎ目のクリック | **波形解析で数値化できる** | 隣接サンプル差の平均に対する連結点の段差比。**人手不要にできるので EditMode テストへ落とす** |
 | 全般 | exe 起動でのスクショ | Step 7 の `StandaloneCapture` | 確立済み。ただし音の自動判定は exe でも不可 |
 

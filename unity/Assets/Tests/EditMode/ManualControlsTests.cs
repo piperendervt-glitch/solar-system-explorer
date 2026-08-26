@@ -148,6 +148,8 @@ namespace SolarSystem.Tests.EditMode
                 "Jump1", "Jump2", "Jump3", "Jump4", "Jump5", "Jump6", "Jump7", "Jump8",
                 "AutopilotEngage", "AutopilotCancel",
                 "CycleTarget", "DockRequest", "Undock",
+                // 検証ハーネス (Step 8-0)
+                "DebugHudToggle", "ScenarioNext", "ScenarioPrev",
             };
 
             foreach (string name in required)
@@ -195,6 +197,11 @@ namespace SolarSystem.Tests.EditMode
             Assert.That(AllPaths("CycleTarget"), Does.Contain("<Keyboard>/tab"));
             Assert.That(AllPaths("DockRequest"), Does.Contain("<Keyboard>/enter"));
             Assert.That(AllPaths("Undock"), Does.Contain("<Keyboard>/backspace"));
+
+            // 検証ハーネス (Step 8-0)。
+            Assert.That(AllPaths("DebugHudToggle"), Does.Contain("<Keyboard>/f1"));
+            Assert.That(AllPaths("ScenarioNext"), Does.Contain("<Keyboard>/f2"));
+            Assert.That(AllPaths("ScenarioPrev"), Does.Contain("<Keyboard>/f3"));
         }
     }
 }

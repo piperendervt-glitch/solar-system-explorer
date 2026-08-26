@@ -172,6 +172,23 @@ namespace SolarSystem.Unity
         /// スタックを空にして Base (Deep) だけを描く。
         /// 星空だけを取り出して比べたいときに使う。戻すときは Configure() を呼ぶ。
         /// </summary>
+        /// <summary>垂直画角を 4 段すべてに設定する (Step 8-0 / シナリオのカメラ設定)。</summary>
+        public void SetVerticalFov(float degrees)
+        {
+            if (degrees <= 0f)
+            {
+                return;
+            }
+
+            foreach (Camera cam in new[] { _deep, _near, _nearfield, _cockpit })
+            {
+                if (cam != null)
+                {
+                    cam.fieldOfView = degrees;
+                }
+            }
+        }
+
         public void ClearStack()
         {
             if (_deep == null)

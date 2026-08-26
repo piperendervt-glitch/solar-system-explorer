@@ -51,6 +51,12 @@ namespace SolarSystem.Core
 
         public static double Distance(Vec3d a, Vec3d b) => (a - b).Magnitude;
 
+        /// <summary>外積。シナリオで「ポート正面に垂直な向き」を作るのに使う。</summary>
+        public static Vec3d Cross(Vec3d a, Vec3d b) => new Vec3d(
+            a.Y * b.Z - a.Z * b.Y,
+            a.Z * b.X - a.X * b.Z,
+            a.X * b.Y - a.Y * b.X);
+
         public bool Equals(Vec3d other) => X.Equals(other.X) && Y.Equals(other.Y) && Z.Equals(other.Z);
 
         public override bool Equals(object obj) => obj is Vec3d other && Equals(other);

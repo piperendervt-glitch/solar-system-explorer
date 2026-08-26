@@ -65,6 +65,23 @@ namespace SolarSystem.Unity
         readonly AutopilotSolver _autopilot = new AutopilotSolver();
         readonly DockingSolver _docking = new DockingSolver();
 
+        InputAction _debugHudToggle;
+        InputAction _scenarioNext;
+        InputAction _scenarioPrev;
+
+        bool _hudHeld;
+        bool _nextHeld;
+        bool _prevHeld;
+
+        /// <summary>この Tick で F1 が押された (押しっぱなしでは 1 回だけ / Step 8-0)。</summary>
+        public bool DebugHudTogglePressed { get; private set; }
+
+        /// <summary>この Tick で F2 が押された (Step 8-0)。</summary>
+        public bool ScenarioNextPressed { get; private set; }
+
+        /// <summary>この Tick で F3 が押された (Step 8-0)。</summary>
+        public bool ScenarioPrevPressed { get; private set; }
+
         int _targetIndex;
         Vec3d _dockFrom;
 
@@ -153,6 +170,9 @@ namespace SolarSystem.Unity
             _apCancel = _flight.FindAction("AutopilotCancel");
             _cycleTarget = _flight.FindAction("CycleTarget");
             _dockRequest = _flight.FindAction("DockRequest");
+            _debugHudToggle = _flight.FindAction("DebugHudToggle");
+            _scenarioNext = _flight.FindAction("ScenarioNext");
+            _scenarioPrev = _flight.FindAction("ScenarioPrev");
             _undock = _flight.FindAction("Undock");
 
             _jumps = new InputAction[DebugJumpTable.Count];
@@ -189,6 +209,9 @@ namespace SolarSystem.Unity
             input.AutopilotCancel = IsDown(_apCancel);
             input.CycleTarget = IsDown(_cycleTarget);
             input.DockRequest = IsDown(_dockRequest);
+            input.ToggleDebugHud = IsDown(_debugHudToggle);
+            input.ScenarioNext = IsDown(_scenarioNext);
+            input.ScenarioPrev = IsDown(_scenarioPrev);
             input.Undock = IsDown(_undock);
 
             if (_jumps != null)
@@ -218,6 +241,14 @@ namespace SolarSystem.Unity
         /// </summary>
         public void Apply(UniverseRoot root, FlightInput input, double realDeltaSeconds)
         {
+            // 押しっぱなしで連射しないよう、立ち上がりだけ拾う (Step 8-0)。
+            DebugHudTogglePressed = input.ToggleDebugHud && !_hudHeld;
+            ScenarioNextPressed = input.ScenarioNext && !_nextHeld;
+            ScenarioPrevPressed = input.ScenarioPrev && !_prevHeld;
+            _hudHeld = input.ToggleDebugHud;
+            _nextHeld = input.ScenarioNext;
+            _prevHeld = input.ScenarioPrev;
+
             if (root == null || _shipTransform == null)
             {
                 return;

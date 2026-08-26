@@ -159,6 +159,16 @@ namespace SolarSystem.Editor
             flare.scale = 1.0f;
             flare.attenuationByLightShape = false;
 
+            // ---- 検証ハーネス (Step 8-0) ----
+            // 起動引数 -scenario が無ければ何もしない。通常プレイの挙動は変えない。
+            var scenarioGo = new GameObject("ScenarioRunner");
+            scenarioGo.transform.SetParent(rootGo.transform, false);
+            var scenarioRunner = scenarioGo.AddComponent<ScenarioRunner>();
+
+            // ---- 微振動 (Step 8-0) ----
+            var shake = cockpit.ShakeRig.gameObject.AddComponent<CockpitShake>();
+            shake.Bind(cockpit.ShakeRig);
+
             // ---- exe からのスクショ用 (Step 7) ----
             // 引数が無ければ何もしない。見た目には影響しない。
             rootGo.AddComponent<StandaloneCapture>();
@@ -184,7 +194,8 @@ namespace SolarSystem.Editor
             }
 
             universeRoot.Configure(shiftDriver, shipGo.transform, solarSystemView, aimer, rig,
-                                   cockpit.Panel, stationSet, preset, engineAudio);
+                                   cockpit.Panel, stationSet, preset, engineAudio,
+                                   overlay, scenarioRunner, shake, stack);
 
             // 登録漏れの検査 (docs/01-architecture.md §2-5)。
             shiftDriver.CollectFromScene();

@@ -37,6 +37,21 @@ namespace SolarSystem.Core
         /// <summary>積算した経過時間 [s]。加算ではなく乗算で導く。</summary>
         public double ElapsedSeconds => StepCount * FixedDeltaSeconds;
 
+        /// <summary>
+        /// 時刻を差し替える (シナリオの初期状態 / Step 8-0)。
+        /// **ステップ数に丸めてから入れる。** 累積誤差を持ち込まないため、
+        /// 経過時間は常に StepCount * FixedDeltaSeconds のままにする。
+        /// </summary>
+        public void SetElapsedSeconds(double seconds)
+        {
+            if (seconds < 0.0)
+            {
+                seconds = 0.0;
+            }
+
+            StepCount = (long)System.Math.Round(seconds / FixedDeltaSeconds);
+        }
+
         /// <summary>次のステップまでの進捗 0..1。描画側の補間に使う。</summary>
         public double InterpolationAlpha => _pendingSeconds / FixedDeltaSeconds;
 

@@ -30,6 +30,10 @@ namespace SolarSystem.Unity
         [SerializeField] StationViewSet _stations;
         [SerializeField] PostProcessPreset _post;
         [SerializeField] EngineAudio _engineAudio;
+        [SerializeField] DebugOverlay _overlay;
+        [SerializeField] ScenarioRunner _scenario;
+        [SerializeField] CockpitShake _shake;
+        [SerializeField] CameraStackController _stack;
 
         [Header("Step 1 の初期速度 (km/s)。既定は 0.9c を +Z へ)")]
         [SerializeField] double _initialVelocityX;
@@ -50,6 +54,17 @@ namespace SolarSystem.Unity
         public StationViewSet Stations => _stations;
         public PostProcessPreset Post => _post;
         public EngineAudio EngineAudio => _engineAudio;
+        public DebugOverlay Overlay => _overlay;
+        public ScenarioRunner Scenario => _scenario;
+        public CockpitShake Shake => _shake;
+
+        /// <summary>太陽方向の上書き (Step 8-0)。null ならモデルの計算値。</summary>
+        public Vec3d? SunDirectionOverride { get; private set; }
+
+        public void SetSunDirectionOverride(Vec3d? direction) => SunDirectionOverride = direction;
+
+        /// <summary>時刻を差し替える (シナリオの初期状態 / Step 8-0)。</summary>
+        public void SetElapsedSeconds(double seconds) => Clock?.SetElapsedSeconds(seconds);
 
         /// <summary>切替判定に使う 1 px あたりの角度 [rad]。</summary>
         public double RadiansPerPixel { get; private set; }
@@ -57,6 +72,20 @@ namespace SolarSystem.Unity
         void Awake()
         {
             Initialize();
+
+            // シナリオ指定があればそちらを初期状態にする (Step 8-0)。
+            // 引数が無ければ従来どおりセーブから始める。**通常プレイの挙動は変えない。**
+            if (_scenario != null)
+            {
+                _scenario.Initialize(Model);
+            }
+
+            if (_scenario != null && _scenario.IsActive)
+            {
+                _scenario.Apply(this, _shipRig, _stack, _overlay);
+                return;
+            }
+
             ApplySavedStart();
         }
 
@@ -165,6 +194,7 @@ namespace SolarSystem.Unity
             if (_shipRig != null)
             {
                 _shipRig.ApplyInput(this, realDeltaSeconds);
+                HandleHarnessKeys();
             }
 
             int steps = Clock.Advance(realDeltaSeconds);
@@ -204,12 +234,19 @@ namespace SolarSystem.Unity
 
             if (_sunLightAimer != null)
             {
-                _sunLightAimer.Apply(Model, Ship.Position);
+                _sunLightAimer.Apply(Model, Ship.Position, SunDirectionOverride);
             }
 
             if (_engineAudio != null && _shipRig != null)
             {
                 _engineAudio.Apply(_shipRig.LastThrust);
+            }
+
+            if (_shake != null && _shipRig != null)
+            {
+                bool docking = _shipRig.Docking.State != DockingState.Free
+                               && _shipRig.Docking.State != DockingState.Approaching;
+                _shake.Tick(_shipRig.LastThrust, docking, Clock != null ? Clock.FixedDeltaSeconds : 0.0);
             }
 
             UpdateInstruments();
@@ -272,7 +309,11 @@ namespace SolarSystem.Unity
             InstrumentPanel instruments = null,
             StationViewSet stations = null,
             PostProcessPreset post = null,
-            EngineAudio engineAudio = null)
+            EngineAudio engineAudio = null,
+            DebugOverlay overlay = null,
+            ScenarioRunner scenario = null,
+            CockpitShake shake = null,
+            CameraStackController stack = null)
         {
             _shiftDriver = shiftDriver;
             _shipTransform = shipTransform;
@@ -283,6 +324,35 @@ namespace SolarSystem.Unity
             _stations = stations;
             _post = post;
             _engineAudio = engineAudio;
+            _overlay = overlay;
+            _scenario = scenario;
+            _shake = shake;
+            _stack = stack;
+        }
+
+        /// <summary>F1 / F2 / F3 の処理 (Step 8-0)。</summary>
+        void HandleHarnessKeys()
+        {
+            if (_shipRig.DebugHudTogglePressed && _overlay != null)
+            {
+                _overlay.Toggle();
+            }
+
+            if (_scenario == null || !_scenario.IsActive)
+            {
+                return;
+            }
+
+            if (_shipRig.ScenarioNextPressed)
+            {
+                _scenario.Step(1);
+                _scenario.Apply(this, _shipRig, _stack, _overlay);
+            }
+            else if (_shipRig.ScenarioPrevPressed)
+            {
+                _scenario.Step(-1);
+                _scenario.Apply(this, _shipRig, _stack, _overlay);
+            }
         }
 
         /// <summary>機首とポート正面のなす角 [deg]。</summary>
