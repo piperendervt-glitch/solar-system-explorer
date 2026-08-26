@@ -48,3 +48,6 @@ crashlytics-build.properties
 # 空ディレクトリを git 上に残すための .gitkeep だけは追跡する。
 !/logs/.gitkeep
 !/verify/shots/.gitkeep
+
+# スタンドアロンビルドの出力 (Step 7)
+/build/

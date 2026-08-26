@@ -41,6 +41,17 @@ public static class SolarSetup
     }
 
     /// <summary>
+    /// Windows 向けスタンドアロンビルド (Step 7)。出力は build/。
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.Build -TimeoutMinutes 30
+    /// </summary>
+    public static void Build()
+    {
+        SolarSystem.Editor.PlayerBuilder.Build();
+        Debug.Log("[SolarSetup] Build OK");
+    }
+
+    /// <summary>
     /// スクショ検証。シーン生成とは別 Run にする
     /// (CLAUDE.md §5「コンパイルやドメインリロードを跨ぐ処理は Run を分ける」)。
     ///

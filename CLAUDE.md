@@ -169,6 +169,33 @@ solar-system-explorer/
 **`124` は「正常終了」とも「テスト失敗」とも区別できる値として選んである。**
 CI やスクリプトから判定するときはこの 3 種を区別すること。
 
+### スタンドアロンビルド（Step 7）
+
+```powershell
+# Windows 向けにビルドする。出力は build/（.gitignore 済み）
+.\tools\run_unity.ps1 -Method SolarSetup.Build -TimeoutMinutes 30
+```
+
+実測 178 MB / 73.7 秒。既定の 15 分でも足りるが、初回は余裕を見て伸ばす。
+
+ビルドした exe は引数無しで普通に起動する。検証用に 1 枚だけ撮って終了させる口がある:
+
+```powershell
+build\SolarSystemExplorer.exe -screen-fullscreen 0 -screen-width 1920 -screen-height 1080 `
+  -captureShot verify\shots\7_03_standalone.png -captureFrames 180 -logFile logs\standalone.log
+```
+
+`-captureShot` が無ければ何もしない。`StandaloneCapture` は
+`ScreenCapture.CaptureScreenshotAsTexture` を使う（`CaptureScreenshot` は
+書き出しが非同期で、直後に Quit すると空ファイルが残る）。
+
+### セーブファイル（Step 7）
+
+`%USERPROFILE%\AppData\LocalLow\<Company>\<Product>\solar-system-explorer.save.json`。
+中身は最後にドッキングしたステーション名 1 個だけ。
+**テストからは `SaveFile.OverridePath` で一時ファイルへ逃がすこと。**
+本物を汚すと他の PlayMode テストの開始地点が変わる。
+
 ---
 
 ## 4. EditMode テストを回す — `tools/run_tests.ps1`

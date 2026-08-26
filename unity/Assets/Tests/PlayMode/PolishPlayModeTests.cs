@@ -27,6 +27,12 @@ namespace SolarSystem.Tests.PlayMode
         [UnitySetUp]
         public IEnumerator SetUp()
         {
+            // セーブは一時ファイルへ逃がす (Step 7)。
+            // 本物の persistentDataPath を汚すと、他のテストの開始地点が変わる。
+            SaveFile.OverridePath = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "solar-system-explorer-polish.save.json");
+            SaveFile.Delete();
+
             SceneManager.LoadScene("Main", LoadSceneMode.Single);
             yield return null;
             yield return null;
@@ -175,9 +181,9 @@ namespace SolarSystem.Tests.PlayMode
                 Capture($"6_post_{(int)strength + 1}_{strength}_mars");
             }
 
-            // 既定へ戻す。選ぶのは人間 (勝手に確定させない)。
-            post.Apply(PostProcessStrength.Subtle);
-            Assert.That(post.Strength, Is.EqualTo(PostProcessStrength.Subtle));
+            // 確定値 (Medium) へ戻す。
+            post.Apply(PostProcessStrength.Medium);
+            Assert.That(post.Strength, Is.EqualTo(PostProcessStrength.Medium));
         }
 
         // ---- (d) 星空は原点シフトで動かない ----

@@ -25,9 +25,17 @@ namespace SolarSystem.Editor
         /// </summary>
         const float Size = 0.002f * SolarSystem.Unity.CameraStackController.CockpitRenderScale;
 
-        /// <summary>計器 RenderTexture の解像度 (docs/01-architecture.md §5-1)。</summary>
-        const int PanelWidth = 512;
-        const int PanelHeight = 320;
+        /// <summary>
+        /// 計器 RenderTexture の解像度 (docs/01-architecture.md §5-1)。
+        /// Step 7 で 512x320 の縦積み 5 行から 768x160 の横長 2 行へ変更した。
+        /// 要件 §1「眺めの美しさを優先」に対して、5 行のパネルが視界中央を
+        /// 塞いでいたため。アスペクトは 4.8:1。
+        /// </summary>
+        const int PanelWidth = 768;
+        const int PanelHeight = 160;
+
+        /// <summary>パネル背景の不透明度 (Step 7)。文字は不透明のまま。</summary>
+        const float PanelBackgroundAlpha = 0.55f;
 
         const string RenderTexturePath = "Assets/Materials/InstrumentPanel.renderTexture";
         const string PanelMaterialPath = "Assets/Materials/InstrumentPanel.mat";
@@ -81,13 +89,15 @@ namespace SolarSystem.Editor
             panelQuad.transform.SetParent(root.transform, false);
             panelQuad.layer = cockpitLayer;
             Object.DestroyImmediate(panelQuad.GetComponent<Collider>());
-            // 視線のやや下、手前に傾けて置く。
-            // 4 項目が全部入るよう、視界の下寄りに小さめに置く。
-            // RT は 512x256 なのでアスペクトは 2:1 を保つ。
-            // 5 項目が画面内に収まる位置と大きさ。RT が 512x320 なのでアスペクトは 1.6。
-            panelQuad.transform.localPosition = new Vector3(0f, -halfH * 0.30f, Size * 1.05f);
-            panelQuad.transform.localRotation = Quaternion.Euler(22f, 0f, 0f);
-            panelQuad.transform.localScale = new Vector3(Size * 0.64f, Size * 0.40f, 1f);
+            // 画面の下端へ寄せる (Step 7)。高さは従来の半分 (0.40 -> 0.20)。
+            // 中心は視線から約 20.9 度下、上下に約 5.4 度。垂直 FOV 60 度の
+            // 下半分 (30 度) の内側に収まり、上 3/4 は完全に空く。
+            // RT が 768x160 なのでアスペクトは 4.8 を保つ。
+            // 下枠 (Frame_Bottom) の上面は y = -halfH + bar/2 = -0.44*Size。
+            // パネルの下端 (中心 - 0.10*Size*cos18 = 0.095*Size) がそれより上に来る位置。
+            panelQuad.transform.localPosition = new Vector3(0f, -halfH * 0.62f, Size * 1.05f);
+            panelQuad.transform.localRotation = Quaternion.Euler(18f, 0f, 0f);
+            panelQuad.transform.localScale = new Vector3(Size * 0.96f, Size * 0.20f, 1f);
             panelQuad.GetComponent<Renderer>().sharedMaterial = panelMaterial;
 
             InstrumentPanel panel = BuildInstrumentSource(root.transform, rt);
@@ -115,7 +125,8 @@ namespace SolarSystem.Editor
             cam.nearClipPlane = 0.01f;
             cam.farClipPlane = 10f;
             cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.02f, 0.03f, 0.04f, 1f);
+            // 背景だけ半透明にする。文字は不透明のまま残るので可読性は落ちない。
+            cam.backgroundColor = new Color(0.02f, 0.03f, 0.04f, PanelBackgroundAlpha);
             cam.cullingMask = 1 << 5; // UI レイヤーのみ
             cam.targetTexture = rt;
             camGo.transform.localPosition = new Vector3(0f, 0f, -2f);
@@ -132,26 +143,34 @@ namespace SolarSystem.Editor
             var rect = canvasGo.GetComponent<RectTransform>();
             rect.sizeDelta = new Vector2(PanelWidth, PanelHeight);
 
-            // 5 項目。ALN (ポート正面からのずれ角) は Step 6 で追加。
-            TMP_Text speed = AddLabel(canvasGo.transform, "Speed", new Vector2(0f, 0.38f), 40f, TextAlignmentOptions.Left);
-            TMP_Text distance = AddLabel(canvasGo.transform, "Distance", new Vector2(0f, 0.19f), 36f, TextAlignmentOptions.Left);
-            TMP_Text eta = AddLabel(canvasGo.transform, "Eta", new Vector2(0f, 0.00f), 36f, TextAlignmentOptions.Left);
-            TMP_Text target = AddLabel(canvasGo.transform, "Target", new Vector2(0f, -0.19f), 32f, TextAlignmentOptions.Left);
-            TMP_Text alignment = AddLabel(canvasGo.transform, "Alignment", new Vector2(0f, -0.38f), 32f, TextAlignmentOptions.Left);
+            // 5 項目を 2 行に詰める (Step 7)。
+            //   1 行目: SPD / DST / ETA
+            //   2 行目: TGT / ALN
+            const float row1 = 0.25f;
+            const float row2 = -0.25f;
 
-            AddCaption(canvasGo.transform, "SpeedCaption", "SPD", new Vector2(-0.40f, 0.38f));
-            AddCaption(canvasGo.transform, "DistanceCaption", "DST", new Vector2(-0.40f, 0.19f));
-            AddCaption(canvasGo.transform, "EtaCaption", "ETA", new Vector2(-0.40f, 0.00f));
-            AddCaption(canvasGo.transform, "TargetCaption", "TGT", new Vector2(-0.40f, -0.19f));
-            AddCaption(canvasGo.transform, "AlignCaption", "ALN", new Vector2(-0.40f, -0.38f));
+            TMP_Text speed = AddLabel(canvasGo.transform, "Speed", 0.10f, 0.33f, row1, 34f);
+            TMP_Text distance = AddLabel(canvasGo.transform, "Distance", 0.43f, 0.66f, row1, 34f);
+            TMP_Text eta = AddLabel(canvasGo.transform, "Eta", 0.76f, 0.99f, row1, 34f);
+            TMP_Text target = AddLabel(canvasGo.transform, "Target", 0.10f, 0.49f, row2, 34f);
+            TMP_Text alignment = AddLabel(canvasGo.transform, "Alignment", 0.59f, 0.99f, row2, 34f);
+
+            AddCaption(canvasGo.transform, "SpeedCaption", "SPD", 0.01f, 0.10f, row1);
+            AddCaption(canvasGo.transform, "DistanceCaption", "DST", 0.34f, 0.43f, row1);
+            AddCaption(canvasGo.transform, "EtaCaption", "ETA", 0.67f, 0.76f, row1);
+            AddCaption(canvasGo.transform, "TargetCaption", "TGT", 0.01f, 0.10f, row2);
+            AddCaption(canvasGo.transform, "AlignCaption", "ALN", 0.50f, 0.59f, row2);
 
             var panel = sourceRoot.AddComponent<InstrumentPanel>();
             panel.Bind(speed, distance, eta, target, alignment);
             return panel;
         }
 
-        static TMP_Text AddLabel(Transform parent, string name, Vector2 anchor, float fontSize,
-                                 TextAlignmentOptions alignment)
+        /// <summary>行の高さ (正規化)。2 行なので 1 行あたり半分弱を使う。</summary>
+        const float RowHalfHeight = 0.22f;
+
+        static TMP_Text AddLabel(Transform parent, string name, float xMin, float xMax,
+                                 float yCenter, float fontSize)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
@@ -159,33 +178,38 @@ namespace SolarSystem.Editor
 
             var text = go.AddComponent<TextMeshProUGUI>();
             text.fontSize = fontSize;
-            text.alignment = alignment;
+            text.alignment = TextAlignmentOptions.Left;
             text.color = new Color(0.55f, 0.95f, 0.75f, 1f);
+            text.enableWordWrapping = false;
+            text.overflowMode = TextOverflowModes.Overflow;
             text.text = "---";
 
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.30f, 0.5f + anchor.y - 0.085f);
-            rt.anchorMax = new Vector2(0.98f, 0.5f + anchor.y + 0.085f);
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
+            SetAnchors(go, xMin, xMax, yCenter);
             return text;
         }
 
-        static void AddCaption(Transform parent, string name, string caption, Vector2 anchor)
+        static void AddCaption(Transform parent, string name, string caption,
+                               float xMin, float xMax, float yCenter)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             go.layer = 5;
 
             var text = go.AddComponent<TextMeshProUGUI>();
-            text.fontSize = 30f;
+            text.fontSize = 26f;
             text.alignment = TextAlignmentOptions.Left;
             text.color = new Color(0.35f, 0.55f, 0.50f, 1f);
+            text.enableWordWrapping = false;
             text.text = caption;
 
+            SetAnchors(go, xMin, xMax, yCenter);
+        }
+
+        static void SetAnchors(GameObject go, float xMin, float xMax, float yCenter)
+        {
             var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.03f, 0.5f + anchor.y - 0.085f);
-            rt.anchorMax = new Vector2(0.30f, 0.5f + anchor.y + 0.085f);
+            rt.anchorMin = new Vector2(xMin, 0.5f + yCenter - RowHalfHeight);
+            rt.anchorMax = new Vector2(xMax, 0.5f + yCenter + RowHalfHeight);
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
         }
@@ -195,6 +219,17 @@ namespace SolarSystem.Editor
             var existing = AssetDatabase.LoadAssetAtPath<RenderTexture>(RenderTexturePath);
             if (existing != null)
             {
+                // 解像度を変えたら作り直す。既存の .asset をそのまま返すと
+                // 古い 512x320 のままアスペクトが合わなくなる。
+                if (existing.width != PanelWidth || existing.height != PanelHeight)
+                {
+                    existing.Release();
+                    existing.width = PanelWidth;
+                    existing.height = PanelHeight;
+                    EditorUtility.SetDirty(existing);
+                    AssetDatabase.SaveAssets();
+                }
+
                 return existing;
             }
 
@@ -215,6 +250,18 @@ namespace SolarSystem.Editor
             material.shader = shader;
             material.SetColor("_BaseColor", Color.white);
             material.SetTexture("_BaseMap", rt);
+
+            // 背景の半透明を活かすため、Unlit を Transparent にする (Step 7)。
+            // アルファは RT 側が持つ (背景 0.55 / 文字 1.0)。
+            material.SetFloat("_Surface", 1f); // 1 = Transparent
+            material.SetFloat("_Blend", 0f);   // 0 = Alpha
+            material.SetFloat("_ZWrite", 0f);
+            material.SetFloat("_AlphaClip", 0f);
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            material.SetOverrideTag("RenderType", "Transparent");
+            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
 
             if (existing == null)
             {

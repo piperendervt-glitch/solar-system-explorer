@@ -4,7 +4,11 @@ using UnityEngine.Rendering.Universal;
 
 namespace SolarSystem.Unity
 {
-    /// <summary>ポストプロセスの強度。3 段階を比較して人間が選ぶ (Step 6)。</summary>
+    /// <summary>
+    /// ポストプロセスの強度。Step 6 で 3 段階を比較し、
+    /// **Step 7 で Medium に確定した**（人間が選択）。
+    /// 残り 2 段階は比較用に残してある。
+    /// </summary>
     public enum PostProcessStrength
     {
         Subtle,
@@ -15,8 +19,7 @@ namespace SolarSystem.Unity
     /// <summary>
     /// ポストプロセスの設定 (Step 6)。
     ///
-    /// **強度は確定させない。** 3 段階をスクショで並べて人間が 1 つ選ぶ。
-    /// 選ばれるまでは Subtle を既定にしておく (要件 §1「静けさを優先」)。
+    /// 強度は Step 6 で 3 段階を並べ、**Step 7 で Medium に確定**した。
     ///
     /// Bloom (太陽と星) / Tonemapping / わずかな Vignette の 3 つだけ。
     /// Update() を持たない。切り替えは Apply を呼ぶ。
@@ -25,7 +28,7 @@ namespace SolarSystem.Unity
     public sealed class PostProcessPreset : MonoBehaviour
     {
         [SerializeField] Volume _volume;
-        [SerializeField] PostProcessStrength _strength = PostProcessStrength.Subtle;
+        [SerializeField] PostProcessStrength _strength = PostProcessStrength.Medium;
 
         public PostProcessStrength Strength => _strength;
 
@@ -62,7 +65,7 @@ namespace SolarSystem.Unity
                 case PostProcessStrength.Strong:
                     return (1.60f, 0.85f, 0.34f);
                 default:
-                    return (0.35f, 1.30f, 0.12f);
+                    return (0.80f, 1.05f, 0.22f); // 既定 = Medium (確定値)
             }
         }
 

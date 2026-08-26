@@ -290,6 +290,12 @@ namespace SolarSystem.Unity
                 _dockFrom = root.Ship.Position;
             }
 
+            // ドッキング完了時にステーション名だけ保存する (Step 7)。
+            if (before != DockingState.Docked && _docking.State == DockingState.Docked)
+            {
+                SaveFile.Save(station.Name);
+            }
+
             switch (_docking.State)
             {
                 case DockingState.Docking:

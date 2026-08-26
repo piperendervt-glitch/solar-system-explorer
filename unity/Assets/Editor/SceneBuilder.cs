@@ -133,7 +133,7 @@ namespace SolarSystem.Editor
             }
 
             // ---- ポストプロセス (Step 6) ----
-            // 強度は 3 段階を比較して人間が選ぶ。既定は Subtle。
+            // 3 段階を比較のうえ Step 7 で Medium に確定 (人間が選択)。
             var volumeGo = new GameObject("PostProcess");
             volumeGo.transform.SetParent(rootGo.transform, false);
             var volume = volumeGo.AddComponent<UnityEngine.Rendering.Volume>();
@@ -145,7 +145,7 @@ namespace SolarSystem.Editor
 
             var preset = volumeGo.AddComponent<PostProcessPreset>();
             preset.Bind(volume);
-            preset.Apply(PostProcessStrength.Subtle);
+            preset.Apply(PostProcessStrength.Medium);
 
             foreach (Camera cam in new[] { deepCam, nearCam, nearfieldCam, cockpit.CockpitCamera })
             {
@@ -158,6 +158,10 @@ namespace SolarSystem.Editor
             flare.intensity = 0.6f;
             flare.scale = 1.0f;
             flare.attenuationByLightShape = false;
+
+            // ---- exe からのスクショ用 (Step 7) ----
+            // 引数が無ければ何もしない。見た目には影響しない。
+            rootGo.AddComponent<StandaloneCapture>();
 
             // ---- エンジン音 (Step 6) ----
             var audioGo = new GameObject("EngineAudio");

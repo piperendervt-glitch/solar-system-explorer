@@ -57,7 +57,59 @@ namespace SolarSystem.Unity
         void Awake()
         {
             Initialize();
+            ApplySavedStart();
         }
+
+        /// <summary>
+        /// セーブがあればそのステーションから、無ければ地球ステーションから始める (Step 7)。
+        ///
+        /// **Initialize() とは分けてある。** EditMode テストは Initialize() しか
+        /// 呼ばないので、ファイル IO がテストに混ざらない。
+        /// </summary>
+        public void ApplySavedStart()
+        {
+            if (Model == null || Model.Stations == null || Model.Stations.Count == 0)
+            {
+                return;
+            }
+
+            StartAtStation(SaveFile.LoadStationIndex(Model));
+        }
+
+        /// <summary>指定のステーションのポートに着いた状態から始める (Step 7)。</summary>
+        public void StartAtStation(int index)
+        {
+            if (Model == null || Model.Stations == null || Model.Stations.Count == 0)
+            {
+                return;
+            }
+
+            index = Mathf.Clamp(index, 0, Model.Stations.Count - 1);
+            SpaceStation station = Model.Stations[index];
+
+            if (_shipRig != null)
+            {
+                _shipRig.SetTargetIndex(index);
+            }
+
+            PlaceObserver(station.PortPosition);
+
+            // ポート正面を向いておく。出港してすぐ操作できる向き。
+            if (_shipTransform != null)
+            {
+                Vec3d port = station.PortDirection;
+                var facing = new Vector3((float)-port.X, (float)-port.Y, (float)-port.Z);
+                if (facing.sqrMagnitude > 0f)
+                {
+                    _shipTransform.rotation = Quaternion.LookRotation(facing, Vector3.up);
+                }
+            }
+
+            StartStationName = station.Name;
+        }
+
+        /// <summary>起動時に選ばれたステーション名 (Step 7)。検証用。</summary>
+        public string StartStationName { get; private set; } = string.Empty;
 
         /// <summary>Awake からも EditMode テストからも呼べるようにしてある。</summary>
         public void Initialize()

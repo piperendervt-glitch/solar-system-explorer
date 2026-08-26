@@ -40,6 +40,12 @@ namespace SolarSystem.Tests.PlayMode
         [UnitySetUp]
         public IEnumerator SetUp()
         {
+            // セーブは一時ファイルへ逃がす (Step 7)。
+            // 本物の persistentDataPath を汚すと、他のテストの開始地点が変わる。
+            SaveFile.OverridePath = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "solar-system-explorer-manual.save.json");
+            SaveFile.Delete();
+
             SceneManager.LoadScene("Main", LoadSceneMode.Single);
             yield return null;
             yield return null;
