@@ -173,15 +173,33 @@ Kenney（CC0）のパックも同じ置き場に展開して使う。出典は [
 > `License.txt` は取り込まないが、**中身は `docs/asset-sources.md` に転記済み**。
 > 取り込みから外すことと、記録を残さないことは別。
 
-必要な素材
-| 用途 | 内容 | 形式 |
-|---|---|---|
-| エンジン | 低い持続ハム（ループ、5〜10 秒、継ぎ目なし） | OGG |
-| コックピット | 微かな電子ハム・空調（ループ） | OGG |
-| ドッキング | 金属の接合音（単発 1〜2 秒） | WAV |
-| 出港 | クランプ解除音（単発） | WAV |
-| UI | 短い電子音 2 種（選択・確定） | WAV |
-| 警告 | 「要求NG」用の否定音（単発） | WAV |
+採用素材（**確定**）
+
+全て Kenney の CC0。`source_assets/audio/kenney/<パック>/Audio/` から取り込む。
+選定の経緯と不採用の理由は [audio-candidates.md](audio-candidates.md)。
+
+| 用途 | ファイル | パック | 長さ[s] | ch | ピーク | 備考 |
+|---|---|---|---:|---:|---:|---|
+| エンジン | `spaceEngineLow_003.ogg` | sci-fi-sounds | 5.000 | 1 | -1.0 dB | そのままループ |
+| コックピット | `forceField_000.ogg` | sci-fi-sounds | 0.954 | 1 | -0.9 dB | **ループ加工が前提**（下記） |
+| ドッキング | `impactPlate_heavy_001.ogg` | impact-sounds | 0.352 | 2 | -0.9 dB | 単発 |
+| 出港 | `switch_004.ogg` | interface-sounds | 0.500 | 2 | -1.0 dB | 単発 |
+| UI 選択 | `select_001.ogg` | interface-sounds | 0.043 | 2 | -1.1 dB | 単発 |
+| UI 確定 | `confirmation_003.ogg` | interface-sounds | 0.322 | 1 | -1.0 dB | 単発 |
+| 警告 | `error_008.ogg` | interface-sounds | 0.139 | 1 | -1.0 dB | 「要求NG」用 |
+
+**コックピット音はループ加工してから取り込む。**
+`forceField_000.ogg` は 0.954 秒しかなく、素のままループさせると約 1 秒周期で
+反復に気付く。ピッチ 0.97 / 1.00 / 1.03 の 3 層を開始位置をずらして重ね、
+末尾 0.2 秒を先頭へクロスフェードして 8 秒のループにする。
+手順とパラメータは [audio-candidates.md](audio-candidates.md) の
+「コックピット音のループ加工」に記録済み。**加工版の採否は試聴して決める。**
+
+> 当初の表は「WAV / OGG」を用途ごとに指定していたが、**Kenney は全て OGG** なので
+> 形式指定は外した。単発音を WAV に変換するかは未決（[asset-sources.md](asset-sources.md) §4）。
+
+> freesound は**不採用**。ライセンス未確認だったことと、採用素材を CC0 に統一したため。
+> 上の「CC0 のみを選び」という方針自体は変えない。将来 freesound を使うなら要確認。
 
 ### 10-2 AudioMixer 構成
 

@@ -3,7 +3,7 @@
 `source_assets/` に置いた素材の出どころ。**`source_assets/` 自体は `.gitignore` で
 除外されるので、記録はこのファイル（追跡対象）に残す。**
 
-> このファイルは**雛形**です。「要確認」の欄はまだ埋まっていません。
+> 音素材の採用は確定済み。テクスチャ側はまだ Demo 2 の作業前。
 > 確定した内容は `docs/credits.md`（Demo 2 で新設予定）と `README.md` へ反映すること。
 
 原本（消さないこと）:
@@ -62,41 +62,45 @@ D:\Users\pipe_render\Downloads\solar-system-explorer\sound\
 展開元 zip は `source_assets/audio/kenney_<パック名>.zip`、
 ライセンス原文は `source_assets/audio/kenney/<パック名>/License.txt`。
 
-### 採用ファイル（試聴して決まったら埋める）
+### 採用ファイル（試聴のうえ確定）
 
-| 用途 | 採用 |
-| --- | --- |
-| 1 エンジン | **要確認** |
-| 2 コックピット | **要確認** |
-| 3 ドッキング | **要確認** |
-| 4 出港 | **要確認** |
-| 5 UI（選択 / 確定） | **要確認** |
-| 6 警告 | **要確認** |
+| 用途 | 採用ファイル | パック |
+| --- | --- | --- |
+| 1 エンジン | `spaceEngineLow_003.ogg` | sci-fi-sounds |
+| 2 コックピット | `forceField_000.ogg`（**ループ加工が前提**） | sci-fi-sounds |
+| 3 ドッキング | `impactPlate_heavy_001.ogg` | impact-sounds |
+| 4 出港 | `switch_004.ogg` | interface-sounds |
+| 5-a UI 選択 | `select_001.ogg` | interface-sounds |
+| 5-b UI 確定 | `confirmation_003.ogg` | interface-sounds |
+| 6 警告 | `error_008.ogg` | interface-sounds |
 
-候補は [audio-candidates.md](audio-candidates.md)。
+選定の経緯と不採用の理由は [audio-candidates.md](audio-candidates.md)。
 
 ---
 
-## 3. 効果音（freesound） — `source_assets/audio/`
+## 3. 効果音（freesound） — **Demo 2 では不採用**
 
-> **ライセンスは「要確認」。** freesound は CC0 / CC BY / CC BY-NC が混在する。
-> [02-demo2-plan.md](02-demo2-plan.md) §10-1 は「CC0 のみ採用」としているので、
-> **確認するまで採用しない。** CC BY だった場合は §8 のリスク表どおり不採用、または表記を追加する。
+`source_assets/audio/` に置いてあるが、**Demo 2 では使わない。**
+採用素材を Kenney の CC0 のみに統一したため（[audio-candidates.md](audio-candidates.md) の「決定」）。
 
-| ID | ファイル | 作者 | タイトル | 実測 | ライセンス |
+| ID | ファイル | 作者 | タイトル | 実測 | 扱い |
 | --- | --- | --- | --- | --- | --- |
-| [343738](https://freesound.org/s/343738/) | `343738__vospi__empty-corridor-of-a-spacecraft.wav` | vospi | empty corridor of a spacecraft | 21.9 秒 / 44100 Hz / 2 ch / ピーク -4.9 dB | **要確認** |
-| [715475](https://freesound.org/s/715475/) | `715475__kvv_audio__ambtech_server-room-noise-01_kvv_free.wav` | kvv_audio | ambtech server-room-noise-01 (kvv free) | 102.5 秒 / 96000 Hz / 2 ch / ピーク -10.6 dB | **要確認** |
+| [343738](https://freesound.org/s/343738/) | `343738__vospi__empty-corridor-of-a-spacecraft.wav` | vospi | empty corridor of a spacecraft | 21.9 秒 / 44100 Hz / 2 ch / ピーク -4.9 dB | 不採用 |
+| [715475](https://freesound.org/s/715475/) | `715475__kvv_audio__ambtech_server-room-noise-01_kvv_free.wav` | kvv_audio | ambtech server-room-noise-01 (kvv free) | 102.5 秒 / 96000 Hz / 2 ch / ピーク -10.6 dB | 不採用 |
 
 作者名とタイトルは**ファイル名から復元したもの**で、freesound 上の表示名は未確認。
-どちらもコックピットの環境音（用途 2）の候補。
+
+> **将来この 2 本を採用する場合は、先にライセンスを確認すること。**
+> freesound は CC0 / CC BY / CC BY-NC が混在する。使う前に各ページで確認し、
+> CC BY 以上ならクレジット表記を追加するか、[02-demo2-plan.md](02-demo2-plan.md) §10-1 の
+> 「CC0 のみ採用」方針どおり見送る。**未確認のまま `unity/Assets/` へ入れない。**
 
 ---
-
 ## 4. 未確認事項
 
-- [ ] freesound #343738 のライセンス（CC0 か否か）と作者の表示名
-- [ ] freesound #715475 のライセンス（CC0 か否か）と作者の表示名
-- [ ] 各用途に採用するファイルの確定（試聴が必要）
+- [x] ~~freesound #343738 / #715475 のライセンス~~ → **不採用にしたので確認不要**（将来使うなら上の注記のとおり要確認）
+- [x] ~~各用途に採用するファイルの確定~~ → [audio-candidates.md](audio-candidates.md) の「決定」で確定
 - [ ] 計画では単発音は WAV 指定だが Kenney は全て OGG。変換するか指定を緩めるか
-- [ ] Kenney の持続音は全て 5.000 秒。ループ継ぎ目が使えるかは未検証
+- [ ] `forceField_000.ogg` のループ加工版を採用するか（試聴待ち）
+
+**採用素材は Kenney の 4 パック（CC0）のみ。** クレジット表記は任意だが記録は残す。
