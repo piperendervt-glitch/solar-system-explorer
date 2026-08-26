@@ -80,7 +80,10 @@ namespace SolarSystem.Unity
             _deep.fieldOfView = VerticalFovDegrees;
             _deep.nearClipPlane = DeepNearClip;
             _deep.farClipPlane = DeepFarClip;
-            _deep.clearFlags = CameraClearFlags.SolidColor;
+            // **Skybox のままにする。** ここを SolidColor にすると星空が描かれない
+            // (Step 6 で実際に踏んだ)。色をクリアするのは Base だけなので、
+            // スカイボックスを描くのはこの段だけ。
+            _deep.clearFlags = CameraClearFlags.Skybox;
             _deep.backgroundColor = Color.black;
             _deep.depth = 0;
 
@@ -163,6 +166,20 @@ namespace SolarSystem.Unity
             {
                 deepData.cameraStack.Add(_cockpit);
             }
+        }
+
+        /// <summary>
+        /// スタックを空にして Base (Deep) だけを描く。
+        /// 星空だけを取り出して比べたいときに使う。戻すときは Configure() を呼ぶ。
+        /// </summary>
+        public void ClearStack()
+        {
+            if (_deep == null)
+            {
+                return;
+            }
+
+            _deep.GetUniversalAdditionalCameraData().cameraStack.Clear();
         }
 
         /// <summary>コックピットの段だけ外す。天体だけのスクショを撮るのに使う。</summary>

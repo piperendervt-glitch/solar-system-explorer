@@ -25,6 +25,7 @@ namespace SolarSystem.Unity
         [SerializeField] TMP_Text _distance;
         [SerializeField] TMP_Text _eta;
         [SerializeField] TMP_Text _targetName;
+        [SerializeField] TMP_Text _alignment;
 
         double _nextUpdateAt;
 
@@ -32,16 +33,33 @@ namespace SolarSystem.Unity
         public string LastDistanceText { get; private set; } = string.Empty;
         public string LastEtaText { get; private set; } = string.Empty;
         public string LastTargetText { get; private set; } = string.Empty;
+        public string LastAlignmentText { get; private set; } = string.Empty;
+
+        /// <summary>整列が許容角以内か。表示色を変えるのに使う。</summary>
+        public bool AlignmentInTolerance { get; private set; }
 
         /// <summary>SetText を実際に呼んだ回数。10 Hz に落ちているかの検証用。</summary>
         public int RebuildCount { get; private set; }
 
-        public void Bind(TMP_Text speed, TMP_Text distance, TMP_Text eta, TMP_Text targetName)
+        public void Bind(TMP_Text speed, TMP_Text distance, TMP_Text eta, TMP_Text targetName,
+                         TMP_Text alignment = null)
         {
             _speed = speed;
             _distance = distance;
             _eta = eta;
             _targetName = targetName;
+            _alignment = alignment;
+        }
+
+        /// <summary>
+        /// ポート正面からのずれ角の表記 (Step 6)。
+        /// 許容角 30 度 (決定 D-18) 以内なら "ALIGNED" を添える。
+        /// これが無いと、要求が通らない理由が画面から分からない。
+        /// </summary>
+        public static string FormatAlignment(double angleDegrees)
+        {
+            bool ok = angleDegrees <= DockingSolver.AttitudeToleranceDegrees;
+            return ok ? $"{angleDegrees:0.0} deg  ALIGNED" : $"{angleDegrees:0.0} deg";
         }
 
         /// <summary>
@@ -102,6 +120,27 @@ namespace SolarSystem.Unity
             LastEtaText = Apply(_eta, LastEtaText, FormatEta(etaSeconds));
             LastTargetText = Apply(_targetName, LastTargetText,
                 targetName != null ? targetName.ToUpperInvariant() : "---");
+        }
+
+        /// <summary>整列の表示だけを更新する。Tick と同じ 10 Hz。</summary>
+        public void SetAlignment(double angleDegrees)
+        {
+            AlignmentInTolerance = angleDegrees <= DockingSolver.AttitudeToleranceDegrees;
+            string next = FormatAlignment(angleDegrees);
+            if (next == LastAlignmentText)
+            {
+                return;
+            }
+
+            LastAlignmentText = next;
+            RebuildCount++;
+            if (_alignment != null)
+            {
+                _alignment.SetText(next);
+                _alignment.color = AlignmentInTolerance
+                    ? new Color(0.55f, 0.95f, 0.75f, 1f)
+                    : new Color(0.95f, 0.70f, 0.40f, 1f);
+            }
         }
 
         /// <summary>

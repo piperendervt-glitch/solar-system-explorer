@@ -24,7 +24,9 @@ namespace SolarSystem.Unity
         [SerializeField] Light _light;
 
         [Tooltip("地球の位置での光の強さ。火星では逆二乗で 0.431 倍になる。")]
-        [SerializeField] float _intensityAtEarth = 1.4f;
+        // ACES トーンマッピングは中間調を沈める。素の 1.4 だと火星が真っ黒に近くなるので、
+        // トーンマップ後に地球近傍の日向が sRGB 0.5 前後に来る値まで上げてある。
+        [SerializeField] float _intensityAtEarth = 3.0f;
 
         public Vector3 LastDirection { get; private set; }
 

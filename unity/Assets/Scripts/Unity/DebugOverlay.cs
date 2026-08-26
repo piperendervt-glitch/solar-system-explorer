@@ -62,7 +62,11 @@ namespace SolarSystem.Unity
                 sb.AppendLine($"目標     : [{_rig.TargetIndex}] {station.Name}  距離 {sd:E3} units  " +
                               $"(Tab で切替)");
                 sb.AppendLine($"ドック   : {_rig.Docking.State}  進行 {_rig.Docking.Progress:0.00}  " +
-                              $"(Enter=要求 / BackSpace=出港)");
+                              $"ずれ角 {_rig.LastAlignmentAngle:0.0} 度  (Enter=要求 / BackSpace=出港)");
+                if (!string.IsNullOrEmpty(_rig.Docking.LastRejection))
+                {
+                    sb.AppendLine($"要求NG   : {_rig.Docking.LastRejection}");
+                }
             }
 
             AutopilotSolver ap = _rig.Autopilot;

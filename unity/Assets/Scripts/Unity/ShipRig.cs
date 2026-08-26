@@ -74,6 +74,9 @@ namespace SolarSystem.Unity
 
         public DockingSolver Docking => _docking;
 
+        /// <summary>直近のポート正面からのずれ角 [deg] (Step 6)。</summary>
+        public float LastAlignmentAngle { get; private set; } = 180f;
+
         /// <summary>選択中のステーションの番号 (Step 5)。</summary>
         public int TargetIndex => _targetIndex;
 
@@ -273,6 +276,7 @@ namespace SolarSystem.Unity
             float angle = Vector3.Angle(_shipTransform.forward, facing);
 
             DockingState before = _docking.State;
+            LastAlignmentAngle = angle;
             _docking.Step(distance, root.Ship.SpeedKmPerSec, angle, dockPressed, undockPressed, dt);
 
             if (before != DockingState.Docking && _docking.State == DockingState.Docking)

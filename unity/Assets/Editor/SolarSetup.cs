@@ -29,6 +29,18 @@ public static class SolarSetup
     }
 
     /// <summary>
+    /// source_assets/ のテクスチャを取り込む (Step 6)。
+    /// アセットのインポートを跨ぐので別 Run にする。
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.ImportTextures
+    /// </summary>
+    public static void ImportTextures()
+    {
+        SolarSystem.Editor.TextureSetup.Import();
+        Debug.Log("[SolarSetup] ImportTextures OK");
+    }
+
+    /// <summary>
     /// スクショ検証。シーン生成とは別 Run にする
     /// (CLAUDE.md §5「コンパイルやドメインリロードを跨ぐ処理は Run を分ける」)。
     ///

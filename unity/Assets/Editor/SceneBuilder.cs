@@ -4,6 +4,7 @@ using SolarSystem.Unity;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 
 namespace SolarSystem.Editor
@@ -25,6 +26,7 @@ namespace SolarSystem.Editor
         public static void Build()
         {
             TmpSetup.RequireImported();
+            TextureSetup.RequireImported();
 
             int deepLayer = LayerUtility.EnsureLayer(DeepLayerName);
             int cockpitLayer = LayerUtility.EnsureLayer(CockpitBuilder.LayerName);
@@ -59,6 +61,16 @@ namespace SolarSystem.Editor
             nearCam.cullingMask = ~((1 << deepLayer) | (1 << cockpitLayer) | (1 << nearfieldLayer) | (1 << 5));
             nearfieldCam.cullingMask = 1 << nearfieldLayer;
             cockpit.CockpitCamera.cullingMask = 1 << cockpitLayer;
+
+            // ---- 星空スカイボックス (Step 6) ----
+            // **描くのは Deep 段だけ。** Base カメラだけが色をクリアし、
+            // Overlay (Near / Nearfield / Cockpit) は深度しかクリアしないので、
+            // スカイボックスは Deep の背景として 1 回だけ描かれる。
+            // 星は無限遠なので、浮動原点のシフトでは動かない
+            // (スカイボックスはカメラの回転だけを見る)。
+            Material skybox = MaterialLibrary.Skybox();
+            RenderSettings.skybox = skybox;
+            deepCam.clearFlags = CameraClearFlags.Skybox;
 
             var stackGo = new GameObject("CameraStack");
             stackGo.transform.SetParent(rootGo.transform, false);
@@ -120,8 +132,55 @@ namespace SolarSystem.Editor
                 stationSet.Register(CreateStationView(station, stationsGo.transform, nearfieldLayer));
             }
 
+            // ---- ポストプロセス (Step 6) ----
+            // 強度は 3 段階を比較して人間が選ぶ。既定は Subtle。
+            var volumeGo = new GameObject("PostProcess");
+            volumeGo.transform.SetParent(rootGo.transform, false);
+            var volume = volumeGo.AddComponent<UnityEngine.Rendering.Volume>();
+            volume.isGlobal = true;
+            volume.priority = 1f;
+            // profile ではなく sharedProfile。profile は実行時コピーを作るプロパティで、
+            // シリアライズされないためシーン再読み込み後に空のプロファイルになる。
+            volume.sharedProfile = PostProcessProfileBuilder.GetOrCreate();
+
+            var preset = volumeGo.AddComponent<PostProcessPreset>();
+            preset.Bind(volume);
+            preset.Apply(PostProcessStrength.Subtle);
+
+            foreach (Camera cam in new[] { deepCam, nearCam, nearfieldCam, cockpit.CockpitCamera })
+            {
+                cam.GetUniversalAdditionalCameraData().renderPostProcessing = true;
+            }
+
+            // ---- 太陽のフレア (Step 6) ----
+            var flare = light.gameObject.AddComponent<UnityEngine.Rendering.LensFlareComponentSRP>();
+            flare.lensFlareData = LensFlareBuilder.GetOrCreate();
+            flare.intensity = 0.6f;
+            flare.scale = 1.0f;
+            flare.attenuationByLightShape = false;
+
+            // ---- エンジン音 (Step 6) ----
+            var audioGo = new GameObject("EngineAudio");
+            audioGo.transform.SetParent(shipGo.transform, false);
+            var audioSource = audioGo.AddComponent<AudioSource>();
+            audioSource.clip = EngineAudioClipBuilder.GetOrCreate();
+            audioSource.loop = true;
+            audioSource.playOnAwake = true;
+            audioSource.spatialBlend = 0f;
+            audioSource.volume = 0.06f;
+            var lowPass = audioGo.AddComponent<AudioLowPassFilter>();
+            lowPass.cutoffFrequency = 220f;
+            var engineAudio = audioGo.AddComponent<EngineAudio>();
+            engineAudio.Bind(audioSource, lowPass);
+
+            // リスナーはコックピット (視点) に置く。
+            if (Object.FindAnyObjectByType<AudioListener>() == null)
+            {
+                nearCam.gameObject.AddComponent<AudioListener>();
+            }
+
             universeRoot.Configure(shiftDriver, shipGo.transform, solarSystemView, aimer, rig,
-                                   cockpit.Panel, stationSet);
+                                   cockpit.Panel, stationSet, preset, engineAudio);
 
             // 登録漏れの検査 (docs/01-architecture.md §2-5)。
             shiftDriver.CollectFromScene();
@@ -163,7 +222,8 @@ namespace SolarSystem.Editor
 
             Debug.Log($"[SceneBuilder] OK: {ScenePath} / 天体 {solarSystemView.Views.Count} 個 / " +
                       $"ステーション {stationSet.Views.Count} 基 / " +
-                      $"レイヤー DeepSpace={deepLayer} Cockpit={cockpitLayer} Nearfield={nearfieldLayer} / カメラ 4 段");
+                      $"レイヤー DeepSpace={deepLayer} Cockpit={cockpitLayer} Nearfield={nearfieldLayer} / カメラ 4 段 / " +
+                      $"スカイボックス={skybox.name} (Deep 段のみ) / ポスト={preset.Strength}");
         }
 
         /// <summary>

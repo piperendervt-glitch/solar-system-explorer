@@ -27,7 +27,7 @@ namespace SolarSystem.Editor
 
         /// <summary>計器 RenderTexture の解像度 (docs/01-architecture.md §5-1)。</summary>
         const int PanelWidth = 512;
-        const int PanelHeight = 256;
+        const int PanelHeight = 320;
 
         const string RenderTexturePath = "Assets/Materials/InstrumentPanel.renderTexture";
         const string PanelMaterialPath = "Assets/Materials/InstrumentPanel.mat";
@@ -84,9 +84,10 @@ namespace SolarSystem.Editor
             // 視線のやや下、手前に傾けて置く。
             // 4 項目が全部入るよう、視界の下寄りに小さめに置く。
             // RT は 512x256 なのでアスペクトは 2:1 を保つ。
-            panelQuad.transform.localPosition = new Vector3(0f, -halfH * 0.52f, Size * 0.95f);
-            panelQuad.transform.localRotation = Quaternion.Euler(28f, 0f, 0f);
-            panelQuad.transform.localScale = new Vector3(Size * 0.80f, Size * 0.40f, 1f);
+            // 5 項目が画面内に収まる位置と大きさ。RT が 512x320 なのでアスペクトは 1.6。
+            panelQuad.transform.localPosition = new Vector3(0f, -halfH * 0.30f, Size * 1.05f);
+            panelQuad.transform.localRotation = Quaternion.Euler(22f, 0f, 0f);
+            panelQuad.transform.localScale = new Vector3(Size * 0.64f, Size * 0.40f, 1f);
             panelQuad.GetComponent<Renderer>().sharedMaterial = panelMaterial;
 
             InstrumentPanel panel = BuildInstrumentSource(root.transform, rt);
@@ -131,18 +132,21 @@ namespace SolarSystem.Editor
             var rect = canvasGo.GetComponent<RectTransform>();
             rect.sizeDelta = new Vector2(PanelWidth, PanelHeight);
 
-            TMP_Text speed = AddLabel(canvasGo.transform, "Speed", new Vector2(0f, 0.34f), 46f, TextAlignmentOptions.Left);
-            TMP_Text distance = AddLabel(canvasGo.transform, "Distance", new Vector2(0f, 0.09f), 40f, TextAlignmentOptions.Left);
-            TMP_Text eta = AddLabel(canvasGo.transform, "Eta", new Vector2(0f, -0.16f), 40f, TextAlignmentOptions.Left);
-            TMP_Text target = AddLabel(canvasGo.transform, "Target", new Vector2(0f, -0.40f), 34f, TextAlignmentOptions.Left);
+            // 5 項目。ALN (ポート正面からのずれ角) は Step 6 で追加。
+            TMP_Text speed = AddLabel(canvasGo.transform, "Speed", new Vector2(0f, 0.38f), 40f, TextAlignmentOptions.Left);
+            TMP_Text distance = AddLabel(canvasGo.transform, "Distance", new Vector2(0f, 0.19f), 36f, TextAlignmentOptions.Left);
+            TMP_Text eta = AddLabel(canvasGo.transform, "Eta", new Vector2(0f, 0.00f), 36f, TextAlignmentOptions.Left);
+            TMP_Text target = AddLabel(canvasGo.transform, "Target", new Vector2(0f, -0.19f), 32f, TextAlignmentOptions.Left);
+            TMP_Text alignment = AddLabel(canvasGo.transform, "Alignment", new Vector2(0f, -0.38f), 32f, TextAlignmentOptions.Left);
 
-            AddCaption(canvasGo.transform, "SpeedCaption", "SPD", new Vector2(-0.40f, 0.34f));
-            AddCaption(canvasGo.transform, "DistanceCaption", "DST", new Vector2(-0.40f, 0.09f));
-            AddCaption(canvasGo.transform, "EtaCaption", "ETA", new Vector2(-0.40f, -0.16f));
-            AddCaption(canvasGo.transform, "TargetCaption", "TGT", new Vector2(-0.40f, -0.40f));
+            AddCaption(canvasGo.transform, "SpeedCaption", "SPD", new Vector2(-0.40f, 0.38f));
+            AddCaption(canvasGo.transform, "DistanceCaption", "DST", new Vector2(-0.40f, 0.19f));
+            AddCaption(canvasGo.transform, "EtaCaption", "ETA", new Vector2(-0.40f, 0.00f));
+            AddCaption(canvasGo.transform, "TargetCaption", "TGT", new Vector2(-0.40f, -0.19f));
+            AddCaption(canvasGo.transform, "AlignCaption", "ALN", new Vector2(-0.40f, -0.38f));
 
             var panel = sourceRoot.AddComponent<InstrumentPanel>();
-            panel.Bind(speed, distance, eta, target);
+            panel.Bind(speed, distance, eta, target, alignment);
             return panel;
         }
 
@@ -160,8 +164,8 @@ namespace SolarSystem.Editor
             text.text = "---";
 
             var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.30f, 0.5f + anchor.y - 0.1f);
-            rt.anchorMax = new Vector2(0.98f, 0.5f + anchor.y + 0.1f);
+            rt.anchorMin = new Vector2(0.30f, 0.5f + anchor.y - 0.085f);
+            rt.anchorMax = new Vector2(0.98f, 0.5f + anchor.y + 0.085f);
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
             return text;
@@ -180,8 +184,8 @@ namespace SolarSystem.Editor
             text.text = caption;
 
             var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.03f, 0.5f + anchor.y - 0.1f);
-            rt.anchorMax = new Vector2(0.30f, 0.5f + anchor.y + 0.1f);
+            rt.anchorMin = new Vector2(0.03f, 0.5f + anchor.y - 0.085f);
+            rt.anchorMax = new Vector2(0.30f, 0.5f + anchor.y + 0.085f);
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
         }

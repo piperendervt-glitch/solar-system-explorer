@@ -39,6 +39,11 @@ crashlytics-build.properties
 # 検証スクリーンショット (Step 1 以降で使う)。
 /verify/shots/*
 
+# 外部アセットの原本 (Step 6)。リポジトリには入れない。
+# 入手元・ライセンス・ファイル名は docs/02-assets.md に記録する。
+# unity/Assets/ へ取り込んだ複製だけを追跡する。
+/source_assets/*
+
 # ---------------- 例外 (必ずファイル末尾に置く) ----------------
 # 空ディレクトリを git 上に残すための .gitkeep だけは追跡する。
 !/logs/.gitkeep

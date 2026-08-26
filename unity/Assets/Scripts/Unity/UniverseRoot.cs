@@ -28,6 +28,8 @@ namespace SolarSystem.Unity
         [SerializeField] ShipRig _shipRig;
         [SerializeField] InstrumentPanel _instruments;
         [SerializeField] StationViewSet _stations;
+        [SerializeField] PostProcessPreset _post;
+        [SerializeField] EngineAudio _engineAudio;
 
         [Header("Step 1 の初期速度 (km/s)。既定は 0.9c を +Z へ)")]
         [SerializeField] double _initialVelocityX;
@@ -46,6 +48,8 @@ namespace SolarSystem.Unity
         public ShipRig Rig => _shipRig;
         public InstrumentPanel Instruments => _instruments;
         public StationViewSet Stations => _stations;
+        public PostProcessPreset Post => _post;
+        public EngineAudio EngineAudio => _engineAudio;
 
         /// <summary>切替判定に使う 1 px あたりの角度 [rad]。</summary>
         public double RadiansPerPixel { get; private set; }
@@ -151,6 +155,11 @@ namespace SolarSystem.Unity
                 _sunLightAimer.Apply(Model, Ship.Position);
             }
 
+            if (_engineAudio != null && _shipRig != null)
+            {
+                _engineAudio.Apply(_shipRig.LastThrust);
+            }
+
             UpdateInstruments();
         }
 
@@ -192,6 +201,13 @@ namespace SolarSystem.Unity
                 distance,
                 eta,
                 targetName);
+
+            // ポート正面からのずれ角 (Step 6)。整列の手がかりが無いと
+            // Enter を押しても何が足りないのか分からない。
+            if (station != null)
+            {
+                _instruments.SetAlignment(AlignmentAngleDegrees(station));
+            }
         }
 
         /// <summary>シーン生成 (Editor) から参照を差し込むための口。</summary>
@@ -202,7 +218,9 @@ namespace SolarSystem.Unity
             SunLightAimer sunLightAimer = null,
             ShipRig shipRig = null,
             InstrumentPanel instruments = null,
-            StationViewSet stations = null)
+            StationViewSet stations = null,
+            PostProcessPreset post = null,
+            EngineAudio engineAudio = null)
         {
             _shiftDriver = shiftDriver;
             _shipTransform = shipTransform;
@@ -211,6 +229,21 @@ namespace SolarSystem.Unity
             _shipRig = shipRig;
             _instruments = instruments;
             _stations = stations;
+            _post = post;
+            _engineAudio = engineAudio;
+        }
+
+        /// <summary>機首とポート正面のなす角 [deg]。</summary>
+        public double AlignmentAngleDegrees(SpaceStation station)
+        {
+            if (station == null || _shipTransform == null)
+            {
+                return 180.0;
+            }
+
+            Vec3d port = station.PortDirection;
+            var facing = new Vector3((float)-port.X, (float)-port.Y, (float)-port.Z);
+            return Vector3.Angle(_shipTransform.forward, facing);
         }
 
         /// <summary>

@@ -49,6 +49,33 @@ namespace SolarSystem.Core
         /// <summary>船の操縦を state machine が握っているか。true の間は手動入力を無視する。</summary>
         public bool ControlsShip => State == DockingState.Docking || State == DockingState.Undocking;
 
+        /// <summary>直近の要求が通らなかった理由 (通ったら空)。Step 6 で計器に出す。</summary>
+        public string LastRejection { get; private set; } = string.Empty;
+
+        /// <summary>
+        /// ドッキング要求が今この場で通るかを判定し、通らないなら理由を返す。
+        /// 距離 -> 速度 -> 角度 の順に見る (遠ければ速度も角度も意味がないため)。
+        /// </summary>
+        public static string RejectionReason(double distance, double speedKmPerSec, double angleDegrees)
+        {
+            if (distance > UniverseConstants.ArrivalRadiusUnits)
+            {
+                return $"距離が遠い ({distance:0.0} > {UniverseConstants.ArrivalRadiusUnits:0} units)";
+            }
+
+            if (speedKmPerSec > UniverseConstants.ArrivalMaxSpeedKmPerSec)
+            {
+                return $"速度が高い ({speedKmPerSec:0.000} > {UniverseConstants.ArrivalMaxSpeedKmPerSec:0} km/s)";
+            }
+
+            if (angleDegrees > AttitudeToleranceDegrees)
+            {
+                return $"ポート正面からずれている ({angleDegrees:0.0} > {AttitudeToleranceDegrees:0} 度)";
+            }
+
+            return string.Empty;
+        }
+
         /// <summary>
         /// 1 ステップ進める。
         /// </summary>
@@ -62,6 +89,18 @@ namespace SolarSystem.Core
                          bool requestPressed, bool undockPressed, double deltaSeconds)
         {
             LastDistance = distanceToStation;
+
+            // ドッキングに至っていない間は、何が足りないのかを常に持っておく。
+            // Enter を押した瞬間だけだと、姿勢を直している最中に表示が消えてしまう。
+            if (State == DockingState.Free || State == DockingState.Approaching
+                || State == DockingState.DockRequested)
+            {
+                LastRejection = RejectionReason(distanceToStation, speedKmPerSec, attitudeAngleDegrees);
+            }
+            else
+            {
+                LastRejection = string.Empty;
+            }
 
             bool inRange = distanceToStation <= UniverseConstants.ArrivalRadiusUnits
                            && speedKmPerSec <= UniverseConstants.ArrivalMaxSpeedKmPerSec;

@@ -539,8 +539,14 @@ namespace SolarSystem.Tests.PlayMode
             RenderTexture prevDeep = _stack.Deep.targetTexture;
             RenderTexture prevActive = RenderTexture.active;
 
+            CameraClearFlags prevClear = _stack.Deep.clearFlags;
+
             try
             {
+                // **星空を切って測る。** Step 6 でスカイボックスが入ってから、
+                // 「非黒の画素の割合」は背景が星で埋まって常に 100% になった。
+                // 被覆率が意味を持つよう、測定中だけ背景を黒に戻す。
+                _stack.Deep.clearFlags = CameraClearFlags.SolidColor;
                 _stack.SetCockpitEnabled(false);
                 _stack.Deep.targetTexture = rt;
                 _stack.Deep.Render();
@@ -566,6 +572,7 @@ namespace SolarSystem.Tests.PlayMode
             finally
             {
                 _stack.Deep.targetTexture = prevDeep;
+                _stack.Deep.clearFlags = prevClear;
                 RenderTexture.active = prevActive;
                 _stack.SetCockpitEnabled(true);
                 rt.Release();
