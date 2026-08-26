@@ -46,6 +46,10 @@ namespace SolarSystem.Editor
                 emissive: false);
         }
 
+        /// <summary>不透明な単色マテリアル (コックピットの枠など)。</summary>
+        public static Material SolidMaterial(string name, Color color)
+            => GetOrCreate(name, "Universal Render Pipeline/Lit", color, transparent: false, emissive: false);
+
         static Color ToColor(Rgb rgb) => new Color((float)rgb.R, (float)rgb.G, (float)rgb.B, 1f);
 
         static Material GetOrCreate(string name, string shaderName, Color color, bool transparent, bool emissive)

@@ -5,7 +5,10 @@
         "SolarSystem.Core",
         "SolarSystem.Unity",
         "Unity.RenderPipelines.Universal.Runtime",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "Unity.TextMeshPro",
+        "Unity.TextMeshPro.Editor",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [
         "Editor"

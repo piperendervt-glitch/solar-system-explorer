@@ -26,6 +26,7 @@ namespace SolarSystem.Unity
         [SerializeField] SolarSystemView _solarSystemView;
         [SerializeField] SunLightAimer _sunLightAimer;
         [SerializeField] ShipRig _shipRig;
+        [SerializeField] InstrumentPanel _instruments;
 
         [Header("Step 1 の初期速度 (km/s)。既定は 0.9c を +Z へ)")]
         [SerializeField] double _initialVelocityX;
@@ -42,6 +43,7 @@ namespace SolarSystem.Unity
         public SolarSystemView SolarSystem => _solarSystemView;
         public SunLightAimer SunLight => _sunLightAimer;
         public ShipRig Rig => _shipRig;
+        public InstrumentPanel Instruments => _instruments;
 
         /// <summary>切替判定に使う 1 px あたりの角度 [rad]。</summary>
         public double RadiansPerPixel { get; private set; }
@@ -136,6 +138,45 @@ namespace SolarSystem.Unity
             {
                 _sunLightAimer.Apply(Model, Ship.Position);
             }
+
+            UpdateInstruments();
+        }
+
+        /// <summary>計器を 10 Hz で更新する (Step 4)。</summary>
+        void UpdateInstruments()
+        {
+            if (_instruments == null || Model == null)
+            {
+                return;
+            }
+
+            // 目標は火星に固定 (Step 4 の範囲。目標選択は Step 5)。
+            CelestialBody target = Model.Mars;
+            double distance = target.DistanceFrom(Ship.Position);
+            double eta = double.PositiveInfinity;
+
+            if (_shipRig != null && _shipRig.Autopilot.IsEngaged)
+            {
+                eta = _shipRig.Autopilot.EtaSeconds;
+            }
+            else
+            {
+                // 手動なら視線方向の接近速度から出す (§5-3)。
+                // 遠ざかっている / 目標を向いていないときは無限大 -> "--:--:--"。
+                Vec3d toTarget = target.AbsolutePosition - Ship.Position;
+                double closing = Vec3d.Dot(Ship.Velocity, toTarget.Normalized);
+                if (closing > 0.0)
+                {
+                    eta = distance / closing;
+                }
+            }
+
+            _instruments.Tick(
+                Clock != null ? Clock.ElapsedSeconds : 0.0,
+                Ship.SpeedKmPerSec,
+                distance,
+                eta,
+                target.Name);
         }
 
         /// <summary>シーン生成 (Editor) から参照を差し込むための口。</summary>
@@ -144,13 +185,15 @@ namespace SolarSystem.Unity
             Transform shipTransform,
             SolarSystemView solarSystemView = null,
             SunLightAimer sunLightAimer = null,
-            ShipRig shipRig = null)
+            ShipRig shipRig = null,
+            InstrumentPanel instruments = null)
         {
             _shiftDriver = shiftDriver;
             _shipTransform = shipTransform;
             _solarSystemView = solarSystemView;
             _sunLightAimer = sunLightAimer;
             _shipRig = shipRig;
+            _instruments = instruments;
         }
 
         /// <summary>

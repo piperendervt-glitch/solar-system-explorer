@@ -23,7 +23,10 @@ namespace SolarSystem.Editor
 
         public static void Build()
         {
+            TmpSetup.RequireImported();
+
             int deepLayer = LayerUtility.EnsureLayer(DeepLayerName);
+            int cockpitLayer = LayerUtility.EnsureLayer(CockpitBuilder.LayerName);
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -39,19 +42,24 @@ namespace SolarSystem.Editor
             shipGo.transform.SetParent(rootGo.transform, false);
             shipGo.transform.position = Vector3.zero;
 
-            // ---- カメラ 2 段 (決定 D-6)。3 段目は作らない ----
+            // ---- カメラ 3 段 (Step 4 で Cockpit を追加) ----
             Camera deepCam = CreateCamera("Cam_Deep", shipGo.transform);
             Camera nearCam = CreateCamera("Cam_Near", shipGo.transform);
             nearCam.tag = "MainCamera";
 
-            // Deep はプロキシ殻だけ、Near はそれ以外だけを描く。
+            // ---- コックピットと計器 (Step 4) ----
+            CockpitBuilder.Result cockpit = CockpitBuilder.Build(shipGo.transform, cockpitLayer);
+
+            // **カリングマスクは排他にする。** 同じオブジェクトが 2 つの段に
+            // 描かれないので二重描画が起きない。
             deepCam.cullingMask = 1 << deepLayer;
-            nearCam.cullingMask = ~(1 << deepLayer);
+            nearCam.cullingMask = ~((1 << deepLayer) | (1 << cockpitLayer) | (1 << 5));
+            cockpit.CockpitCamera.cullingMask = 1 << cockpitLayer;
 
             var stackGo = new GameObject("CameraStack");
             stackGo.transform.SetParent(rootGo.transform, false);
             var stack = stackGo.AddComponent<CameraStackController>();
-            stack.Bind(deepCam, nearCam);
+            stack.Bind(deepCam, nearCam, cockpit.CockpitCamera);
             stack.Configure();
 
             // ---- 太陽の Directional Light ----
@@ -98,7 +106,7 @@ namespace SolarSystem.Editor
                 solarSystemView.Register(CreateBodyView(body, bodiesGo.transform, deepLayer));
             }
 
-            universeRoot.Configure(shiftDriver, shipGo.transform, solarSystemView, aimer, rig);
+            universeRoot.Configure(shiftDriver, shipGo.transform, solarSystemView, aimer, rig, cockpit.Panel);
 
             // 登録漏れの検査 (docs/01-architecture.md §2-5)。
             shiftDriver.CollectFromScene();
@@ -132,7 +140,8 @@ namespace SolarSystem.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            Debug.Log($"[SceneBuilder] OK: {ScenePath} / 天体 {solarSystemView.Views.Count} 個 / DeepSpace レイヤー = {deepLayer}");
+            Debug.Log($"[SceneBuilder] OK: {ScenePath} / 天体 {solarSystemView.Views.Count} 個 / " +
+                      $"レイヤー DeepSpace={deepLayer} Cockpit={cockpitLayer} / カメラ 3 段");
         }
 
         static Camera CreateCamera(string name, Transform parent)

@@ -23,7 +23,7 @@ namespace SolarSystem.Core
             2.0e4,
             1.0e4,
             5.0e3, // プロキシ殻の下限 6777 units の内側
-            3.0e3, // 同上
+            4.0e3, // 同上 (火星半径 3389.5 units の外側。3e3 は惑星の内側だった)
         };
 
         public static IReadOnlyList<double> Distances => DistanceTable;

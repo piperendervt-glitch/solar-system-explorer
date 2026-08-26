@@ -396,6 +396,183 @@ namespace SolarSystem.Tests.PlayMode
             yield return null;
         }
 
+        // ================= Step 4 =================
+
+        [UnityTest]
+        public IEnumerator コックピット越しに火星が見える()
+        {
+            Directory.CreateDirectory(ShotDirectory);
+            InstrumentPanel panel = _root.Instruments;
+            Assert.That(panel, Is.Not.Null, "InstrumentPanel が無い");
+
+            // 段6 = 1e4 units / 段7 = 5e3 units
+            foreach (int index in new[] { 5, 6 })
+            {
+                Tap(FlightInput.Jump(index));
+                for (int i = 0; i < 12; i++)
+                {
+                    _root.Tick(Dt); // 計器を 10 Hz で更新させる
+                }
+
+                yield return null;
+
+                double d = DebugJumpTable.Distances[index];
+
+                _stack.SetCockpitEnabled(false);
+                Capture($"4_key{index + 1}_{d:0.###e+0}_nocockpit");
+                _stack.SetCockpitEnabled(true);
+                Capture($"4_key{index + 1}_{d:0.###e+0}_cockpit");
+
+                Debug.Log($"[Step4] 段{index + 1} 火星まで {d:E1} units / " +
+                          $"計器 SPD={panel.LastSpeedText} DST={panel.LastDistanceText} " +
+                          $"ETA={panel.LastEtaText} TGT={panel.LastTargetText}");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator 計器の4項目が更新される()
+        {
+            InstrumentPanel panel = _root.Instruments;
+
+            // 静止 -> ETA は --:--:--
+            Tap(FlightInput.Jump(4)); // 2e4 units、STOP
+            for (int i = 0; i < 12; i++)
+            {
+                _root.Tick(Dt);
+            }
+
+            yield return null;
+            Capture("4_instruments_stopped");
+
+            Debug.Log($"[Step4] 停止中: SPD={panel.LastSpeedText} / DST={panel.LastDistanceText} / " +
+                      $"ETA={panel.LastEtaText} / TGT={panel.LastTargetText}");
+
+            Assert.That(panel.LastEtaText, Is.EqualTo("--:--:--"), "停止中は ETA が出ない (決定 D-13)");
+            Assert.That(panel.LastSpeedText, Is.EqualTo("0.000 km/s"));
+            Assert.That(panel.LastTargetText, Is.EqualTo("MARS"));
+
+            // オートパイロットで接近 -> ETA が出る
+            _root.PlaceObserver(DebugJumpTable.PositionAt(_root.Model, 7.8e4));
+            _rig.LookAtMars(_root);
+            _rig.EngageAutopilot(_root, _root.Model.Mars.AbsolutePosition);
+            for (int i = 0; i < 120; i++)
+            {
+                _root.Tick(Dt);
+            }
+
+            yield return null;
+            Capture("4_instruments_cruising");
+
+            Debug.Log($"[Step4] 巡航中: SPD={panel.LastSpeedText} / DST={panel.LastDistanceText} / " +
+                      $"ETA={panel.LastEtaText} / TGT={panel.LastTargetText}");
+
+            Assert.That(panel.LastEtaText, Is.Not.EqualTo("--:--:--"), "接近中は ETA が出る");
+            Assert.That(panel.LastSpeedText, Does.EndWith(" c"), "巡航中は c 表記");
+        }
+
+        [UnityTest]
+        public IEnumerator コックピットは姿勢操作で一緒に回る()
+        {
+            Tap(FlightInput.Jump(4));
+
+            Transform cockpit = GameObject.Find("Cockpit").transform;
+            Quaternion before = cockpit.rotation;
+            Quaternion camBefore = _stack.Cockpit.transform.rotation;
+
+            Hold(new FlightInput { Roll = 1f, JumpIndex = -1 }, 30);
+
+            float cockpitDeg = Quaternion.Angle(before, cockpit.rotation);
+            float camDeg = Quaternion.Angle(camBefore, _stack.Cockpit.transform.rotation);
+
+            Debug.Log($"[Step4] ロール 0.5 秒: コックピット {cockpitDeg:F2} 度 / Cockpit カメラ {camDeg:F2} 度");
+
+            Assert.That(cockpitDeg, Is.EqualTo(30f).Within(1f));
+            Assert.That(camDeg, Is.EqualTo(cockpitDeg).Within(0.01f), "視点はコックピットに固定");
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator カメラ段の境界で天体が消えも二重にもならない()
+        {
+            // 実スケール引き渡しの帯 (5e4 -> 3e4) をまたいで被覆率を追う。
+            double[] distances = { 6.0e4, 5.0e4, 4.5e4, 4.0e4, 3.5e4, 3.0e4, 2.5e4 };
+            var coverage = new System.Collections.Generic.List<double>();
+
+            foreach (double d in distances)
+            {
+                _root.PlaceObserver(DebugJumpTable.PositionAt(_root.Model, d));
+                _rig.LookAtMars(_root);
+                _root.Tick(Dt);
+                yield return null;
+
+                coverage.Add(MeasureCoverage());
+            }
+
+            var sb = new System.Text.StringBuilder("[Step4] 引き渡し帯の被覆率: ");
+            for (int i = 0; i < distances.Length; i++)
+            {
+                sb.Append($"{distances[i]:E1}={coverage[i]:F3}%  ");
+            }
+
+            Debug.Log(sb.ToString());
+
+            // 近づくほど大きくなる = どこでも消えていない。
+            for (int i = 1; i < coverage.Count; i++)
+            {
+                Assert.That(coverage[i], Is.GreaterThan(coverage[i - 1] * 0.98),
+                    $"{distances[i]:E1} units で被覆率が落ちた (天体が消えた)");
+                Assert.That(coverage[i], Is.GreaterThan(0.0));
+            }
+
+            // 帯の外と中で急な段差が無いこと。
+            for (int i = 1; i < coverage.Count; i++)
+            {
+                double ratio = coverage[i] / System.Math.Max(1e-9, coverage[i - 1]);
+                Assert.That(ratio, Is.LessThan(3.0), $"{distances[i]:E1} units で被覆率が跳ねた");
+            }
+        }
+
+        double MeasureCoverage()
+        {
+            var rt = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32);
+            rt.Create();
+            RenderTexture prevDeep = _stack.Deep.targetTexture;
+            RenderTexture prevActive = RenderTexture.active;
+
+            try
+            {
+                _stack.SetCockpitEnabled(false);
+                _stack.Deep.targetTexture = rt;
+                _stack.Deep.Render();
+
+                RenderTexture.active = rt;
+                var tex = new Texture2D(Width, Height, TextureFormat.RGB24, false);
+                tex.ReadPixels(new Rect(0, 0, Width, Height), 0, 0);
+                tex.Apply();
+
+                Color32[] pixels = tex.GetPixels32();
+                int lit = 0;
+                for (int i = 0; i < pixels.Length; i++)
+                {
+                    if (Mathf.Max(pixels[i].r, Mathf.Max(pixels[i].g, pixels[i].b)) > 8)
+                    {
+                        lit++;
+                    }
+                }
+
+                Object.DestroyImmediate(tex);
+                return 100.0 * lit / pixels.Length;
+            }
+            finally
+            {
+                _stack.Deep.targetTexture = prevDeep;
+                RenderTexture.active = prevActive;
+                _stack.SetCockpitEnabled(true);
+                rt.Release();
+                Object.DestroyImmediate(rt);
+            }
+        }
+
         void Capture(string name)
         {
             var rt = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32);
