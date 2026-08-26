@@ -27,6 +27,7 @@ namespace SolarSystem.Unity
         [SerializeField] SunLightAimer _sunLightAimer;
         [SerializeField] ShipRig _shipRig;
         [SerializeField] InstrumentPanel _instruments;
+        [SerializeField] StationViewSet _stations;
 
         [Header("Step 1 の初期速度 (km/s)。既定は 0.9c を +Z へ)")]
         [SerializeField] double _initialVelocityX;
@@ -44,6 +45,7 @@ namespace SolarSystem.Unity
         public SunLightAimer SunLight => _sunLightAimer;
         public ShipRig Rig => _shipRig;
         public InstrumentPanel Instruments => _instruments;
+        public StationViewSet Stations => _stations;
 
         /// <summary>切替判定に使う 1 px あたりの角度 [rad]。</summary>
         public double RadiansPerPixel { get; private set; }
@@ -80,6 +82,11 @@ namespace SolarSystem.Unity
             if (_solarSystemView != null)
             {
                 _solarSystemView.Rebind(Model);
+            }
+
+            if (_stations != null)
+            {
+                _stations.Rebind(Model);
             }
 
             // 開始時点で原点を船に合わせておく。1 フレーム目から原点相対座標が正しくなる。
@@ -134,6 +141,11 @@ namespace SolarSystem.Unity
                 _solarSystemView.Apply(Ship.Position, RadiansPerPixel);
             }
 
+            if (_stations != null)
+            {
+                _stations.Apply(Ship.Position);
+            }
+
             if (_sunLightAimer != null)
             {
                 _sunLightAimer.Apply(Model, Ship.Position);
@@ -150,9 +162,12 @@ namespace SolarSystem.Unity
                 return;
             }
 
-            // 目標は火星に固定 (Step 4 の範囲。目標選択は Step 5)。
-            CelestialBody target = Model.Mars;
-            double distance = target.DistanceFrom(Ship.Position);
+            // 目標は選択中のステーション (Step 5)。
+            SpaceStation station = _shipRig != null ? _shipRig.TargetStation(Model) : null;
+            Vec3d targetPosition = station != null ? station.AbsolutePosition : Model.Mars.AbsolutePosition;
+            string targetName = station != null ? station.Name : Model.Mars.Name;
+
+            double distance = Vec3d.Distance(targetPosition, Ship.Position);
             double eta = double.PositiveInfinity;
 
             if (_shipRig != null && _shipRig.Autopilot.IsEngaged)
@@ -163,7 +178,7 @@ namespace SolarSystem.Unity
             {
                 // 手動なら視線方向の接近速度から出す (§5-3)。
                 // 遠ざかっている / 目標を向いていないときは無限大 -> "--:--:--"。
-                Vec3d toTarget = target.AbsolutePosition - Ship.Position;
+                Vec3d toTarget = targetPosition - Ship.Position;
                 double closing = Vec3d.Dot(Ship.Velocity, toTarget.Normalized);
                 if (closing > 0.0)
                 {
@@ -176,7 +191,7 @@ namespace SolarSystem.Unity
                 Ship.SpeedKmPerSec,
                 distance,
                 eta,
-                target.Name);
+                targetName);
         }
 
         /// <summary>シーン生成 (Editor) から参照を差し込むための口。</summary>
@@ -186,7 +201,8 @@ namespace SolarSystem.Unity
             SolarSystemView solarSystemView = null,
             SunLightAimer sunLightAimer = null,
             ShipRig shipRig = null,
-            InstrumentPanel instruments = null)
+            InstrumentPanel instruments = null,
+            StationViewSet stations = null)
         {
             _shiftDriver = shiftDriver;
             _shipTransform = shipTransform;
@@ -194,6 +210,7 @@ namespace SolarSystem.Unity
             _sunLightAimer = sunLightAimer;
             _shipRig = shipRig;
             _instruments = instruments;
+            _stations = stations;
         }
 
         /// <summary>

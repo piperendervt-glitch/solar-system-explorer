@@ -449,7 +449,7 @@ namespace SolarSystem.Tests.PlayMode
 
             Assert.That(panel.LastEtaText, Is.EqualTo("--:--:--"), "停止中は ETA が出ない (決定 D-13)");
             Assert.That(panel.LastSpeedText, Is.EqualTo("0.000 km/s"));
-            Assert.That(panel.LastTargetText, Is.EqualTo("MARS"));
+            Assert.That(panel.LastTargetText, Is.EqualTo("EARTH STATION"), "既定の目標は 0 番のステーション");
 
             // オートパイロットで接近 -> ETA が出る
             _root.PlaceObserver(DebugJumpTable.PositionAt(_root.Model, 7.8e4));
@@ -570,6 +570,224 @@ namespace SolarSystem.Tests.PlayMode
                 _stack.SetCockpitEnabled(true);
                 rt.Release();
                 Object.DestroyImmediate(rt);
+            }
+        }
+
+        // ================= Step 5 =================
+
+        /// <summary>ステーションへオートパイロットで飛び、ドッキングまで通す。</summary>
+        (double seconds, double distance, double speed, System.Collections.Generic.List<string> history)
+            FlyAndDock(int stationIndex, int maxSteps)
+        {
+            var history = new System.Collections.Generic.List<string>();
+            _rig.SetTargetIndex(stationIndex);
+            SpaceStation station = _root.Model.Stations[stationIndex];
+
+            _rig.LookAtMars(_root);
+            _rig.EngageAutopilot(_root, station.PortPosition);
+
+            AutopilotState apPrev = _rig.Autopilot.State;
+            DockingState dockPrev = _rig.Docking.State;
+            history.Add($"AP:{apPrev}");
+
+            int steps = 0;
+            bool aimed = false;
+
+            while (steps < maxSteps && _rig.Docking.State != DockingState.Docked)
+            {
+                // 到着したらオートパイロットを切り、ポート正面へ機首を向けてから要求する。
+                // 進行方向 (ほぼ +X) とポート正面 (-Y) は 90 度違うので、
+                // 向け直さないと許容角 30 度 (決定 D-18) に入らない。
+                bool request = false;
+                if (!aimed && _rig.Autopilot.State == AutopilotState.Arrived)
+                {
+                    _rig.Autopilot.Disengage();
+                    AimShip(-station.PortDirection);
+                    aimed = true;
+                }
+
+                if (aimed && _rig.Docking.State == DockingState.Approaching)
+                {
+                    request = true;
+                }
+
+                _rig.InputOverride = new FlightInput { JumpIndex = -1, DockRequest = request };
+                _root.Tick(Dt);
+                _rig.InputOverride = null;
+                steps++;
+
+                if (_rig.Autopilot.State != apPrev)
+                {
+                    apPrev = _rig.Autopilot.State;
+                    history.Add($"AP:{apPrev}");
+                }
+
+                if (_rig.Docking.State != dockPrev)
+                {
+                    dockPrev = _rig.Docking.State;
+                    history.Add($"DOCK:{dockPrev}");
+                }
+            }
+
+            return (steps * Dt, station.DistanceFrom(_root.Ship.Position), _root.Ship.SpeedKmPerSec, history);
+        }
+
+        [UnityTest]
+        public IEnumerator 地球ステーションから火星ステーションへ着けて往復できる()
+        {
+            Directory.CreateDirectory(ShotDirectory);
+
+            // 地球ステーションのポートから出発。
+            SpaceStation earth = _root.Model.Stations[0];
+            _root.PlaceObserver(earth.PortPosition);
+            yield return null;
+
+            const int maxSteps = 60 * 400; // 400 秒ぶん
+
+            (double t1, double d1, double v1, var h1) = FlyAndDock(1, maxSteps);
+            Debug.Log($"[Step5] 地球St -> 火星St: {t1:F2} 秒 ({t1 / 60:F2} 分) / " +
+                      $"最終距離 {d1:F4} units / 最終速度 {v1:F4} km/s");
+            Debug.Log("[Step5]   遷移: " + string.Join(" -> ", h1));
+
+            Assert.That(_rig.Docking.State, Is.EqualTo(DockingState.Docked), "火星St にドッキングできない");
+            Assert.That(d1, Is.LessThanOrEqualTo(UniverseConstants.ArrivalRadiusUnits));
+
+            yield return null;
+            CaptureDockedShots("5_mars_docked");
+
+            // 出港して地球へ戻る。
+            _rig.InputOverride = new FlightInput { JumpIndex = -1, Undock = true };
+            _root.Tick(Dt);
+            _rig.InputOverride = null;
+
+            int undockSteps = 0;
+            while (_rig.Docking.State != DockingState.Free && undockSteps < 60 * 20)
+            {
+                _root.Tick(Dt);
+                undockSteps++;
+            }
+
+            Debug.Log($"[Step5] 出港に {undockSteps * Dt:F2} 秒 / 状態 {_rig.Docking.State}");
+            Assert.That(_rig.Docking.State, Is.EqualTo(DockingState.Free), "出港できない");
+
+            yield return null;
+
+            (double t2, double d2, double v2, var h2) = FlyAndDock(0, maxSteps);
+            Debug.Log($"[Step5] 火星St -> 地球St: {t2:F2} 秒 ({t2 / 60:F2} 分) / " +
+                      $"最終距離 {d2:F4} units / 最終速度 {v2:F4} km/s");
+            Debug.Log("[Step5]   遷移: " + string.Join(" -> ", h2));
+
+            Assert.That(_rig.Docking.State, Is.EqualTo(DockingState.Docked), "地球St へ戻れない");
+            Assert.That(d2, Is.LessThanOrEqualTo(UniverseConstants.ArrivalRadiusUnits));
+
+            yield return null;
+            CaptureDockedShots("5_earth_docked");
+        }
+
+        /// <summary>ドッキング状態で母天体を向いた絵と、ステーションを向いた絵を撮る。</summary>
+        void CaptureDockedShots(string prefix)
+        {
+            SpaceStation station = _rig.TargetStation(_root.Model);
+
+            // 母天体を向く (明暗境界線の確認)。
+            Vec3d toHost = (station.Host.AbsolutePosition - _root.Ship.Position).Normalized;
+            AimShip(toHost);
+            Capture($"{prefix}_planet");
+
+            // ステーションを向く。
+            Vec3d toStation = (station.AbsolutePosition - _root.Ship.Position).Normalized;
+            AimShip(toStation);
+            Capture($"{prefix}_station");
+
+            // 到着圏 (ポート正面 20 units) からの絵。ドッキング位置だと
+            // ステーションが視界を塞ぐので、明暗境界線はこちらのほうが見やすい。
+            // Tick を回すと Docked の StepDocking がポート位置へ引き戻すので、
+            // PlaceObserver で直接置いて撮る。
+            Vec3d docked = _root.Ship.Position;
+            Vec3d approach = station.AbsolutePosition
+                             + station.PortDirection * UniverseConstants.ArrivalRadiusUnits;
+            _root.PlaceObserver(approach);
+            AimShip((station.Host.AbsolutePosition - approach).Normalized);
+            Capture($"{prefix}_approach_planet");
+            _root.PlaceObserver(docked);
+
+            Debug.Log($"[Step5] {prefix}: {station.Name} / 母天体 {station.Host.Name} まで " +
+                      $"{station.Host.DistanceFrom(_root.Ship.Position):F1} units");
+            Debug.Log("[Step5] --- デバッグ表示 ---");
+            Debug.Log(_overlay.BuildText());
+        }
+
+        void AimShip(Vec3d direction)
+        {
+            var f = new Vector3((float)direction.X, (float)direction.Y, (float)direction.Z);
+            if (f.sqrMagnitude > 0f)
+            {
+                _rig.ShipTransform.rotation = Quaternion.LookRotation(f, Vector3.up);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator 目標選択で計器の目標名が変わる()
+        {
+            InstrumentPanel panel = _root.Instruments;
+            _rig.SetTargetIndex(0);
+
+            for (int i = 0; i < 12; i++)
+            {
+                _root.Tick(Dt);
+            }
+
+            yield return null;
+            string first = panel.LastTargetText;
+
+            Tap(new FlightInput { JumpIndex = -1, CycleTarget = true });
+            for (int i = 0; i < 12; i++)
+            {
+                _root.Tick(Dt);
+            }
+
+            yield return null;
+            string second = panel.LastTargetText;
+
+            Debug.Log($"[Step5] 目標切替: {first} -> {second} (段 {_rig.TargetIndex})");
+
+            Assert.That(first, Is.EqualTo("EARTH STATION"));
+            Assert.That(second, Is.EqualTo("MARS STATION"));
+            Assert.That(_rig.TargetIndex, Is.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator ステーション段の境界で被覆率が単調に増える()
+        {
+            SpaceStation station = _root.Model.Stations[1];
+            _rig.SetTargetIndex(1);
+
+            double[] distances = { 90.0, 60.0, 40.0, 20.0, 10.0, 5.0, 1.0 };
+            var coverage = new System.Collections.Generic.List<double>();
+
+            foreach (double d in distances)
+            {
+                Vec3d pos = station.AbsolutePosition + station.PortDirection * d;
+                _root.PlaceObserver(pos);
+                AimShip((station.AbsolutePosition - pos).Normalized);
+                _root.Tick(Dt);
+                yield return null;
+
+                coverage.Add(MeasureCoverage());
+            }
+
+            var sb = new System.Text.StringBuilder("[Step5] ステーションの被覆率: ");
+            for (int i = 0; i < distances.Length; i++)
+            {
+                sb.Append($"{distances[i]:F0}u={coverage[i]:F4}%  ");
+            }
+
+            Debug.Log(sb.ToString());
+
+            for (int i = 1; i < coverage.Count; i++)
+            {
+                Assert.That(coverage[i], Is.GreaterThan(coverage[i - 1]),
+                    $"{distances[i]:F0} units で被覆率が落ちた (ステーションが消えた)");
             }
         }
 

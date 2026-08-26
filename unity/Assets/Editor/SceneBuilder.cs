@@ -20,6 +20,7 @@ namespace SolarSystem.Editor
         public const string ScenePath = "Assets/Scenes/Main.unity";
 
         public const string DeepLayerName = "DeepSpace";
+        public const string NearfieldLayerName = "Nearfield";
 
         public static void Build()
         {
@@ -27,6 +28,7 @@ namespace SolarSystem.Editor
 
             int deepLayer = LayerUtility.EnsureLayer(DeepLayerName);
             int cockpitLayer = LayerUtility.EnsureLayer(CockpitBuilder.LayerName);
+            int nearfieldLayer = LayerUtility.EnsureLayer(NearfieldLayerName);
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -46,6 +48,7 @@ namespace SolarSystem.Editor
             Camera deepCam = CreateCamera("Cam_Deep", shipGo.transform);
             Camera nearCam = CreateCamera("Cam_Near", shipGo.transform);
             nearCam.tag = "MainCamera";
+            Camera nearfieldCam = CreateCamera("Cam_Nearfield", shipGo.transform);
 
             // ---- コックピットと計器 (Step 4) ----
             CockpitBuilder.Result cockpit = CockpitBuilder.Build(shipGo.transform, cockpitLayer);
@@ -53,13 +56,14 @@ namespace SolarSystem.Editor
             // **カリングマスクは排他にする。** 同じオブジェクトが 2 つの段に
             // 描かれないので二重描画が起きない。
             deepCam.cullingMask = 1 << deepLayer;
-            nearCam.cullingMask = ~((1 << deepLayer) | (1 << cockpitLayer) | (1 << 5));
+            nearCam.cullingMask = ~((1 << deepLayer) | (1 << cockpitLayer) | (1 << nearfieldLayer) | (1 << 5));
+            nearfieldCam.cullingMask = 1 << nearfieldLayer;
             cockpit.CockpitCamera.cullingMask = 1 << cockpitLayer;
 
             var stackGo = new GameObject("CameraStack");
             stackGo.transform.SetParent(rootGo.transform, false);
             var stack = stackGo.AddComponent<CameraStackController>();
-            stack.Bind(deepCam, nearCam, cockpit.CockpitCamera);
+            stack.Bind(deepCam, nearCam, nearfieldCam, cockpit.CockpitCamera);
             stack.Configure();
 
             // ---- 太陽の Directional Light ----
@@ -106,7 +110,18 @@ namespace SolarSystem.Editor
                 solarSystemView.Register(CreateBodyView(body, bodiesGo.transform, deepLayer));
             }
 
-            universeRoot.Configure(shiftDriver, shipGo.transform, solarSystemView, aimer, rig, cockpit.Panel);
+            // ---- ステーション (Step 5) ----
+            var stationsGo = new GameObject("Stations");
+            stationsGo.transform.SetParent(rootGo.transform, false);
+            var stationSet = stationsGo.AddComponent<StationViewSet>();
+
+            foreach (SpaceStation station in model.Stations)
+            {
+                stationSet.Register(CreateStationView(station, stationsGo.transform, nearfieldLayer));
+            }
+
+            universeRoot.Configure(shiftDriver, shipGo.transform, solarSystemView, aimer, rig,
+                                   cockpit.Panel, stationSet);
 
             // 登録漏れの検査 (docs/01-architecture.md §2-5)。
             shiftDriver.CollectFromScene();
@@ -120,6 +135,12 @@ namespace SolarSystem.Editor
             {
                 throw new InvalidDataException(
                     $"天体は 3 個のはず: 実際 {solarSystemView.Views.Count}");
+            }
+
+            if (stationSet.Views.Count != model.Stations.Count)
+            {
+                throw new InvalidDataException(
+                    $"ステーションは {model.Stations.Count} 基のはず: 実際 {stationSet.Views.Count}");
             }
 
             string dir = Path.GetDirectoryName(ScenePath);
@@ -141,7 +162,62 @@ namespace SolarSystem.Editor
             AssetDatabase.Refresh();
 
             Debug.Log($"[SceneBuilder] OK: {ScenePath} / 天体 {solarSystemView.Views.Count} 個 / " +
-                      $"レイヤー DeepSpace={deepLayer} Cockpit={cockpitLayer} / カメラ 3 段");
+                      $"ステーション {stationSet.Views.Count} 基 / " +
+                      $"レイヤー DeepSpace={deepLayer} Cockpit={cockpitLayer} Nearfield={nearfieldLayer} / カメラ 4 段");
+        }
+
+        /// <summary>
+        /// ステーション 1 基。外部アセットは使わず (決定 D-22) プリミティブで組む。
+        /// リング状の外形＋ポートの目印。実寸 0.5 units (500 m)。
+        /// </summary>
+        static StationView CreateStationView(SpaceStation station, Transform parent, int layer)
+        {
+            var root = new GameObject(station.Name);
+            root.transform.SetParent(parent, false);
+            root.layer = layer;
+
+            float r = (float)station.RadiusKm;
+            Material hull = MaterialLibrary.SolidMaterial("StationHull", new Color(0.62f, 0.64f, 0.68f));
+            Material port = MaterialLibrary.SolidMaterial("StationPort", new Color(0.20f, 0.70f, 0.45f));
+
+            // 中央のコア
+            AddPart(root.transform, "Core", PrimitiveType.Cylinder, Vector3.zero,
+                Quaternion.Euler(90f, 0f, 0f), new Vector3(r * 0.45f, r * 0.5f, r * 0.45f), hull, layer);
+
+            // 四方に張り出したアーム
+            for (int i = 0; i < 4; i++)
+            {
+                float a = i * 90f;
+                var rot = Quaternion.Euler(0f, 0f, a);
+                Vector3 dir = rot * Vector3.up;
+                AddPart(root.transform, $"Arm{i}", PrimitiveType.Cube, dir * (r * 0.6f),
+                    rot, new Vector3(r * 0.16f, r * 1.2f, r * 0.16f), hull, layer);
+                AddPart(root.transform, $"Pod{i}", PrimitiveType.Cube, dir * (r * 1.05f),
+                    rot, new Vector3(r * 0.4f, r * 0.35f, r * 0.4f), hull, layer);
+            }
+
+            // ポート (深宇宙側 = ローカル +Z)。船はここへ着く。
+            AddPart(root.transform, "Port", PrimitiveType.Cylinder,
+                new Vector3(0f, 0f, r * 0.55f), Quaternion.Euler(90f, 0f, 0f),
+                new Vector3(r * 0.3f, r * 0.12f, r * 0.3f), port, layer);
+
+            var view = root.AddComponent<StationView>();
+            view.Bind(station);
+            return view;
+        }
+
+        static void AddPart(Transform parent, string name, PrimitiveType type, Vector3 position,
+                            Quaternion rotation, Vector3 scale, Material material, int layer)
+        {
+            GameObject go = GameObject.CreatePrimitive(type);
+            go.name = name;
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = position;
+            go.transform.localRotation = rotation;
+            go.transform.localScale = scale;
+            go.layer = layer;
+            Object.DestroyImmediate(go.GetComponent<Collider>());
+            go.GetComponent<Renderer>().sharedMaterial = material;
         }
 
         static Camera CreateCamera(string name, Transform parent)

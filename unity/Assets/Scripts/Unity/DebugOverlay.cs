@@ -55,6 +55,16 @@ namespace SolarSystem.Unity
             sb.AppendLine($"速度     : {speed:0.###} km/s  ({UniverseConstants.KmPerSecToBeta(speed):0.####} c)  スラスト {_rig.LastThrust:+0.0;-0.0; 0.0}");
             sb.AppendLine($"火星まで : {distance:E4} units");
             sb.AppendLine($"表示     : {mode}   角直径 {angular}");
+            SpaceStation station = _rig.TargetStation(_root.Model);
+            if (station != null)
+            {
+                double sd = station.DistanceFrom(_root.Ship.Position);
+                sb.AppendLine($"目標     : [{_rig.TargetIndex}] {station.Name}  距離 {sd:E3} units  " +
+                              $"(Tab で切替)");
+                sb.AppendLine($"ドック   : {_rig.Docking.State}  進行 {_rig.Docking.Progress:0.00}  " +
+                              $"(Enter=要求 / BackSpace=出港)");
+            }
+
             AutopilotSolver ap = _rig.Autopilot;
             string eta = double.IsInfinity(ap.EtaSeconds)
                 ? "--:--"

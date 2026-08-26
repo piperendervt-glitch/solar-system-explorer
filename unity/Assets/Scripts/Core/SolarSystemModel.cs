@@ -22,10 +22,21 @@ namespace SolarSystem.Core
         public const double SunToMarsKm = SunToEarthKm + EarthToMarsKm;
 
         readonly List<CelestialBody> _bodies = new List<CelestialBody>();
+        readonly List<SpaceStation> _stations = new List<SpaceStation>();
 
         SolarSystemModel() { }
 
         public IReadOnlyList<CelestialBody> Bodies => _bodies;
+
+        /// <summary>ステーションの一覧 (Step 5)。N 基のリストとして持つ。</summary>
+        public IReadOnlyList<SpaceStation> Stations => _stations;
+
+        /// <summary>ステーションの母天体からの距離 [units]。</summary>
+        public const double EarthStationDistanceKm = 12000.0;
+        public const double MarsStationDistanceKm = 8000.0;
+
+        /// <summary>ステーションの外形半径 [units] = 500 m。</summary>
+        public const double StationRadiusKm = 0.25;
 
         public CelestialBody Sun { get; private set; }
         public CelestialBody Earth { get; private set; }
@@ -54,6 +65,19 @@ namespace SolarSystem.Core
             model._bodies.Add(model.Sun);
             model._bodies.Add(model.Earth);
             model._bodies.Add(model.Mars);
+
+            // ステーションは**太陽-惑星軸 (+X) に垂直な +Y 方向、全基とも同じ側**。
+            // ここから母天体を見ると位相角がちょうど 90 度になり、
+            // 明暗境界線が視界の中央に来る (実測 90.00 度)。
+            // 航路 (地球St -> 火星St) が惑星を貫通しないことは
+            // DockingTests で検算している。
+            var offset = new Vec3d(0.0, 1.0, 0.0);
+
+            model._stations.Add(new SpaceStation(
+                "Earth Station", model.Earth, offset, EarthStationDistanceKm, StationRadiusKm));
+            model._stations.Add(new SpaceStation(
+                "Mars Station", model.Mars, offset, MarsStationDistanceKm, StationRadiusKm));
+
             return model;
         }
 

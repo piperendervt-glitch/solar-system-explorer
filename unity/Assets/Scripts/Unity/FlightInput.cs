@@ -40,6 +40,15 @@ namespace SolarSystem.Unity
         /// <summary>オートパイロット解除 (Step 3b)。</summary>
         public bool AutopilotCancel;
 
+        /// <summary>目標を次のステーションへ切り替える (Step 5)。</summary>
+        public bool CycleTarget;
+
+        /// <summary>ドッキング要求 (Step 5)。</summary>
+        public bool DockRequest;
+
+        /// <summary>出港 / ドッキング要求の取り消し (Step 5)。</summary>
+        public bool Undock;
+
         /// <summary>手動の操作入力があるか。オートパイロットの解除条件に使う。</summary>
         public bool HasManualActivity =>
             Thrust != 0f || Roll != 0f

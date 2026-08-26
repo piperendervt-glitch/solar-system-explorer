@@ -147,6 +147,7 @@ namespace SolarSystem.Tests.EditMode
                 "LookMouse", "LookKeys", "Roll", "Thrust", "DialUp", "DialDown",
                 "Jump1", "Jump2", "Jump3", "Jump4", "Jump5", "Jump6", "Jump7", "Jump8",
                 "AutopilotEngage", "AutopilotCancel",
+                "CycleTarget", "DockRequest", "Undock",
             };
 
             foreach (string name in required)
@@ -191,6 +192,9 @@ namespace SolarSystem.Tests.EditMode
             Assert.That(AllPaths("DialDown"), Does.Contain("<Keyboard>/f"));
             Assert.That(AllPaths("AutopilotEngage"), Does.Contain("<Keyboard>/t"));
             Assert.That(AllPaths("AutopilotCancel"), Does.Contain("<Keyboard>/g"));
+            Assert.That(AllPaths("CycleTarget"), Does.Contain("<Keyboard>/tab"));
+            Assert.That(AllPaths("DockRequest"), Does.Contain("<Keyboard>/enter"));
+            Assert.That(AllPaths("Undock"), Does.Contain("<Keyboard>/backspace"));
         }
     }
 }

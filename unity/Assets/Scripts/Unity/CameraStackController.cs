@@ -7,9 +7,10 @@ namespace SolarSystem.Unity
     /// カメラスタック (docs/01-architecture.md §3-4 / 決定 D-6)。
     ///
     /// **2 段で開始する。3 段目は Z ファイトが実測で出てから足す。**
-    ///   Deep    (Base)    near 500    / far 1.2e4 : プロキシ殻だけ (殻は 1,000〜10,000)
-    ///   Near    (Overlay) near 1      / far 1.5e5 : 実スケール天体
-    ///   Cockpit (Overlay) near 1e-4   / far 0.1   : コックピット内装 (実寸 2 m = 0.002 units)
+    ///   Deep      (Base)    near 500  / far 1.2e4 : プロキシ殻だけ (殻は 1,000〜10,000)
+    ///   Near      (Overlay) near 100  / far 1.5e5 : 実スケール天体
+    ///   Nearfield (Overlay) near 0.01 / far 100   : ステーション・船 (実寸 0.1〜0.5 units)
+    ///   Cockpit   (Overlay) near 0.1  / far 100   : コックピット内装 (実寸 2 m x 1000 倍)
     ///
     /// **奥から手前の順に描き、Overlay は深度をクリアする。**
     /// 深度をクリアするので段どうしで Z 比較は起きない。後の段が必ず上に来る。
@@ -26,8 +27,12 @@ namespace SolarSystem.Unity
         public const float DeepNearClip = 500f;
         public const float DeepFarClip = 12000f;
         // Step 3b: 実スケールメッシュ (火星まで 5e4 units、半径 3389.5) が入るので広げる。
-        public const float NearNearClip = 1f;
+        // Step 5: ステーション段を足したので、実スケール天体は 100 units から。
+        public const float NearNearClip = 100f;
         public const float NearFarClip = 150000f;
+        // Step 5: ステーションは実寸 0.5 units。
+        public const float NearfieldNearClip = 0.01f;
+        public const float NearfieldFarClip = 100f;
         // Step 4: コックピットは実寸 2 m = 0.002 units。
         //
         // **Unity は Camera.nearClipPlane を 0.01 で下限クランプする。**
@@ -45,16 +50,19 @@ namespace SolarSystem.Unity
 
         [SerializeField] Camera _deep;
         [SerializeField] Camera _near;
+        [SerializeField] Camera _nearfield;
         [SerializeField] Camera _cockpit;
 
         public Camera Deep => _deep;
         public Camera Near => _near;
+        public Camera Nearfield => _nearfield;
         public Camera Cockpit => _cockpit;
 
-        public void Bind(Camera deep, Camera near, Camera cockpit)
+        public void Bind(Camera deep, Camera near, Camera nearfield, Camera cockpit)
         {
             _deep = deep;
             _near = near;
+            _nearfield = nearfield;
             _cockpit = cockpit;
         }
 
@@ -81,12 +89,20 @@ namespace SolarSystem.Unity
             _near.farClipPlane = NearFarClip;
             _near.depth = 1;
 
+            if (_nearfield != null)
+            {
+                _nearfield.fieldOfView = VerticalFovDegrees;
+                _nearfield.nearClipPlane = NearfieldNearClip;
+                _nearfield.farClipPlane = NearfieldFarClip;
+                _nearfield.depth = 2;
+            }
+
             if (_cockpit != null)
             {
                 _cockpit.fieldOfView = VerticalFovDegrees;
                 _cockpit.nearClipPlane = CockpitNearClip;
                 _cockpit.farClipPlane = CockpitFarClip;
-                _cockpit.depth = 2;
+                _cockpit.depth = 3;
             }
 
             UniversalAdditionalCameraData deepData = _deep.GetUniversalAdditionalCameraData();
@@ -104,6 +120,13 @@ namespace SolarSystem.Unity
             }
 
             deepData.cameraStack.Add(_near);
+
+            if (_nearfield != null)
+            {
+                UniversalAdditionalCameraData nearfieldData = _nearfield.GetUniversalAdditionalCameraData();
+                nearfieldData.renderType = CameraRenderType.Overlay;
+                deepData.cameraStack.Add(_nearfield);
+            }
 
             if (_cockpit != null)
             {
@@ -129,6 +152,11 @@ namespace SolarSystem.Unity
             if (enabled)
             {
                 deepData.cameraStack.Add(_near);
+            }
+
+            if (_nearfield != null)
+            {
+                deepData.cameraStack.Add(_nearfield);
             }
 
             if (_cockpit != null)

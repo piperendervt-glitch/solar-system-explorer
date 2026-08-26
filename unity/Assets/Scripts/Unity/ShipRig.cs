@@ -45,6 +45,9 @@ namespace SolarSystem.Unity
         InputAction _dialDown;
         InputAction _apEngage;
         InputAction _apCancel;
+        InputAction _cycleTarget;
+        InputAction _dockRequest;
+        InputAction _undock;
         InputAction[] _jumps;
 
         // 押下の立ち上がりは自前で持つ。InputAction.WasPressedThisFrame() は
@@ -55,12 +58,48 @@ namespace SolarSystem.Unity
         bool _jumpHeld;
         bool _apEngageHeld;
         bool _apCancelHeld;
+        bool _cycleHeld;
+        bool _dockHeld;
+        bool _undockHeld;
 
         readonly AutopilotSolver _autopilot = new AutopilotSolver();
+        readonly DockingSolver _docking = new DockingSolver();
+
+        int _targetIndex;
+        Vec3d _dockFrom;
 
         public SpeedDial Dial => _dial;
 
         public AutopilotSolver Autopilot => _autopilot;
+
+        public DockingSolver Docking => _docking;
+
+        /// <summary>選択中のステーションの番号 (Step 5)。</summary>
+        public int TargetIndex => _targetIndex;
+
+        public SpaceStation TargetStation(SolarSystemModel model)
+        {
+            if (model == null || model.Stations.Count == 0)
+            {
+                return null;
+            }
+
+            return model.Stations[_targetIndex % model.Stations.Count];
+        }
+
+        /// <summary>目標を次のステーションへ。</summary>
+        public void CycleTarget(SolarSystemModel model)
+        {
+            if (model == null || model.Stations.Count == 0)
+            {
+                return;
+            }
+
+            _targetIndex = (_targetIndex + 1) % model.Stations.Count;
+            _autopilot.Disengage();
+        }
+
+        public void SetTargetIndex(int index) => _targetIndex = System.Math.Max(0, index);
 
         /// <summary>直近に適用したスラスト入力 (-1..1)。</summary>
         public float LastThrust { get; private set; }
@@ -109,6 +148,9 @@ namespace SolarSystem.Unity
             _dialDown = _flight.FindAction("DialDown");
             _apEngage = _flight.FindAction("AutopilotEngage");
             _apCancel = _flight.FindAction("AutopilotCancel");
+            _cycleTarget = _flight.FindAction("CycleTarget");
+            _dockRequest = _flight.FindAction("DockRequest");
+            _undock = _flight.FindAction("Undock");
 
             _jumps = new InputAction[DebugJumpTable.Count];
             for (int i = 0; i < _jumps.Length; i++)
@@ -142,6 +184,9 @@ namespace SolarSystem.Unity
             input.DialDown = IsDown(_dialDown);
             input.AutopilotEngage = IsDown(_apEngage);
             input.AutopilotCancel = IsDown(_apCancel);
+            input.CycleTarget = IsDown(_cycleTarget);
+            input.DockRequest = IsDown(_dockRequest);
+            input.Undock = IsDown(_undock);
 
             if (_jumps != null)
             {
@@ -177,6 +222,27 @@ namespace SolarSystem.Unity
 
             HandleDial(input);
             HandleJump(root, input);
+
+            if (input.CycleTarget && !_cycleHeld)
+            {
+                CycleTarget(root.Model);
+            }
+
+            _cycleHeld = input.CycleTarget;
+
+            bool dockPressed = input.DockRequest && !_dockHeld;
+            bool undockPressed = input.Undock && !_undockHeld;
+            _dockHeld = input.DockRequest;
+            _undockHeld = input.Undock;
+
+            StepDocking(root, dockPressed, undockPressed, realDeltaSeconds);
+
+            // 補間中は state machine が船を握る。手動もオートパイロットも受け付けない。
+            if (_docking.ControlsShip)
+            {
+                return;
+            }
+
             HandleAutopilotInput(root, input);
 
             if (_autopilot.IsEngaged)
@@ -190,11 +256,77 @@ namespace SolarSystem.Unity
             }
         }
 
+        void StepDocking(UniverseRoot root, bool dockPressed, bool undockPressed, double dt)
+        {
+            SpaceStation station = TargetStation(root.Model);
+            if (station == null)
+            {
+                return;
+            }
+
+            double distance = station.DistanceFrom(root.Ship.Position);
+
+            // 機首とポート正面のなす角。ポートは深宇宙側を向いているので、
+            // 船はその逆を向いて寄る。
+            Vec3d port = station.PortDirection;
+            var facing = new Vector3((float)-port.X, (float)-port.Y, (float)-port.Z);
+            float angle = Vector3.Angle(_shipTransform.forward, facing);
+
+            DockingState before = _docking.State;
+            _docking.Step(distance, root.Ship.SpeedKmPerSec, angle, dockPressed, undockPressed, dt);
+
+            if (before != DockingState.Docking && _docking.State == DockingState.Docking)
+            {
+                _dockFrom = root.Ship.Position;
+                _autopilot.Disengage();
+            }
+
+            if (before != DockingState.Undocking && _docking.State == DockingState.Undocking)
+            {
+                _dockFrom = root.Ship.Position;
+            }
+
+            switch (_docking.State)
+            {
+                case DockingState.Docking:
+                    root.Ship.SetVelocity(Vec3d.Zero);
+                    root.Ship.SetPosition(DockingSolver.Interpolate(_dockFrom, station.PortPosition, _docking.Progress));
+                    AimAt(facing);
+                    break;
+
+                case DockingState.Docked:
+                    root.Ship.SetVelocity(Vec3d.Zero);
+                    root.Ship.SetPosition(station.PortPosition);
+                    break;
+
+                case DockingState.Undocking:
+                {
+                    // ポートの正面へ離脱する。
+                    Vec3d away = station.AbsolutePosition
+                                 + port * (station.PortStandoffKm + DockingSolver.UndockDistanceUnits);
+                    root.Ship.SetVelocity(Vec3d.Zero);
+                    root.Ship.SetPosition(DockingSolver.Interpolate(_dockFrom, away, _docking.Progress));
+                    break;
+                }
+            }
+        }
+
+        void AimAt(Vector3 forward)
+        {
+            if (forward.sqrMagnitude > 0f)
+            {
+                _shipTransform.rotation = Quaternion.LookRotation(forward, Vector3.up);
+            }
+        }
+
         void HandleAutopilotInput(UniverseRoot root, FlightInput input)
         {
             if (input.AutopilotEngage && !_apEngageHeld)
             {
-                EngageAutopilot(root, root.Model.Mars.AbsolutePosition);
+                SpaceStation station = TargetStation(root.Model);
+                EngageAutopilot(root, station != null
+                    ? station.PortPosition
+                    : root.Model.Mars.AbsolutePosition);
             }
 
             _apEngageHeld = input.AutopilotEngage;
@@ -280,6 +412,7 @@ namespace SolarSystem.Unity
             LastJumpIndex = index;
             _dial.Stop();
             _autopilot.Disengage();
+            _docking.Reset();
             root.PlaceObserver(DebugJumpTable.PositionForIndex(root.Model, index));
             LookAtMars(root);
         }
