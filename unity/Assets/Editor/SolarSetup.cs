@@ -15,4 +15,16 @@ public static class SolarSetup
         SolarSystem.Editor.SceneBuilder.Build();
         Debug.Log("[SolarSetup] OK");
     }
+
+    /// <summary>
+    /// スクショ検証。シーン生成とは別 Run にする
+    /// (CLAUDE.md §5「コンパイルやドメインリロードを跨ぐ処理は Run を分ける」)。
+    ///
+    ///   .\tools\run_unity.ps1 -Method SolarSetup.Capture
+    /// </summary>
+    public static void Capture()
+    {
+        SolarSystem.Editor.VerifyCapture.Run();
+        Debug.Log("[SolarSetup] Capture OK");
+    }
 }

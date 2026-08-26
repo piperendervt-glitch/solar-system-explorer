@@ -2,7 +2,8 @@
     "name": "SolarSystem.Unity",
     "rootNamespace": "SolarSystem.Unity",
     "references": [
-        "SolarSystem.Core"
+        "SolarSystem.Core",
+        "Unity.RenderPipelines.Universal.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

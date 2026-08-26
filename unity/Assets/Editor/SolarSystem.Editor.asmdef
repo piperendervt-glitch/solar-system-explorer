@@ -3,7 +3,8 @@
     "rootNamespace": "SolarSystem.Editor",
     "references": [
         "SolarSystem.Core",
-        "SolarSystem.Unity"
+        "SolarSystem.Unity",
+        "Unity.RenderPipelines.Universal.Runtime"
     ],
     "includePlatforms": [
         "Editor"

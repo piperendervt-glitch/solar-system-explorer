@@ -13,20 +13,20 @@ namespace SolarSystem.Editor
     ///
     /// GUI で手置きしない (docs/01-architecture.md §7-2)。
     /// 座標が 1e8 のオーダーなので Inspector への手入力は桁を間違える。
-    /// コードなら UniverseConstants.AstronomicalUnitKm と書けて検算できる。
+    /// コードなら SolarSystemModel.CreateOpposition() と書けて検算できる。
     /// </summary>
     public static class SceneBuilder
     {
         public const string ScenePath = "Assets/Scenes/Main.unity";
 
-        /// <summary>Step 1 の目視用参照マーカーの距離 [units = km]。</summary>
-        const double MarkerDistance = 50.0;
+        public const string DeepLayerName = "DeepSpace";
 
         public static void Build()
         {
+            int deepLayer = LayerUtility.EnsureLayer(DeepLayerName);
+
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-            // ---- UniverseRoot ----
             var rootGo = new GameObject("UniverseRoot");
             var universeRoot = rootGo.AddComponent<UniverseRoot>();
 
@@ -34,40 +34,67 @@ namespace SolarSystem.Editor
             driverGo.transform.SetParent(rootGo.transform, false);
             var shiftDriver = driverGo.AddComponent<OriginShiftDriver>();
 
-            // ---- 船 (Step 1 では見た目を持たない。カメラの台座) ----
+            // ---- 船 (Step 2 では見た目を持たない。カメラの台座) ----
             var shipGo = new GameObject("Ship");
             shipGo.transform.SetParent(rootGo.transform, false);
             shipGo.transform.position = Vector3.zero;
 
-            var cameraGo = new GameObject("Cam_Near");
-            cameraGo.transform.SetParent(shipGo.transform, false);
-            var camera = cameraGo.AddComponent<Camera>();
-            camera.tag = "MainCamera";
-            camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = Color.black;
-            // near/far とカメラ段の構成は Step 2 の作業 (決定 D-6: 2 段で開始)。
-            // ここでは既定値のまま 1 台だけ置く。
+            // ---- カメラ 2 段 (決定 D-6)。3 段目は作らない ----
+            Camera deepCam = CreateCamera("Cam_Deep", shipGo.transform);
+            Camera nearCam = CreateCamera("Cam_Near", shipGo.transform);
+            nearCam.tag = "MainCamera";
 
-            // ---- 参照マーカー ----
-            // 天体ではない。浮動原点が効いていることを目で見るための素の立方体。
-            // 天体・テクスチャ・光点/メッシュ切替は Step 2 の作業。
-            CreateMarker("ReferenceMarker_X", new Vec3d(MarkerDistance, 0.0, 0.0), rootGo.transform);
-            CreateMarker("ReferenceMarker_Y", new Vec3d(0.0, MarkerDistance, 0.0), rootGo.transform);
-            CreateMarker("ReferenceMarker_Z", new Vec3d(0.0, 0.0, MarkerDistance), rootGo.transform);
+            // Deep はプロキシ殻だけ、Near はそれ以外だけを描く。
+            deepCam.cullingMask = 1 << deepLayer;
+            nearCam.cullingMask = ~(1 << deepLayer);
 
-            universeRoot.Configure(shiftDriver, shipGo.transform);
+            var stackGo = new GameObject("CameraStack");
+            stackGo.transform.SetParent(rootGo.transform, false);
+            var stack = stackGo.AddComponent<CameraStackController>();
+            stack.Bind(deepCam, nearCam);
+            stack.Configure();
 
-            // 登録漏れの検査 (docs/01-architecture.md §2-5)。
-            // 実行時は Awake でも集め直すが、生成時点で数が合わないなら生成側のバグ。
-            shiftDriver.CollectFromScene();
-            const int expectedShiftableCount = 3; // 参照マーカー 3 個
-            if (shiftDriver.Bodies.Count != expectedShiftableCount)
+            // ---- 太陽の Directional Light ----
+            // 位置を持たないので ShiftableBody に登録しない (§3-5)。
+            var lightGo = new GameObject("SunLight");
+            lightGo.transform.SetParent(rootGo.transform, false);
+            var light = lightGo.AddComponent<Light>();
+            light.type = LightType.Directional;
+            light.color = new Color(1f, 0.96f, 0.90f);
+            light.shadows = LightShadows.Soft;
+
+            var aimerGo = new GameObject("SunLightAimer");
+            aimerGo.transform.SetParent(rootGo.transform, false);
+            var aimer = aimerGo.AddComponent<SunLightAimer>();
+            aimer.Bind(light);
+
+            // ---- 天体 (プロキシ殻。Deep レイヤー) ----
+            var bodiesGo = new GameObject("Bodies");
+            bodiesGo.transform.SetParent(shipGo.transform, false);
+            var solarSystemView = bodiesGo.AddComponent<SolarSystemView>();
+
+            SolarSystemModel model = SolarSystemModel.CreateOpposition();
+            foreach (CelestialBody body in model.Bodies)
             {
-                throw new InvalidDataException(
-                    $"ShiftableBody の数が合わない: 期待 {expectedShiftableCount} / 実際 {shiftDriver.Bodies.Count}");
+                solarSystemView.Register(CreateBodyView(body, bodiesGo.transform, deepLayer));
             }
 
-            // ---- 保存 ----
+            universeRoot.Configure(shiftDriver, shipGo.transform, solarSystemView, aimer);
+
+            // 登録漏れの検査 (docs/01-architecture.md §2-5)。
+            shiftDriver.CollectFromScene();
+            if (shiftDriver.Bodies.Count != 0)
+            {
+                throw new InvalidDataException(
+                    $"ShiftableBody は 0 個のはず (天体はプロキシ殻で扱う): 実際 {shiftDriver.Bodies.Count}");
+            }
+
+            if (solarSystemView.Views.Count != 3)
+            {
+                throw new InvalidDataException(
+                    $"天体は 3 個のはず: 実際 {solarSystemView.Views.Count}");
+            }
+
             string dir = Path.GetDirectoryName(ScenePath);
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             {
@@ -75,8 +102,7 @@ namespace SolarSystem.Editor
             }
 
             EditorSceneManager.MarkSceneDirty(scene);
-            bool saved = EditorSceneManager.SaveScene(scene, ScenePath);
-            if (!saved)
+            if (!EditorSceneManager.SaveScene(scene, ScenePath))
             {
                 throw new IOException($"シーンの保存に失敗した: {ScenePath}");
             }
@@ -84,19 +110,42 @@ namespace SolarSystem.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            Debug.Log($"[SceneBuilder] OK: {ScenePath} / ShiftableBody {shiftDriver.Bodies.Count} 個");
+            Debug.Log($"[SceneBuilder] OK: {ScenePath} / 天体 {solarSystemView.Views.Count} 個 / DeepSpace レイヤー = {deepLayer}");
         }
 
-        static void CreateMarker(string name, Vec3d absolutePosition, Transform parent)
+        static Camera CreateCamera(string name, Transform parent)
         {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = name;
+            var go = new GameObject(name);
             go.transform.SetParent(parent, false);
-            // 1 unit = 1 km なので、既定の 1 unit 立方体は一辺 1 km。10 m に縮める。
-            go.transform.localScale = Vector3.one * 0.01f;
+            return go.AddComponent<Camera>();
+        }
 
-            var body = go.AddComponent<ShiftableBody>();
-            body.AbsolutePosition = absolutePosition;
+        static CelestialBodyView CreateBodyView(CelestialBody body, Transform parent, int deepLayer)
+        {
+            var root = new GameObject(body.Name);
+            root.transform.SetParent(parent, false);
+            root.layer = deepLayer;
+
+            // 光点: 球にする。数 px にしかならないので板と見分けがつかず、
+            // 片面ポリゴンの裏表・巻き順の問題が消える (Quad では描画されなかった)。
+            GameObject point = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            point.name = "Point";
+            point.transform.SetParent(root.transform, false);
+            point.layer = deepLayer;
+            Object.DestroyImmediate(point.GetComponent<Collider>());
+            point.GetComponent<Renderer>().sharedMaterial = MaterialLibrary.PointMaterial(body);
+
+            // メッシュ: 直径 1 の球。スケールは CelestialBodyView が毎フレーム決める。
+            GameObject mesh = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            mesh.name = "Mesh";
+            mesh.transform.SetParent(root.transform, false);
+            mesh.layer = deepLayer;
+            Object.DestroyImmediate(mesh.GetComponent<Collider>());
+            mesh.GetComponent<Renderer>().sharedMaterial = MaterialLibrary.MeshMaterial(body);
+
+            var view = root.AddComponent<CelestialBodyView>();
+            view.Bind(body, point.transform, mesh.transform);
+            return view;
         }
     }
 }
