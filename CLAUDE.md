@@ -8,6 +8,50 @@
 
 ---
 
+## 0. 現在の作業（Demo 2）
+
+**Step 0〜7（最小デモ）は完了・タグ済み（`step-0`〜`step-7` / `v0.1-minimal-demo`）。**
+
+現在は [docs/02-demo2-plan.md](docs/02-demo2-plan.md) の **Demo 2（見た目デモ）** を進める。
+**Step 番号は `8-0` から。** 計画上の区切りは次のとおり。
+
+| Step | 内容 |
+| --- | --- |
+| 8-0 | 共通の小物（F1 トグル・微振動） |
+| 8 | 惑星の表現（テクスチャ → シェーダ → 雲 → 自転 → 整合） |
+| 9 | 太陽の表現（HDR ディスク → コロナ → フレア → 露出再調整） |
+| 10 | 音（素材 → Mixer → エンジン → イベント → スナップショット） |
+
+Demo 2 の「やらない」ことは計画書 §7 にある。**勝手に広げない。**
+
+### 素材の置き場所
+
+| | |
+| --- | --- |
+| 作業用コピー | `source_assets/textures/` と `source_assets/audio/`（**`.gitignore` 済み**） |
+| 原本 | `D:\Users\pipe_render\Downloads\solar-system-explorer\`（**消さない。ここが原本**） |
+
+実測 `%USERPROFILE%` は `C:\Users\pipe_render` だが、**原本は D: ドライブにある。**
+`%USERPROFILE%\Downloads\...` では届かないので、上表の絶対パスを使うこと。
+
+`source_assets/` はリポジトリに入らない。clone しただけの環境には無いので、
+`unity/Assets/` へ取り込むときだけ参照する。
+
+| ファイル | 追跡 | 内容 |
+| --- | --- | --- |
+| [docs/asset-sources.md](docs/asset-sources.md) | する | 出典・ライセンス一覧（**雛形。「要確認」が残っている**） |
+| [docs/audio-candidates.md](docs/audio-candidates.md) | する | §10-1 の 6 用途ごとの候補（**未決定。人間が試聴して選ぶ**） |
+| `source_assets/AUDIO_INVENTORY.txt` | しない | 音声 360 本の長さ / Hz / ch / ピーク。ffprobe から再生成できる |
+
+**出典の記録は `source_assets/` に置かない。** あそこは丸ごと gitignore されるので、
+リポジトリに残らない。ライセンス関係は必ず `docs/` 側に置くこと。
+
+Kenney の 4 パックは `source_assets/audio/kenney/<パック名>/` に展開済みで、
+すべて **CC0**（クレジット任意）。freesound の 2 ファイルは **ライセンス未確認**。
+計画書 §10-1 は「CC0 のみ採用」なので、**確認するまで採用しない。**
+
+---
+
 ## 1. 環境（実測値）
 
 | 項目 | 値 |
