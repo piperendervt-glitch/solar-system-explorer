@@ -68,9 +68,28 @@ namespace SolarSystem.Editor
             var aimer = aimerGo.AddComponent<SunLightAimer>();
             aimer.Bind(light);
 
+            // ---- 手動操作 (Step 3a) ----
+            var inputAsset = AssetDatabase.LoadAssetAtPath<UnityEngine.InputSystem.InputActionAsset>(
+                "Assets/Input/ShipControls.inputactions");
+            if (inputAsset == null)
+            {
+                throw new FileNotFoundException("Assets/Input/ShipControls.inputactions が無い。");
+            }
+
+            var rigGo = new GameObject("ShipRig");
+            rigGo.transform.SetParent(rootGo.transform, false);
+            var rig = rigGo.AddComponent<ShipRig>();
+            rig.Bind(inputAsset, shipGo.transform);
+
+            var overlayGo = new GameObject("DebugOverlay");
+            overlayGo.transform.SetParent(rootGo.transform, false);
+            var overlay = overlayGo.AddComponent<DebugOverlay>();
+            overlay.Bind(universeRoot, rig);
+
             // ---- 天体 (プロキシ殻。Deep レイヤー) ----
+            // **船の子にしない。** 船は手動操作で回るので、子にすると天体が一緒に回ってしまう。
             var bodiesGo = new GameObject("Bodies");
-            bodiesGo.transform.SetParent(shipGo.transform, false);
+            bodiesGo.transform.SetParent(rootGo.transform, false);
             var solarSystemView = bodiesGo.AddComponent<SolarSystemView>();
 
             SolarSystemModel model = SolarSystemModel.CreateOpposition();
@@ -79,7 +98,7 @@ namespace SolarSystem.Editor
                 solarSystemView.Register(CreateBodyView(body, bodiesGo.transform, deepLayer));
             }
 
-            universeRoot.Configure(shiftDriver, shipGo.transform, solarSystemView, aimer);
+            universeRoot.Configure(shiftDriver, shipGo.transform, solarSystemView, aimer, rig);
 
             // 登録漏れの検査 (docs/01-architecture.md §2-5)。
             shiftDriver.CollectFromScene();
@@ -106,6 +125,9 @@ namespace SolarSystem.Editor
             {
                 throw new IOException($"シーンの保存に失敗した: {ScenePath}");
             }
+
+            // PlayMode テストから SceneManager.LoadScene で開けるようにする。
+            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();

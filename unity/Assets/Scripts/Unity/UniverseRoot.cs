@@ -25,6 +25,7 @@ namespace SolarSystem.Unity
         [SerializeField] Transform _shipTransform;
         [SerializeField] SolarSystemView _solarSystemView;
         [SerializeField] SunLightAimer _sunLightAimer;
+        [SerializeField] ShipRig _shipRig;
 
         [Header("Step 1 の初期速度 (km/s)。既定は 0.9c を +Z へ)")]
         [SerializeField] double _initialVelocityX;
@@ -40,6 +41,7 @@ namespace SolarSystem.Unity
         public OriginShiftDriver ShiftDriver => _shiftDriver;
         public SolarSystemView SolarSystem => _solarSystemView;
         public SunLightAimer SunLight => _sunLightAimer;
+        public ShipRig Rig => _shipRig;
 
         /// <summary>切替判定に使う 1 px あたりの角度 [rad]。</summary>
         public double RadiansPerPixel { get; private set; }
@@ -94,6 +96,12 @@ namespace SolarSystem.Unity
         /// </summary>
         public void Tick(double realDeltaSeconds)
         {
+            // 入力 -> 姿勢と速度。積分より先に反映する (決定 D-1: 呼び出し順はコードに書く)。
+            if (_shipRig != null)
+            {
+                _shipRig.ApplyInput(this, realDeltaSeconds);
+            }
+
             int steps = Clock.Advance(realDeltaSeconds);
             for (int i = 0; i < steps; i++)
             {
@@ -135,12 +143,14 @@ namespace SolarSystem.Unity
             OriginShiftDriver shiftDriver,
             Transform shipTransform,
             SolarSystemView solarSystemView = null,
-            SunLightAimer sunLightAimer = null)
+            SunLightAimer sunLightAimer = null,
+            ShipRig shipRig = null)
         {
             _shiftDriver = shiftDriver;
             _shipTransform = shipTransform;
             _solarSystemView = solarSystemView;
             _sunLightAimer = sunLightAimer;
+            _shipRig = shipRig;
         }
 
         /// <summary>

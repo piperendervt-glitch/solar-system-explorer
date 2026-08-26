@@ -1,6 +1,6 @@
 {
-    "name": "SolarSystem.Tests.EditMode",
-    "rootNamespace": "SolarSystem.Tests.EditMode",
+    "name": "SolarSystem.Tests.PlayMode",
+    "rootNamespace": "SolarSystem.Tests.PlayMode",
     "references": [
         "SolarSystem.Core",
         "SolarSystem.Unity",
@@ -8,9 +8,7 @@
         "UnityEditor.TestRunner",
         "Unity.InputSystem"
     ],
-    "includePlatforms": [
-        "Editor"
-    ],
+    "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": true,

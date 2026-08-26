@@ -1,0 +1,44 @@
+using UnityEngine;
+
+namespace SolarSystem.Unity
+{
+    /// <summary>
+    /// 1 フレームぶんの操縦入力。Input System から読み取った結果をここへ詰めて
+    /// ShipRig.Apply へ渡す。
+    ///
+    /// **こうしてある理由:** Input System を ShipRig の内部で直接読むと、
+    /// 制御ロジック (ダイヤルの立ち上がり、ジャンプ、姿勢、速度) をテストするのに
+    /// 実機のキー入力が要る。batchmode の PlayMode では Input System の
+    /// プレイヤー側状態が更新されず、QueueStateEvent も InputState.Change も
+    /// 効かなかった (実測)。入力の読み取りを端 1 箇所に閉じ込めておけば、
+    /// ロジックは EditMode / PlayMode の両方から素の値で叩ける。
+    /// </summary>
+    public struct FlightInput
+    {
+        /// <summary>マウス移動量 [px]。x=ヨー / y=ピッチ。</summary>
+        public Vector2 LookMouse;
+
+        /// <summary>キーによる旋回 (-1..1)。x=ヨー / y=ピッチ。</summary>
+        public Vector2 LookKeys;
+
+        /// <summary>ロール (-1..1)。</summary>
+        public float Roll;
+
+        /// <summary>前進 (-1..1)。ダイヤル値に掛かる。</summary>
+        public float Thrust;
+
+        public bool DialUp;
+
+        public bool DialDown;
+
+        /// <summary>デバッグジャンプの段 (0 起点)。押されていなければ -1。</summary>
+        public int JumpIndex;
+
+        public static FlightInput None => new FlightInput { JumpIndex = -1 };
+
+        public static FlightInput Jump(int index) => new FlightInput { JumpIndex = index };
+
+        public static FlightInput Forward(float thrust) =>
+            new FlightInput { Thrust = thrust, JumpIndex = -1 };
+    }
+}
