@@ -24,8 +24,10 @@ namespace SolarSystem.Unity
 
         [SerializeField] Transform _point;
         [SerializeField] Transform _mesh;
+        [SerializeField] Transform _realMesh;
         [SerializeField] Renderer _pointRenderer;
         [SerializeField] Renderer _meshRenderer;
+        [SerializeField] Renderer _realMeshRenderer;
 
         readonly BodyLodSolver _lod = new BodyLodSolver();
 
@@ -41,16 +43,26 @@ namespace SolarSystem.Unity
         /// <summary>直近の真の距離 [units]。</summary>
         public double LastDistance { get; private set; }
 
+        /// <summary>実スケールへの引き渡し率 0..1 (Step 3b)。</summary>
+        public double RealScaleBlend { get; private set; }
+
+        /// <summary>この天体が引き渡しの対象か。SolarSystemView が毎フレーム決める。</summary>
+        public bool IsHandoffTarget { get; private set; }
+
+        public void SetHandoffTarget(bool value) => IsHandoffTarget = value;
+
         public string BodyName => _bodyName;
 
-        public void Bind(CelestialBody body, Transform point, Transform mesh)
+        public void Bind(CelestialBody body, Transform point, Transform mesh, Transform realMesh)
         {
             Body = body;
             _bodyName = body != null ? body.Name : null;
             _point = point;
             _mesh = mesh;
+            _realMesh = realMesh;
             _pointRenderer = point != null ? point.GetComponent<Renderer>() : null;
             _meshRenderer = mesh != null ? mesh.GetComponent<Renderer>() : null;
+            _realMeshRenderer = realMesh != null ? realMesh.GetComponent<Renderer>() : null;
         }
 
         /// <summary>シーン読み込み後に Core のモデルから天体データを引き直す。</summary>
@@ -83,6 +95,11 @@ namespace SolarSystem.Unity
                 return;
             }
 
+            // 引き渡し対象でなければ常にプロキシ殻のまま (太陽・地球など)。
+            RealScaleBlend = IsHandoffTarget
+                ? RealScaleHandoff.Blend(Body.DistanceFrom(observerAbsolute))
+                : 0.0;
+
             double distance = Body.DistanceFrom(observerAbsolute);
             LastDistance = distance;
 
@@ -109,7 +126,7 @@ namespace SolarSystem.Unity
             {
                 float meshRadius = (float)(Body.RadiusKm * scale);
                 _mesh.localScale = Vector3.one * (meshRadius * 2f);
-                _mesh.gameObject.SetActive(_lod.MeshActive);
+                _mesh.gameObject.SetActive(_lod.MeshActive && RealScaleBlend < 1.0);
             }
 
             // ---- 光点: 最小 px でクランプ ----
@@ -120,7 +137,25 @@ namespace SolarSystem.Unity
                 // 殻の上で pointAngular の角直径になる半径
                 float pointRadius = (float)(shellRadius * System.Math.Tan(pointAngular * 0.5));
                 _point.localScale = Vector3.one * (pointRadius * 2f);
-                _point.gameObject.SetActive(_lod.PointActive);
+                _point.gameObject.SetActive(_lod.PointActive && RealScaleBlend < 1.0);
+            }
+
+            // ---- 実スケール: 真の距離・真の大きさで置く (Step 3b) ----
+            if (_realMesh != null)
+            {
+                bool active = RealScaleBlend > 0.0;
+                _realMesh.gameObject.SetActive(active);
+                if (active)
+                {
+                    // 親 (この Transform) はプロキシ殻の上にいるので、
+                    // 実スケール側はワールド座標で直接置く。観測者は常に原点。
+                    _realMesh.position = new Vector3(
+                        (float)(dir.X * distance),
+                        (float)(dir.Y * distance),
+                        (float)(dir.Z * distance));
+                    _realMesh.rotation = Quaternion.identity;
+                    _realMesh.localScale = Vector3.one * (float)(Body.RadiusKm * 2.0);
+                }
             }
 
             ApplyColors();
@@ -139,23 +174,26 @@ namespace SolarSystem.Unity
                 (float)Body.Color.B,
                 1f);
 
-            if (_meshRenderer != null && _lod.MeshActive)
+            // プロキシ側は実スケールが立ち上がるぶんだけ薄くする。合計は常に 1。
+            float proxyShare = (float)(1.0 - RealScaleBlend);
+
+            SetAlpha(_meshRenderer, baseColor, (float)_lod.Blend * proxyShare);
+            SetAlpha(_pointRenderer, baseColor, (float)(1.0 - _lod.Blend) * proxyShare);
+            SetAlpha(_realMeshRenderer, baseColor, (float)RealScaleBlend);
+        }
+
+        void SetAlpha(Renderer renderer, Color baseColor, float alpha)
+        {
+            if (renderer == null || !renderer.gameObject.activeSelf)
             {
-                _meshRenderer.GetPropertyBlock(_block);
-                var c = baseColor;
-                c.a = (float)_lod.Blend;
-                _block.SetColor(ShaderIds.BaseColor, c);
-                _meshRenderer.SetPropertyBlock(_block);
+                return;
             }
 
-            if (_pointRenderer != null && _lod.PointActive)
-            {
-                _pointRenderer.GetPropertyBlock(_block);
-                var c = baseColor;
-                c.a = (float)(1.0 - _lod.Blend);
-                _block.SetColor(ShaderIds.BaseColor, c);
-                _pointRenderer.SetPropertyBlock(_block);
-            }
+            renderer.GetPropertyBlock(_block);
+            var c = baseColor;
+            c.a = alpha;
+            _block.SetColor(ShaderIds.BaseColor, c);
+            renderer.SetPropertyBlock(_block);
         }
 
         static class ShaderIds

@@ -8,7 +8,7 @@ namespace SolarSystem.Unity
     ///
     /// **2 段で開始する。3 段目は Z ファイトが実測で出てから足す。**
     ///   Deep (Base)    near 500 / far 12000  : プロキシ殻だけ。殻は 1,000〜10,000 に載る
-    ///   Near (Overlay) 近景すべて            : 深度をクリアして上に重ねる
+    ///   Near (Overlay) near 1 / far 1.5e5    : 実スケール天体。深度をクリアして上に重ねる
     ///
     /// 奥から手前へ描くので、Near が Deep を覆う。
     /// </summary>
@@ -17,8 +17,9 @@ namespace SolarSystem.Unity
     {
         public const float DeepNearClip = 500f;
         public const float DeepFarClip = 12000f;
-        public const float NearNearClip = 0.001f;
-        public const float NearFarClip = 30000f;
+        // Step 3b: 実スケールメッシュ (火星まで 5e4 units、半径 3389.5) が入るので広げる。
+        public const float NearNearClip = 1f;
+        public const float NearFarClip = 150000f;
         public const float VerticalFovDegrees = 60f;
 
         [SerializeField] Camera _deep;
@@ -71,6 +72,25 @@ namespace SolarSystem.Unity
             }
 
             deepData.cameraStack.Add(_near);
+        }
+
+        /// <summary>
+        /// Overlay (Near) をスタックから外す/戻す。
+        /// 外すとプロキシ殻だけの絵になるので、実スケール引き渡しの前後比較に使う。
+        /// </summary>
+        public void SetOverlayEnabled(bool enabled)
+        {
+            if (_deep == null || _near == null)
+            {
+                return;
+            }
+
+            UniversalAdditionalCameraData deepData = _deep.GetUniversalAdditionalCameraData();
+            deepData.cameraStack.Clear();
+            if (enabled)
+            {
+                deepData.cameraStack.Add(_near);
+            }
         }
     }
 }

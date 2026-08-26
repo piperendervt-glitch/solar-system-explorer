@@ -102,7 +102,11 @@ $KnownBenignLogNoise = @(
     # Unity Hub 常駐の LicensingClient 由来。直後に
     # "[Licensing::Client] Successfully resolved entitlement details" が続き、
     # Unity Personal / Expiration: Unlimited でライセンス自体は解決している。
-    '[Licensing::Module] Error: Access token is unavailable; failed to update'
+    '[Licensing::Module] Error: Access token is unavailable; failed to update',
+    # Unity Hub 常駐の LicensingClient がプロトコル 1.18.0 を返して弾かれる (ResponseCode: 505)。
+    # 直後に Editor が自前の "LicenseClient-pipe_render-6000.3.11" を起動し直して
+    # 接続に成功し、Unity Personal で entitlement が解決している (2026-08-26 実測)。
+    '[Licensing::Module] Error: Failed to handshake to channel:'
 )
 
 # 既知ノイズかどうか。-like や -match は [ ] を wildcard / 正規表現として

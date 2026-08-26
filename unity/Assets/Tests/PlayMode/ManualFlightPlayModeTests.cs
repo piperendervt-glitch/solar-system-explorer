@@ -230,6 +230,172 @@ namespace SolarSystem.Tests.PlayMode
             yield return null;
         }
 
+        // ================= Step 3b =================
+
+        [UnityTest]
+        public IEnumerator 実スケール引き渡しで近距離の破綻が直る()
+        {
+            Directory.CreateDirectory(ShotDirectory);
+            CelestialBodyView mars = _root.SolarSystem.Find("Mars");
+
+            // 段6(1e4) / 段7(5e3) / 段8(3e3) — 3a で破綻していた距離。
+            foreach (int index in new[] { 5, 6, 7 })
+            {
+                Tap(FlightInput.Jump(index));
+                yield return null;
+
+                double d = DebugJumpTable.Distances[index];
+
+                // 引き渡し前 = 引き渡しを切って Step 3a と同じ「プロキシ殻だけ」に戻した絵。
+                _root.SolarSystem.HandoffEnabled = false;
+                _root.Tick(Dt);
+                Capture($"3b_key{index + 1}_{d:0.###e+0}_before");
+
+                _root.SolarSystem.HandoffEnabled = true;
+                _root.Tick(Dt);
+                Capture($"3b_key{index + 1}_{d:0.###e+0}_after");
+
+                Debug.Log(
+                    $"[Step3b] 段{index + 1} 火星まで {d:E1} units / " +
+                    $"引き渡し率 {mars.RealScaleBlend:F2} / " +
+                    $"殻メッシュ {(mars.Lod.MeshActive ? "ON " : "off")} / " +
+                    $"実スケール {(mars.RealScaleBlend > 0.0 ? "ON " : "off")}");
+                Debug.Log($"[Step3b] --- デバッグ表示 ---\n{_overlay.BuildText()}");
+            }
+
+            // 3e4 units 以下では完全に実スケールへ渡っている。
+            Assert.That(mars.RealScaleBlend, Is.EqualTo(1.0));
+        }
+
+        [UnityTest]
+        public IEnumerator 引き渡し帯の途中では両方が出ている()
+        {
+            CelestialBodyView mars = _root.SolarSystem.Find("Mars");
+
+            // 4e4 units は帯のちょうど真ん中。
+            _rig.JumpTo(_root, 4);            // まず 2e4 へ飛んでから
+            _root.PlaceObserver(DebugJumpTable.PositionAt(_root.Model, 4.0e4));
+            yield return null;
+
+            Debug.Log($"[Step3b] 4e4 units: 引き渡し率 {mars.RealScaleBlend:F3} / " +
+                      $"殻メッシュ {(mars.Lod.MeshActive ? "ON" : "off")}");
+
+            Assert.That(mars.RealScaleBlend, Is.EqualTo(0.5).Within(1e-6));
+        }
+
+        [UnityTest]
+        public IEnumerator 太陽と地球はプロキシ殻のまま()
+        {
+            Tap(FlightInput.Jump(7)); // 火星まで 3e3 units
+            yield return null;
+
+            CelestialBodyView sun = _root.SolarSystem.Find("Sun");
+            CelestialBodyView earth = _root.SolarSystem.Find("Earth");
+            CelestialBodyView mars = _root.SolarSystem.Find("Mars");
+
+            Debug.Log($"[Step3b] 引き渡し対象 = {_root.SolarSystem.HandoffTarget?.BodyName ?? "なし"} / " +
+                      $"太陽 {sun.RealScaleBlend:F2} / 地球 {earth.RealScaleBlend:F2} / 火星 {mars.RealScaleBlend:F2}");
+
+            Assert.That(sun.RealScaleBlend, Is.EqualTo(0.0));
+            Assert.That(earth.RealScaleBlend, Is.EqualTo(0.0));
+            Assert.That(mars.RealScaleBlend, Is.EqualTo(1.0));
+            Assert.That(_root.SolarSystem.HandoffTarget.BodyName, Is.EqualTo("Mars"));
+        }
+
+        [UnityTest]
+        public IEnumerator オートパイロットで仮目標へ到着する()
+        {
+            // 1/1000 スケールの仮目標 7.8e4 units (決定 D-8)。
+            _root.PlaceObserver(DebugJumpTable.PositionAt(_root.Model, 7.8e4));
+            _rig.LookAtMars(_root);
+            _rig.EngageAutopilot(_root, _root.Model.Mars.AbsolutePosition);
+
+            // 起動直後は必ず Align。LookAtMars で既に機首が合っているので、
+            // 次の Tick で Cruise へ移る。
+            Assert.That(_rig.Autopilot.State, Is.EqualTo(AutopilotState.Align));
+            yield return null;
+            Assert.That(_rig.Autopilot.IsEngaged, Is.True);
+
+            int steps = 0;
+            const int maxSteps = 60 * 60; // 60 秒ぶん
+            while (_rig.Autopilot.State != AutopilotState.Arrived && steps < maxSteps)
+            {
+                _root.Tick(Dt);
+                steps++;
+                if (steps % 120 == 0)
+                {
+                    yield return null;
+                }
+            }
+
+            double finalDistance = _root.Model.Mars.DistanceFrom(_root.Ship.Position);
+            Debug.Log(
+                $"[Step3b] AP 到着: {steps * Dt:F3} 秒 ({steps} ステップ) / " +
+                $"最終距離 {finalDistance:F4} units / 最終速度 {_root.Ship.SpeedKmPerSec:F4} km/s");
+            Debug.Log($"[Step3b] --- デバッグ表示 ---\n{_overlay.BuildText()}");
+
+            Assert.That(_rig.Autopilot.State, Is.EqualTo(AutopilotState.Arrived));
+            Assert.That(finalDistance, Is.InRange(0.0, UniverseConstants.ArrivalRadiusUnits));
+            Assert.That(_root.Ship.SpeedKmPerSec, Is.LessThanOrEqualTo(UniverseConstants.ArrivalMaxSpeedKmPerSec));
+        }
+
+        [UnityTest]
+        public IEnumerator 到着後は手動操作に戻せる()
+        {
+            _root.PlaceObserver(DebugJumpTable.PositionAt(_root.Model, 7.8e4));
+            _rig.LookAtMars(_root);
+            _rig.EngageAutopilot(_root, _root.Model.Mars.AbsolutePosition);
+
+            int steps = 0;
+            while (_rig.Autopilot.State != AutopilotState.Arrived && steps < 60 * 60)
+            {
+                _root.Tick(Dt);
+                steps++;
+            }
+
+            Assert.That(_rig.Autopilot.State, Is.EqualTo(AutopilotState.Arrived));
+
+            // 手動入力を入れると解除され、以後は手動で動く。
+            Tap(new FlightInput { Roll = 1f, JumpIndex = -1 });
+            Assert.That(_rig.Autopilot.State, Is.EqualTo(AutopilotState.Idle));
+
+            for (int i = 0; i < 3; i++)
+            {
+                Tap(new FlightInput { DialUp = true, JumpIndex = -1 });
+            }
+
+            double before = _root.Model.Mars.DistanceFrom(_root.Ship.Position);
+            _rig.LookAtMars(_root);
+            Hold(FlightInput.Forward(1f), 60);
+            double after = _root.Model.Mars.DistanceFrom(_root.Ship.Position);
+
+            Debug.Log($"[Step3b] 到着後の手動前進: {before:F4} -> {after:F4} units");
+            Assert.That(after, Is.LessThan(before), "到着後に手動で動かせない");
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator 手動操作中にオートパイロットを起動できる()
+        {
+            Tap(FlightInput.Jump(2)); // 1e5 units
+            for (int i = 0; i < 3; i++)
+            {
+                Tap(new FlightInput { DialUp = true, JumpIndex = -1 });
+            }
+
+            Hold(FlightInput.Forward(1f), 10);
+            Assert.That(_rig.Autopilot.State, Is.EqualTo(AutopilotState.Idle));
+
+            _rig.LookAtMars(_root);
+            Tap(new FlightInput { AutopilotEngage = true, JumpIndex = -1 });
+
+            Debug.Log($"[Step3b] 手動中に AP 起動 -> {_rig.Autopilot.State} / " +
+                      $"実効巡航 {_rig.Autopilot.EffectiveCruiseKmPerSec:E3} km/s");
+
+            Assert.That(_rig.Autopilot.IsEngaged, Is.True);
+            yield return null;
+        }
+
         void Capture(string name)
         {
             var rt = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32);

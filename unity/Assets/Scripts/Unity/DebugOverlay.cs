@@ -55,7 +55,20 @@ namespace SolarSystem.Unity
             sb.AppendLine($"速度     : {speed:0.###} km/s  ({UniverseConstants.KmPerSecToBeta(speed):0.####} c)  スラスト {_rig.LastThrust:+0.0;-0.0; 0.0}");
             sb.AppendLine($"火星まで : {distance:E4} units");
             sb.AppendLine($"表示     : {mode}   角直径 {angular}");
-            sb.Append($"操作     : W/S/A/D=ピッチ/ヨー  Q/E=ロール  Space=前進  1〜8=ジャンプ");
+            AutopilotSolver ap = _rig.Autopilot;
+            string eta = double.IsInfinity(ap.EtaSeconds)
+                ? "--:--"
+                : $"{(int)(ap.EtaSeconds / 60):00}:{ap.EtaSeconds % 60:00.0}";
+            sb.AppendLine($"AP       : {ap.State}  指令 {ap.CommandedSpeedKmPerSec:0.###} km/s  " +
+                          $"残り {ap.RemainingDistance:E3} units  制動距離 {ap.BrakeDistance:E3}  ETA {eta}");
+
+            if (mars != null)
+            {
+                sb.AppendLine($"実スケール: 引き渡し率 {mars.RealScaleBlend:0.00}  " +
+                              $"(帯 {RealScaleHandoff.FadeStartDistance:E0} -> {RealScaleHandoff.FadeEndDistance:E0} units)");
+            }
+
+            sb.Append($"操作     : W/S/A/D=ピッチ/ヨー  Q/E=ロール  Space=前進  1〜8=ジャンプ  T=AP起動  G=AP解除");
 
             if (clipping)
             {

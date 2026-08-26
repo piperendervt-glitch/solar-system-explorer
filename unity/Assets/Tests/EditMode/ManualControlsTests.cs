@@ -146,6 +146,7 @@ namespace SolarSystem.Tests.EditMode
             {
                 "LookMouse", "LookKeys", "Roll", "Thrust", "DialUp", "DialDown",
                 "Jump1", "Jump2", "Jump3", "Jump4", "Jump5", "Jump6", "Jump7", "Jump8",
+                "AutopilotEngage", "AutopilotCancel",
             };
 
             foreach (string name in required)
@@ -188,6 +189,8 @@ namespace SolarSystem.Tests.EditMode
             Assert.That(AllPaths("Thrust"), Does.Contain("<Keyboard>/space"));
             Assert.That(AllPaths("DialUp"), Does.Contain("<Keyboard>/r"));
             Assert.That(AllPaths("DialDown"), Does.Contain("<Keyboard>/f"));
+            Assert.That(AllPaths("AutopilotEngage"), Does.Contain("<Keyboard>/t"));
+            Assert.That(AllPaths("AutopilotCancel"), Does.Contain("<Keyboard>/g"));
         }
     }
 }

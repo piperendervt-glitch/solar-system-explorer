@@ -165,8 +165,16 @@ namespace SolarSystem.Editor
             Object.DestroyImmediate(mesh.GetComponent<Collider>());
             mesh.GetComponent<Renderer>().sharedMaterial = MaterialLibrary.MeshMaterial(body);
 
+            // 実スケールメッシュ (Step 3b)。Near カメラが描くので Deep レイヤーに置かない。
+            GameObject realMesh = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            realMesh.name = "RealMesh";
+            realMesh.transform.SetParent(root.transform, true);
+            Object.DestroyImmediate(realMesh.GetComponent<Collider>());
+            realMesh.GetComponent<Renderer>().sharedMaterial = MaterialLibrary.MeshMaterial(body);
+            realMesh.SetActive(false);
+
             var view = root.AddComponent<CelestialBodyView>();
-            view.Bind(body, point.transform, mesh.transform);
+            view.Bind(body, point.transform, mesh.transform, realMesh.transform);
             return view;
         }
     }

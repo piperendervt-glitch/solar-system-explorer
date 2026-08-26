@@ -130,6 +130,24 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "AutopilotEngage",
+                    "type": "Button",
+                    "id": "79b2cf09-cd45-4ced-9c85-949b24212d9c",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "AutopilotCancel",
+                    "type": "Button",
+                    "id": "a0f9afd3-bcec-44e4-934a-54894861b707",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -372,6 +390,28 @@
                     "processors": "",
                     "groups": "",
                     "action": "Jump8",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "a485e91f-fa5b-4887-a39e-8ccd2abbb3de",
+                    "path": "<Keyboard>/t",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "AutopilotEngage",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "a3eb9bc9-f61d-464c-922f-1d9d51ec223c",
+                    "path": "<Keyboard>/g",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "AutopilotCancel",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

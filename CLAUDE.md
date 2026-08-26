@@ -277,13 +277,27 @@ CI やスクリプトから判定するときはこの 3 種を区別するこ�
 
 ---
 
-### 既知の良性ログノイズ（`Failed to` 1 件）
+### 既知の良性ログノイズ（`Failed to` 最大 2 件）
 
-本リポジトリでは 2026-08-26 の実測で、正常終了時にも毎回この 1 行が
-`Failed to` として拾われる（`run_unity.ps1` / `run_tests.ps1` の両方）。
+本リポジトリでは 2026-08-26 の実測で、正常終了時にも `Failed to` として
+次の 2 行が拾われる（`run_unity.ps1` / `run_tests.ps1` の両方）。
+2 行目は Hub の LicensingClient の状態次第で出たり出なかったりする。
 
 ```
 [Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Module] Error: Failed to handshake to channel: "LicenseClient-pipe_render"
+```
+
+2 行目の前後はこうなっている。プロトコル 1.18.0 が弾かれ（`ResponseCode: 505`）、
+Editor が自前の `LicenseClient-pipe_render-6000.3.11` を起動し直して成功している。
+
+```
+[Licensing::Client] Error: HandshakeResponse reported an error:
+	ResponseCode: 505
+	ResponseStatus: Unsupported protocol version '1.18.0'.
+[Licensing::Module] Error: Failed to handshake to channel: "LicenseClient-pipe_render"
+[Licensing::Module] Successfully launched the LicensingClient (PId: 32364)
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-pipe_render-6000.3.11"
 ```
 
 直後に以下が続き、ライセンス自体は解決している。
@@ -296,8 +310,8 @@ CI やスクリプトから判定するときはこの 3 種を区別するこ�
   Expiration: Unlimited
 ```
 
-この行は**スクリプト側で自動的に除外**され、
-`Failed to` の件数には入らず「既知ノイズ: 1 件（無視）」として別に表示される。
+これらの行は**スクリプト側で自動的に除外**され、
+`Failed to` の件数には入らず「既知ノイズ: N 件（無視）」として別に表示される。
 
 ```
 [既知ノイズ/Failed to] line 81: [Licensing::Module] Error: Access token is unavailable; failed to update
@@ -324,9 +338,7 @@ CI やスクリプトから判定するときはこの 3 種を区別するこ�
 **リストに無い `Failed to` が出たら必ず中身を読むこと。
 `error CS` は 1 件でも無視しない。**
 
-（移植元の `offline-ai-asset-demo` では
-`Failed to handshake to channel: "LicenseClient-pipe_render"` を含む 2 行だった。
-本リポジトリでは handshake は成功しており 1 行だけになっている。）
+（移植元の `offline-ai-asset-demo` でも同じ 2 行が観測されていた。）
 
 ---
 

@@ -28,6 +28,9 @@ namespace SolarSystem.Unity
         public const float KeyDegreesPerSecond = 45f;
         public const float RollDegreesPerSecond = 60f;
 
+        /// <summary>Align 中に機首を振る速さ [deg/s]。</summary>
+        public const float AlignDegreesPerSecond = 90f;
+
         [SerializeField] InputActionAsset _actions;
         [SerializeField] Transform _shipTransform;
 
@@ -40,6 +43,8 @@ namespace SolarSystem.Unity
         InputAction _thrust;
         InputAction _dialUp;
         InputAction _dialDown;
+        InputAction _apEngage;
+        InputAction _apCancel;
         InputAction[] _jumps;
 
         // 押下の立ち上がりは自前で持つ。InputAction.WasPressedThisFrame() は
@@ -48,8 +53,14 @@ namespace SolarSystem.Unity
         bool _dialUpHeld;
         bool _dialDownHeld;
         bool _jumpHeld;
+        bool _apEngageHeld;
+        bool _apCancelHeld;
+
+        readonly AutopilotSolver _autopilot = new AutopilotSolver();
 
         public SpeedDial Dial => _dial;
+
+        public AutopilotSolver Autopilot => _autopilot;
 
         /// <summary>直近に適用したスラスト入力 (-1..1)。</summary>
         public float LastThrust { get; private set; }
@@ -96,6 +107,8 @@ namespace SolarSystem.Unity
             _thrust = _flight.FindAction("Thrust");
             _dialUp = _flight.FindAction("DialUp");
             _dialDown = _flight.FindAction("DialDown");
+            _apEngage = _flight.FindAction("AutopilotEngage");
+            _apCancel = _flight.FindAction("AutopilotCancel");
 
             _jumps = new InputAction[DebugJumpTable.Count];
             for (int i = 0; i < _jumps.Length; i++)
@@ -127,6 +140,8 @@ namespace SolarSystem.Unity
 
             input.DialUp = IsDown(_dialUp);
             input.DialDown = IsDown(_dialDown);
+            input.AutopilotEngage = IsDown(_apEngage);
+            input.AutopilotCancel = IsDown(_apCancel);
 
             if (_jumps != null)
             {
@@ -162,8 +177,73 @@ namespace SolarSystem.Unity
 
             HandleDial(input);
             HandleJump(root, input);
-            HandleAttitude(input, (float)realDeltaSeconds);
-            HandleVelocity(root, input);
+            HandleAutopilotInput(root, input);
+
+            if (_autopilot.IsEngaged)
+            {
+                StepAutopilot(root, realDeltaSeconds);
+            }
+            else
+            {
+                HandleAttitude(input, (float)realDeltaSeconds);
+                HandleVelocity(root, input);
+            }
+        }
+
+        void HandleAutopilotInput(UniverseRoot root, FlightInput input)
+        {
+            if (input.AutopilotEngage && !_apEngageHeld)
+            {
+                EngageAutopilot(root, root.Model.Mars.AbsolutePosition);
+            }
+
+            _apEngageHeld = input.AutopilotEngage;
+
+            bool cancel = input.AutopilotCancel
+                          || (_autopilot.IsEngaged && input.HasManualActivity);
+
+            if (cancel && !_apCancelHeld)
+            {
+                // 手動入力が入ったら解除する。車の ACC と同じで説明不要にわかる。
+                // (要決定にはしない。実装しながらの最小の選択)
+                _autopilot.Disengage();
+            }
+
+            _apCancelHeld = cancel;
+        }
+
+        /// <summary>オートパイロットを起動する。既定巡航速度は 0.9c (決定 D-8)。</summary>
+        public void EngageAutopilot(UniverseRoot root, Vec3d target)
+        {
+            _autopilot.Engage(
+                root.Ship.Position,
+                target,
+                UniverseConstants.BetaToKmPerSec(UniverseConstants.DefaultCruiseBeta));
+        }
+
+        void StepAutopilot(UniverseRoot root, double dt)
+        {
+            Vec3d toTarget = _autopilot.TargetPosition - root.Ship.Position;
+            Vec3d dir = toTarget.Normalized;
+            var forwardTarget = new Vector3((float)dir.X, (float)dir.Y, (float)dir.Z);
+
+            float angle = forwardTarget.sqrMagnitude > 0f
+                ? Vector3.Angle(_shipTransform.forward, forwardTarget)
+                : 0f;
+
+            _autopilot.Step(root.Ship.Position, angle, dt);
+
+            // 機首を目標へ振る。Align 中も Cruise 中も向け続ける。
+            if (forwardTarget.sqrMagnitude > 0f)
+            {
+                _shipTransform.rotation = Quaternion.RotateTowards(
+                    _shipTransform.rotation,
+                    Quaternion.LookRotation(forwardTarget, Vector3.up),
+                    AlignDegreesPerSecond * (float)dt);
+            }
+
+            LastThrust = _autopilot.CommandedSpeedKmPerSec > 0.0 ? 1f : 0f;
+            root.Ship.SetVelocity(dir * _autopilot.CommandedSpeedKmPerSec);
         }
 
         void HandleDial(FlightInput input)
@@ -199,6 +279,7 @@ namespace SolarSystem.Unity
         {
             LastJumpIndex = index;
             _dial.Stop();
+            _autopilot.Disengage();
             root.PlaceObserver(DebugJumpTable.PositionForIndex(root.Model, index));
             LookAtMars(root);
         }

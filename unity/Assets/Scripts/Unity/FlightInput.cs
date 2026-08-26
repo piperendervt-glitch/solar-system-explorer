@@ -34,6 +34,17 @@ namespace SolarSystem.Unity
         /// <summary>デバッグジャンプの段 (0 起点)。押されていなければ -1。</summary>
         public int JumpIndex;
 
+        /// <summary>オートパイロット起動 (Step 3b)。</summary>
+        public bool AutopilotEngage;
+
+        /// <summary>オートパイロット解除 (Step 3b)。</summary>
+        public bool AutopilotCancel;
+
+        /// <summary>手動の操作入力があるか。オートパイロットの解除条件に使う。</summary>
+        public bool HasManualActivity =>
+            Thrust != 0f || Roll != 0f
+            || LookKeys.sqrMagnitude > 0f || LookMouse.sqrMagnitude > 0f;
+
         public static FlightInput None => new FlightInput { JumpIndex = -1 };
 
         public static FlightInput Jump(int index) => new FlightInput { JumpIndex = index };
