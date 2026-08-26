@@ -1,0 +1,19 @@
+{
+    "name": "SolarSystem.Editor",
+    "rootNamespace": "SolarSystem.Editor",
+    "references": [
+        "SolarSystem.Core",
+        "SolarSystem.Unity"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

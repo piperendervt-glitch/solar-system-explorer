@@ -1,0 +1,45 @@
+# ---------------- Unity ----------------
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+UserSettings/
+MemoryCaptures/
+Recordings/
+
+# Unity の Logs/ は unity/ 配下に限定して除外する。
+# 素の "Logs/" にすると core.ignorecase=true な Windows では リポジトリ直下の
+# logs/ にも一致してしまい、logs/.gitkeep を再包含できなくなるため。
+unity/Logs/
+
+# Unity が自動生成する IDE 用ファイル
+*.csproj
+*.sln
+*.user
+*.userprefs
+.vs/
+.idea/
+
+# Unity が生成するその他
+*.pidb
+*.booproj
+*.svd
+sysinfo.txt
+*.apk
+*.aab
+*.unitypackage
+crashlytics-build.properties
+
+# ---------------- このリポジトリ固有 ----------------
+# batchmode ログ / テスト結果 XML は成果物なので追跡しない。
+# ディレクトリごと除外すると .gitkeep を再包含できないので中身だけ除外する。
+/logs/*
+
+# 検証スクリーンショット (Step 1 以降で使う)。
+/verify/shots/*
+
+# ---------------- 例外 (必ずファイル末尾に置く) ----------------
+# 空ディレクトリを git 上に残すための .gitkeep だけは追跡する。
+!/logs/.gitkeep
+!/verify/shots/.gitkeep

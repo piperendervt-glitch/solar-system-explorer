@@ -1,0 +1,16 @@
+{
+    "name": "SolarSystem.Unity",
+    "rootNamespace": "SolarSystem.Unity",
+    "references": [
+        "SolarSystem.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
