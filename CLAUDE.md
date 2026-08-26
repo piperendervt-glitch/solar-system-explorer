@@ -15,10 +15,38 @@
 | OS / Shell | Windows 11 / PowerShell 5.1 |
 | Unity Editor | `C:\Program Files\Unity\Hub\Editor\6000.3.11f1\Editor\Unity.exe` |
 | Unity プロジェクト | リポジトリ直下 `unity/`（Universal 3D テンプレート） |
-| URP | `com.unity.render-pipelines.universal` 17.3.0 |
-| テストフレームワーク | `com.unity.test-framework` 1.6.0 |
-| Input System | `com.unity.inputsystem` 1.19.0 |
 | `activeInputHandler` | `1`（Input System のみ） |
+
+### パッケージ実バージョン（2026-08-26 / `unity/Packages/packages-lock.json` 実測）
+
+`manifest.json` は「何を要求したか」、`packages-lock.json` は「実際に解決された何が入ったか」。
+**バージョンを知りたいときは必ず lock 側を見ること。**
+`depth 0` = `manifest.json` に直接書いてあるもの。`1` 以上は依存で入ったもの。
+
+| パッケージ | バージョン | depth | source |
+| --- | --- | --- | --- |
+| `com.unity.render-pipelines.universal` | 17.3.0 | 0 | builtin |
+| `com.unity.render-pipelines.core` | 17.3.0 | 1 | builtin |
+| `com.unity.render-pipelines.universal-config` | 17.0.3 | 1 | builtin |
+| `com.unity.shadergraph` | 17.3.0 | 1 | builtin |
+| `com.unity.test-framework` | 1.6.0 | 0 | builtin |
+| `com.unity.ext.nunit` | 2.0.5 | 1 | builtin |
+| `com.unity.test-framework.performance` | 3.2.0 | 3 | registry |
+| `com.unity.inputsystem` | 1.19.0 | 0 | registry |
+| `com.unity.ugui` | 2.0.0 | 0 | builtin |
+| `com.unity.ai.navigation` | 2.0.11 | 0 | registry |
+| `com.unity.timeline` | 1.8.11 | 0 | registry |
+| `com.unity.visualscripting` | 1.9.10 | 0 | registry |
+| `com.unity.collab-proxy` | 2.11.4 | 0 | registry |
+| `com.unity.ide.rider` | 3.0.39 | 0 | registry |
+| `com.unity.ide.visualstudio` | 2.0.26 | 0 | registry |
+| `com.unity.burst` | 1.8.28 | 2 | registry |
+| `com.unity.collections` | 2.6.2 | 2 | registry |
+| `com.unity.mathematics` | 1.3.3 | 2 | registry |
+| `com.unity.searcher` | 4.9.4 | 2 | registry |
+| `com.unity.nuget.mono-cecil` | 1.11.6 | 3 | registry |
+
+合計: 非 modules 20 / `com.unity.modules.*` 35。
 
 Unity Editor のパスは環境変数 `UNITY_EDITOR_PATH` で上書きできる。
 設定されていなければ上表の既定値を使う。
@@ -33,27 +61,35 @@ Unity Editor のパスは環境変数 `UNITY_EDITOR_PATH` で上書きできる�
 Editor は「入力ハンドラを切り替えて再起動するか」のダイアログを出すが、
 batchmode では表示できず固まる。値: `0`=旧 Input Manager / `1`=Input System / `2`=Both。
 
-### テンプレート展開後に Editor が加えた変更（2026-08-26 / 要レビュー）
+### テンプレート展開後に Editor が加えた変更と、その掃除（2026-08-26 / 完了）
 
 テンプレート同梱の `manifest.json` は 10 パッケージ（URP 17.0.1 / test-framework 1.4.2 /
 Unity 2023.3 向け）だったが、**初回 batchmode インポートで Editor が自動的に
-解決し直し、バージョンを上げたうえで下記を追加した。**
+解決し直し、バージョンを上げたうえで不要なものを追加した。**
+**バージョンの繰り上がりは維持し、不要パッケージだけを削除済み。**
 
-| 追加されたもの | 実体 |
+削除したもの（`manifest.json` から `depth 0` の 8 件。他は依存で自動的に消えた）:
+
+| 削除した ID | 理由 / 副作用 |
 | --- | --- |
-| `com.unity.purchasing` 4.14.2 | `Assets/MobileDependencyResolver/`（Google EDM4U の dll/pdb）と `Assets/Resources/BillingMode.json` を生成 |
-| `com.unity.ads` 4.16.4 | Unity Ads |
-| `com.unity.analytics` 3.8.2 | Unity Analytics |
-| `com.unity.multiplayer.center` 1.0.1 | — |
-| `com.unity.2d.sprite` / `com.unity.2d.tilemap` | — |
-| `com.unity.xr.legacyinputhelpers` 2.1.13 | — |
+| `com.unity.purchasing` 4.14.2 | IAP。`Assets/MobileDependencyResolver/`（Google EDM4U の dll/pdb 一式）と `Assets/Resources/BillingMode.json` を生成していた |
+| `com.unity.ads` 4.16.4 | 広告。非公開の個人デモに不要 |
+| `com.unity.analytics` 3.8.2 | 解析。`com.unity.services.analytics` を連れてくる |
+| `com.unity.modules.unityanalytics` | 旧 `UnityEngine.Analytics` モジュール。lock 上どこからも参照されていなかった |
+| `com.unity.multiplayer.center` 1.0.1 | マルチプレイヤー。単機デモに不要 |
+| `com.unity.2d.sprite` / `com.unity.2d.tilemap` | 2D 向け |
+| `com.unity.xr.legacyinputhelpers` 2.1.13 | 旧 XR 入力。Input System 1 本でいく |
 
-**本デモ（太陽系探索・個人用・非公開）に IAP / Ads / Analytics は不要。**
-Step 0 のスキャフォールドとしてはそのままコミットしてあるが、
-**外すかどうかは人間が判断すること。** 外す場合は `manifest.json` から
-該当 ID を消して Editor に解決し直させ、`Assets/MobileDependencyResolver/` と
-`Assets/Resources/BillingMode.json` が消えることを確認する。
-なお `Assets/` の直接編集ではなくパッケージ側から外すこと。
+依存で連鎖的に消えたもの: `com.unity.services.analytics` 6.2.2 /
+`com.unity.services.core` 1.16.0。
+
+`Assets/MobileDependencyResolver/` と `Assets/Resources/BillingMode.json` は
+`.meta` ごと削除し、空になった `Assets/Resources/` も削除した。
+
+**再発したら同じ手順で消すこと。** 手順は「`manifest.json` から ID を消す →
+`run_unity.ps1` で Editor に解決し直させる → `packages-lock.json` に
+残っていないこと（他パッケージの依存として復活していないこと）を確認する」。
+`Assets/` を直接消すだけではパッケージが再生成するので効かない。
 
 ---
 
@@ -80,9 +116,7 @@ solar-system-explorer/
 │  │  ├─ Scenes/SampleScene.unity   テンプレート付属
 │  │  ├─ Settings/                  テンプレート付属（URP RPAsset 等）
 │  │  ├─ TutorialInfo/              テンプレート付属
-│  │  ├─ InputSystem_Actions.inputactions  テンプレート付属
-│  │  ├─ MobileDependencyResolver/  com.unity.purchasing が生成（要レビュー → §1）
-│  │  └─ Resources/BillingMode.json 同上（要レビュー → §1）
+│  │  └─ InputSystem_Actions.inputactions  テンプレート付属
 │  ├─ Packages/manifest.json
 │  └─ ProjectSettings/
 ├─ verify/
@@ -183,8 +217,8 @@ CI やスクリプトから判定するときはこの 3 種を区別するこ�
    このとき Unity の ExitCode は**信用しない**（XML が無い以上、意味を持たない）。
 2. `failed > 0` → FAIL（`1`）
 3. `error CS > 0` → FAIL（`1`）
-4. `total = 0` → **ここだけ** Unity の ExitCode も見る。`0` か `1` なら OK、
-   それ以外（`3` = run failed 等）は FAIL。
+4. `total = 0` → **ここだけ** Unity の ExitCode も見る。**`0` のみ OK**、
+   それ以外（`1`、`3` = run failed 等）は FAIL。
 5. それ以外 → OK（`0`）
 
 `total=0` は Step 0 では正常。テストアセンブリが空なのでこれが期待値。
@@ -200,8 +234,9 @@ CI やスクリプトから判定するときはこの 3 種を区別するこ�
 | `$null = $proc.Handle` で取得 | `0` | 3/3 |
 
 同じ実行の XML はどちらも `result="Passed" total="0" failed="0"`。
-上の手順 4 で `1` も許容しているのは再発時に落とさないための保険であって、
-Unity が `1` を返す仕様だからではない。
+
+**2026-08-26 追記: 原因が `.Handle` 未取得と特定できたため、手順 4 の
+「`1` も許容」は撤去済み。現在は `total=0` のとき ExitCode=0 のみを成功とする。**
 
 ### 触ってはいけない実装上の前提
 

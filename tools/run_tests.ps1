@@ -33,12 +33,12 @@
       * 判定は XML を正とする。XML が無い / 壊れている場合は「不明」ではなく
         FAIL 扱いで非ゼロ終了する (Unity が起動すらできていない可能性が高いため)。
         Unity の ExitCode を見るのは「XML はあるが total=0」のときだけで、
-        この分岐では 0 と 1 の両方を成功として扱う。
+        この分岐で成功とするのは ExitCode=0 のみ。
         2026-08-26 実測: $proc.Handle をキャッシュするようにしてからは
         0 件実行でも ExitCode=0 で安定している (3/3)。Handle 未取得だった
         ときだけ 1 と読めていた (2/2)。つまり以前 "0 件なら 1" と見えたのは
-        Unity の挙動ではなく PowerShell 側の読み取りアーティファクト。
-        再発しても落とさないよう 1 も許容値として残してある。
+        Unity の挙動ではなく PowerShell 側の読み取りアーティファクトであり、
+        原因が特定できたので 1 の許容は撤去した。
       * -projectPath はスクリプト自身の位置から解決するので、カレントディレクトリ
         に依存しない。
 
@@ -360,14 +360,15 @@ if ($counts['error CS'] -gt 0) {
 
 if ($totalCount -eq 0) {
     # テストが 1 件も走らなかったケースだけ Unity の ExitCode も見る。
-    # Handle キャッシュ後の実測は 0 で安定 (3/3)。1 は Handle 未取得時に
-    # 読めていた値で Unity の挙動ではないが、再発時に落とさないよう許容する。
-    # 3 (run failed) などはここで拾う。
-    if ($unityExit -eq 0 -or $unityExit -eq 1) {
-        Write-Host "[run_tests] 判定: OK (total=0 / failed=0 / Unity ExitCode=$unityExit は 0 件時の許容値)"
+    # かつては ExitCode=1 も許容していたが、原因が $proc.Handle 未取得
+    # (PowerShell 5.1 の読み取りアーティファクト) と特定できたので撤去した。
+    # Handle をキャッシュしている限り 0 件実行の ExitCode は 0 で安定する。
+    # 3 (run failed) はもちろん 1 もここで失敗として拾う。
+    if ($unityExit -eq 0) {
+        Write-Host "[run_tests] 判定: OK (total=0 / failed=0 / Unity ExitCode=0)"
         exit 0
     }
-    Write-Host "[run_tests] 判定: FAIL (total=0 かつ Unity ExitCode=$unityExit は許容値 0/1 以外)" -ForegroundColor Red
+    Write-Host "[run_tests] 判定: FAIL (total=0 かつ Unity ExitCode=$unityExit / 期待値は 0)" -ForegroundColor Red
     exit 1
 }
 
