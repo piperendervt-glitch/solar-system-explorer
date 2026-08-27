@@ -186,7 +186,7 @@ namespace SolarSystem.Editor
                          MaterialLibrary.MeshMaterial(appearanceModel.Earth),
                          MaterialLibrary.MeshMaterial(appearanceModel.Mars),
                          MaterialLibrary.CloudMaterial(appearanceModel.Earth));
-            debugPanel.Bind(universeRoot, rig, applier, stack);
+            debugPanel.Bind(universeRoot, rig, applier, stack, overlay);
 
             // ---- exe からのスクショ用 (Step 7) ----
             // 引数が無ければ何もしない。見た目には影響しない。

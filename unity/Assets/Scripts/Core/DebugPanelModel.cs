@@ -300,6 +300,19 @@ namespace SolarSystem.Core
 
         public void ToggleOpen() => IsOpen = !IsOpen;
 
+        /// <summary>カーソルを直接置く。範囲外は丸める。</summary>
+        public void SetCursor(int index)
+        {
+            if (_items.Count == 0)
+            {
+                return;
+            }
+
+            if (index < 0) { index = 0; }
+            if (index >= _items.Count) { index = _items.Count - 1; }
+            Cursor = index;
+        }
+
         public void MoveCursor(int delta)
         {
             if (_items.Count == 0)

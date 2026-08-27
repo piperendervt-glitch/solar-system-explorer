@@ -177,5 +177,77 @@ namespace SolarSystem.Tests.PlayMode
             Assert.That(_root.Ship.SpeedKmPerSec, Is.EqualTo(speedBefore).Within(1e-9),
                 "パネルが開いているのに船が動いた");
         }
+    
+        [UnityTest]
+        public IEnumerator パネルを開くと左のHUDだけが隠れ確認項目は残る()
+        {
+            yield return null;
+            var overlay = Object.FindAnyObjectByType<DebugOverlay>();
+            Assert.That(overlay, Is.Not.Null);
+            overlay.Visible = true;
+
+            Press(Key(panel: true));
+            Assert.That(_panel.IsOpen, Is.True);
+            Assert.That(overlay.SuppressMainHud, Is.True, "左の HUD が隠れていない");
+            Assert.That(overlay.Visible, Is.True, "HUD ごと消してしまっている");
+            Assert.That(overlay.BuildCheckText(), Is.Not.Null,
+                        "確認項目まで巻き添えで消えている");
+
+            Press(Key(panel: true));
+            Assert.That(overlay.SuppressMainHud, Is.False, "閉じても隠れたまま");
+        }
+
+        [UnityTest]
+        public IEnumerator 天体行は実際に描かれているものだけを測る()
+        {
+            yield return null;
+            Press(Key(panel: true));
+
+            var rows = _panel.BuildBodyRows();
+            Assert.That(rows.Count, Is.GreaterThan(0), "天体行が空");
+
+            foreach (var row in rows)
+            {
+                Assert.That(row.Length, Is.EqualTo(DebugPanel.BodyHeader.Length),
+                            "列数が見出しと合っていない");
+
+                string parts = row[5];
+                // 見えている表現が 1 つも無い行は、測れないので --- のはず。
+                bool anyVisible = parts.Contains("点") || parts.Contains("殻") || parts.Contains("実");
+                if (!anyVisible)
+                {
+                    Assert.That(row[3], Is.EqualTo("---"),
+                                "見えていないのに bbox を測っている: " + row[0]);
+                }
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator トグルでOFFにしたものはxで区別される()
+        {
+            yield return null;
+            Press(Key(panel: true));
+
+            // 地球の実スケールを OFF にする。
+            string id = DebugPanelModel.BodyId("Earth", "real");
+            int index = -1;
+            for (int i = 0; i < _panel.Model.Items.Count; i++)
+            {
+                if (_panel.Model.Items[i].Id == id) { index = i; break; }
+            }
+
+            Assert.That(index, Is.GreaterThanOrEqualTo(0), "地球の実スケール項目が無い");
+            _panel.Model.SetCursor(index);
+            Press(Key(select: true));
+            Assert.That(_panel.Model.BoolOf(id), Is.False, "OFF になっていない");
+
+            var rows = _panel.BuildBodyRows();
+            foreach (var row in rows)
+            {
+                if (row[0] != "Earth") { continue; }
+                Assert.That(row[5][2], Is.EqualTo('x'),
+                            "トグル OFF が - と区別されていない: " + row[5]);
+            }
+        }
     }
 }

@@ -31,6 +31,14 @@ namespace SolarSystem.Unity
         /// </summary>
         public bool Visible { get; set; }
 
+        /// <summary>
+        /// F4 パネルが開いている間だけ立つ。**左側の HUD だけを隠す。**
+        /// パネルは左上に出るので場所が競合する。同時に両方は要らない。
+        /// **右上のシナリオ確認項目は隠さない。** パネルで値を触りながら
+        /// そのシナリオの確認項目を読めないと意味がない。
+        /// </summary>
+        public bool SuppressMainHud { get; set; }
+
         public void Bind(UniverseRoot root, ShipRig rig)
         {
             _root = root;
@@ -177,7 +185,10 @@ namespace SolarSystem.Unity
                 _style.normal.textColor = Color.white;
             }
 
-            GUI.Label(new Rect(12f, 12f, 900f, 220f), BuildText(), _style);
+            if (!SuppressMainHud)
+            {
+                GUI.Label(new Rect(12f, 12f, 900f, 220f), BuildText(), _style);
+            }
 
             string check = BuildCheckText();
             if (string.IsNullOrEmpty(check))
