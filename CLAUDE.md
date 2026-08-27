@@ -85,6 +85,7 @@ Kenney の 4 パックは `source_assets/audio/kenney/<パック名>/` に展開
 | 描画 | **bloom が効いているか（滲みの量）** | exe のスクショを画素で比較する。**`Camera.Render()` → RenderTexture でも測れる** | 小さい光源では差が出ない（太陽 4px で強度 0.00 と 0.80 が明部 52 画素と 52 画素、差 0）。**画面いっぱいの地球なら RT でもはっきり出る**（縁の青の比が bloom 0.00 で 0.5369、3.00 で 0.4102）。**「RT では bloom が出ない」と一度書いたが誤り。** 小さい光源で検出できなかっただけ |
 | 全般 | **Editor スクリプトで Volume / ScriptableObject の値を変えたとき** | `EditorUtility.SetDirty` + `AssetDatabase.SaveAssets` | **しないとアセットに残らず、実行時は既定値で動く。** Step 6 の bloom 消灯はこれ。Editor セッション中は値が生きているので、その場の測定には現れてしまう |
 | 音 | **音が鳴らない** | `volume` / `pitch` / `Play()` 回数を記録する | batchmode では原理的に不可 |
+| 音 | **AudioMixer を使う手順** | 使わない。`Core/AudioMix.cs` + `Unity/AudioRouting.cs` で同等のことを行う | **`AudioMixer` アセットを作る公開 API が無い。** 生成系（`UnityEditor.Audio.AudioMixerController`）は**すべて internal** で、リフレクションだと壊れたときに実行時まで分からない。GUI で作るのは §0-B の方針に反する |
 | 音 | AudioMixer のスナップショット遷移・ローパスの効き | 露出パラメータの値を検証 | 数値は読めるが音は聴けない |
 | 描画 | **OnGUI（デバッグ HUD・シナリオの確認項目テキスト・F4 デバッグパネル）** | exe 経由で撮る（Step 7 の `StandaloneCapture`） | `Camera.Render` → RenderTexture の経路には**写らない**。実測済み・PlayMode テストで回帰を見ている。**F4 パネル（§0-C）も同じ**ので、パネルで決めた値の確認は必ず exe で行う |
 | 音 | ループの継ぎ目のクリック | **波形解析で数値化できる** | 隣接サンプル差の平均に対する連結点の段差比。**人手不要にできるので EditMode テストへ落とす** |

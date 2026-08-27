@@ -19,26 +19,40 @@ namespace SolarSystem.Tests.EditMode
         static int RealItemCount()
         {
             DebugPanelModel m = DebugPanelModel.Create(
-                new[] { "Sun", "Earth", "Mars" }, 5.0, 1.15, 0.6, 1.5e-3, 6.0, 2.5, 1.5, 6.0, 0.4, 0.8, 1.05, 0.6, 3.0, 0.10);
+                new[] { "Sun", "Earth", "Mars" }, 5.0, 1.15, 0.6, 1.5e-3, 6.0, 2.5, 1.5, 6.0, 0.4, 0.8, 1.05, 0.6, 3.0, 0.10, 1.0, 0.55, 0.30, 0.70);
             return m.Items.Count;
         }
 
         [Test]
-        public void 項目数は34件()
+        public void 項目数は38件()
         {
-            Assert.That(RealItemCount(), Is.EqualTo(34));
+            Assert.That(RealItemCount(), Is.EqualTo(38));
         }
 
-        [TestCase(1920, 1080)]
-        [TestCase(1280, 720)]
-        public void 実解像度で全項目が画面内に収まる(int w, int h)
+        [Test]
+        public void フルHDなら全項目が一度に収まる()
         {
             int items = RealItemCount();
             DebugPanelLayout l = DebugPanelLayoutSolver.Solve(
-                w, h, HeaderLines, items, BodyLines, 620f, 0);
+                1920, 1080, HeaderLines, items, BodyLines, 620f, 0);
 
-            Assert.That(l.Windowed, Is.False, "全部入るはずなのに窓表示になっている");
+            Assert.That(l.Windowed, Is.False, "1080p で窓表示に落ちている");
             Assert.That(l.ItemCount, Is.EqualTo(items), "項目が欠けている");
+        }
+
+        /// <summary>
+        /// **720p では窓表示に落ちてよい (Step 10-2 で 38 項目になった)。**
+        /// 見出し 3 + 項目 38 + 空行 1 + 天体表 4 = 46 行あり、
+        /// 最小フォント (行高 16) でも 736 + 余白 16 = 752 px で、
+        /// 使える 696 px に入らない。**見切れないことだけを縛る。**
+        /// </summary>
+        [TestCase(1920, 1080)]
+        [TestCase(1280, 720)]
+        public void 実解像度で見切れない(int w, int h)
+        {
+            DebugPanelLayout l = DebugPanelLayoutSolver.Solve(
+                w, h, HeaderLines, RealItemCount(), BodyLines, 620f, 0);
+
             Assert.That(l.Width + DebugPanelLayoutSolver.Margin * 2f,
                         Is.LessThanOrEqualTo(w), "横に見切れる");
             Assert.That(l.Height + DebugPanelLayoutSolver.Margin * 2f,
@@ -46,6 +60,22 @@ namespace SolarSystem.Tests.EditMode
             Assert.That(l.FontSize,
                         Is.InRange(DebugPanelLayoutSolver.MinFontSize,
                                    DebugPanelLayoutSolver.MaxFontSize));
+            Assert.That(l.ItemCount, Is.GreaterThan(0), "項目が 1 つも出ない");
+        }
+
+        [TestCase(1920, 1080)]
+        [TestCase(1280, 720)]
+        public void 窓表示でもカーソルは必ず見える(int w, int h)
+        {
+            int items = RealItemCount();
+            for (int cursor = 0; cursor < items; cursor++)
+            {
+                DebugPanelLayout l = DebugPanelLayoutSolver.Solve(
+                    w, h, HeaderLines, items, BodyLines, 620f, cursor);
+
+                Assert.That(cursor, Is.InRange(l.FirstItem, l.FirstItem + l.ItemCount - 1),
+                            $"{w}x{h} でカーソル {cursor} が範囲の外");
+            }
         }
 
         [TestCase(1920, 1080)]

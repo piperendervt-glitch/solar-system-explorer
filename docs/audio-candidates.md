@@ -169,50 +169,56 @@ confirmation 系 4 種の中で平均音量が最も低い。
 
 ---
 
-## コックピット音のループ加工
+## ループ加工（Step 10-1 で C# に一本化）
 
-`forceField_000.ogg` は 0.954 秒しかなく、そのままループさせると約 1 秒周期で反復に気付く。
-周期を目立たなくするため、3 層を重ねて 8 秒のループに加工する。
+**加工は `unity/Assets/Editor/AudioLoopBuilder.cs` が行う。パラメータの正はそちら。**
+ここに書くのは同じ値と、**加工後の実測値**（再生成物が一致することを検証するため）。
 
-生成スクリプト: `source_assets/audio/preview/make_forcefield_loop.sh`
-（`source_assets/` は gitignore 済みなので、**手順はこのファイルにも残す**）
+ffmpeg ではなく C# にした理由は、`run_unity.ps1` だけで完結し、ffmpeg を
+CLAUDE.md の環境前提に持ち込まないため。加工そのものは
+`SolarSystem.Core.AudioAnalysis` の純関数で、EditMode から検証できる。
 
-```bash
-SRC=kenney/sci-fi-sounds/Audio/forceField_000.ogg
-SR=44100
-PITCHES=(0.97 1.00 1.03)     # 層のピッチ比
-OFFSETS=(0    0.31 0.62)     # 層の開始位置 [秒]
-LEN=8.0                      # ループ長 [秒]
-XF=0.2                       # クロスフェード長 [秒]
-REPEAT=30                    # 素材を何回ぶん流し込むか
+> 以前 `source_assets/audio/preview/make_forcefield_loop.sh` に同じ加工があったが、
+> **二重管理になるので C# 化に合わせて削除した。**
 
-# 1. ピッチ違いの 3 層を作り、開始位置をずらして重ねる
-#    asetrate は再生速度ごと変える (Unity の AudioSource.pitch と同じ挙動)。
-#    amix の normalize=1 は入力数で割るので、層ごとの音量比は等倍のままクリップしない。
-# 2. LEN+XF 秒ぶん切り出す
-# 3. 末尾 XF 秒を先頭 XF 秒へクロスフェードし、LEN 秒のループ端を繋ぐ
-ffmpeg -stream_loop $REPEAT -i $SRC -stream_loop $REPEAT -i $SRC -stream_loop $REPEAT -i $SRC \
-  -filter_complex "\
-    [0:a]asetrate=${SR}*0.97,aresample=$SR,atrim=start=0,asetpts=N/SR/TB[l0]; \
-    [1:a]asetrate=${SR}*1.00,aresample=$SR,atrim=start=0.31,asetpts=N/SR/TB[l1]; \
-    [2:a]asetrate=${SR}*1.03,aresample=$SR,atrim=start=0.62,asetpts=N/SR/TB[l2]; \
-    [l0][l1][l2]amix=inputs=3:duration=shortest:normalize=1, \
-      atrim=0:8.2,asetpts=N/SR/TB[a]; \
-    [a]asplit=3[h][b][t]; \
-    [h]atrim=0:0.2,asetpts=N/SR/TB,afade=t=in:st=0:d=0.2[hf]; \
-    [b]atrim=0.2:8.0,asetpts=N/SR/TB[bb]; \
-    [t]atrim=8.0:8.2,asetpts=N/SR/TB,afade=t=out:st=0:d=0.2[tf]; \
-    [hf][tf]amix=inputs=2:normalize=0[xf]; \
-    [xf][bb]concat=n=2:v=0:a=1[loop]" \
-  -map "[loop]" -c:a pcm_s16le preview/forceField_000_loop8s.wav
-```
+### エンジン `spaceEngineLow_003.ogg` → `engine_loop.wav`
 
-層の数・ピッチ比・クロスフェード長はスクリプト先頭の変数で変えられる。
+問題は**ループ端のクリックだけ**（段差比 85.18）。周期 5 秒は要件を満たしている。
+末尾を先頭へクロスフェードする。
 
-### 加工前後の実測
+| パラメータ | 値 |
+| --- | --- |
+| クロスフェード長 | **0.100 秒**（計画書 10-1 の 50〜100 ms の上側） |
 
-| | 素のまま 3 連結 | 加工後 8 秒 × 3 連結 |
-| --- | ---: | ---: |
+### コックピット `forceField_000.ogg` → `cockpit_loop.wav`
+
+段差は元々 0.05 で問題無い。問題は**周期が 0.954 秒と短い**こと。
+ピッチ違いの 3 層を開始位置をずらして重ね、8 秒に伸ばす。
+
+| パラメータ | 値 |
+| --- | --- |
+| 層のピッチ比 | **0.97 / 1.00 / 1.03** |
+| 層の開始位置 [秒] | **0.00 / 0.31 / 0.62** |
+| ループ長 | **8.0 秒** |
+| クロスフェード長 | **0.2 秒** |
+| 層の合成 | 入力数で割る（クリップさせない） |
+
+### 加工後の実測値（2026-08-27）
+
+| クリップ | 長さ[s] | ピーク | 段差比（加工前 → 加工後） |
+| --- | ---: | ---: | --- |
+| `engine_loop.wav` | 4.900 | 0.8944 | **85.18 → 3.108** |
+| `cockpit_loop.wav` | 8.000 | 0.5714 | 0.05 → **0.140** |
+
+どちらも 44100 Hz / 1ch。**段差比の上限は 8.0**（`AudioLoopBuilder.SeamRatioLimit`）。
+1 前後が理想で、クロスフェードは連結点の両側を元素材の隣り合うサンプルにするので
+「ふつうの隣接サンプル差 1 個ぶん」に落ちる。個々の差は平均のまわりにばらつくので
+ちょうど 1 にはならない。上限 8.0 は、加工前の 85.18 に対して 1 桁の余裕を残しつつ、
+**加工が壊れた（クロスフェードが効いていない）ことは確実に捕まえる**値。
+
+エンジンが 4.900 秒なのはクロスフェードで 0.100 秒縮むため。
+コックピットのピークが 0.5714 に下がるのは、3 層を入力数で割っているため。
+--- | ---: | ---: |
 | 長さ | 2.862 秒 | 24.000 秒 |
 | 反復の周期 | 0.954 秒 | 8.000 秒 |
 | ピーク | -0.9 dB | -4.6 dB |

@@ -33,10 +33,14 @@ namespace SolarSystem.Unity
         /// <summary>コロナ (Step 9-2)。太陽のみ。</summary>
         [SerializeField] Material _sunCorona;
 
+        /// <summary>音量の反映先 (Step 10-2)。</summary>
+        [SerializeField] AudioRouting _audio;
+
         public void Bind(UniverseRoot root, CameraStackController stack, SunFlareController flare,
                          CockpitShake shake, PostProcessPreset post, StationViewSet stations,
                          Material earthSurface, Material marsSurface, Material clouds,
-                         Material sunMesh, Material sunPoint, Material sunCorona)
+                         Material sunMesh, Material sunPoint, Material sunCorona,
+                         AudioRouting audio)
         {
             _root = root;
             _stack = stack;
@@ -50,6 +54,7 @@ namespace SolarSystem.Unity
             _sunMesh = sunMesh;
             _sunPoint = sunPoint;
             _sunCorona = sunCorona;
+            _audio = audio;
         }
 
         /// <summary>1 フレームぶん反映する。</summary>
@@ -220,6 +225,14 @@ namespace SolarSystem.Unity
                     bloom.threshold.value = (float)model.NumberOf(DebugPanelModel.BloomThresholdId);
                     bloom.scatter.value = (float)model.NumberOf(DebugPanelModel.BloomScatterId);
                 }
+            }
+
+            if (_audio != null)
+            {
+                _audio.SetVolume(AudioGroup.Master, model.NumberOf(DebugPanelModel.MasterVolumeId));
+                _audio.SetVolume(AudioGroup.Engine, model.NumberOf(DebugPanelModel.EngineVolumeId));
+                _audio.SetVolume(AudioGroup.Cockpit, model.NumberOf(DebugPanelModel.CockpitVolumeId));
+                _audio.SetVolume(AudioGroup.Sfx, model.NumberOf(DebugPanelModel.SfxVolumeId));
             }
 
             var coronaSize = (float)model.NumberOf(DebugPanelModel.CoronaSizeId);

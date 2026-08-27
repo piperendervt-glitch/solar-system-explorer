@@ -29,7 +29,7 @@ namespace SolarSystem.Unity
         [SerializeField] InstrumentPanel _instruments;
         [SerializeField] StationViewSet _stations;
         [SerializeField] PostProcessPreset _post;
-        [SerializeField] EngineAudio _engineAudio;
+        [SerializeField] AudioRouting _audio;
         [SerializeField] DebugOverlay _overlay;
         [SerializeField] ScenarioRunner _scenario;
         [SerializeField] CockpitShake _shake;
@@ -55,7 +55,7 @@ namespace SolarSystem.Unity
         public InstrumentPanel Instruments => _instruments;
         public StationViewSet Stations => _stations;
         public PostProcessPreset Post => _post;
-        public EngineAudio EngineAudio => _engineAudio;
+        public AudioRouting Audio => _audio;
         public DebugOverlay Overlay => _overlay;
         public ScenarioRunner Scenario => _scenario;
         public CockpitShake Shake => _shake;
@@ -213,6 +213,16 @@ namespace SolarSystem.Unity
             }
 
             int steps = Clock.Advance(realDeltaSeconds);
+
+            if (_audio != null)
+            {
+                // **ドッキング中はエンジンを絞ってローパスを掛ける (Step 10-5)。**
+                // 遷移は AudioMix の純関数が時間で補間する。
+                _audio.Thrust01 = _shipRig != null ? _shipRig.LastThrust : 0f;
+                bool docked = _shipRig != null && _shipRig.Docking != null && _shipRig.Docking.IsDocked;
+                _audio.Tick(docked, realDeltaSeconds);
+            }
+
             for (int i = 0; i < steps; i++)
             {
                 Ship.Step(Clock.FixedDeltaSeconds);
@@ -257,11 +267,6 @@ namespace SolarSystem.Unity
             if (_sunFlare != null)
             {
                 _sunFlare.Apply(Ship.Position, Model);
-            }
-
-            if (_engineAudio != null && _shipRig != null)
-            {
-                _engineAudio.Apply(_shipRig.LastThrust);
             }
 
             if (_shake != null && _shipRig != null)
@@ -331,7 +336,7 @@ namespace SolarSystem.Unity
             InstrumentPanel instruments = null,
             StationViewSet stations = null,
             PostProcessPreset post = null,
-            EngineAudio engineAudio = null,
+            AudioRouting audio = null,
             DebugOverlay overlay = null,
             ScenarioRunner scenario = null,
             CockpitShake shake = null,
@@ -347,7 +352,7 @@ namespace SolarSystem.Unity
             _instruments = instruments;
             _stations = stations;
             _post = post;
-            _engineAudio = engineAudio;
+            _audio = audio;
             _overlay = overlay;
             _scenario = scenario;
             _shake = shake;

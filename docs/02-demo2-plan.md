@@ -469,12 +469,21 @@ Kenney は全て OGG。単発音を WAV に再エンコードしても **Vorbis 
 
 ### 10-2 AudioMixer 構成
 
-- Master ─ Engine / Cockpit / SFX / UI の 4 グループ。各グループに露出パラメータ（Volume）
-- Docked 状態で Engine グループに **ローパス（2kHz）**をかけ「エンジンが休んでいる」感を出す
+- **【10-2 実施済み】AudioMixer は使わない（決定）。** `AudioMixer` アセットを作る**公開 API が無い**ため。
+  生成系は `UnityEditor.Audio.AudioMixerController`（`CreateMixerControllerAtPath` ほか）にあるが**すべて internal** で、
+  リフレクションで叩くと Unity の更新で壊れたときに**コンパイルではなく実行時まで分からない**。
+  GUI で手作りするのは CLAUDE.md §0-B の「新たに GUI を要する手順を持ち込まない」に反する。
+  代わりに `Core/AudioMix.cs`（グループと音量の定義）と `Unity/AudioRouting.cs`（適用）で同等のことを行う
+- グループは **Master / Engine / Cockpit / SFX の 4 つ**。**UI は SFX に統合した。**
+  船内スピーカーから鳴るという整理では UI と警告は同じ経路なので、グループを分ける理由が無いため
+- 各グループの音量は F4 の数値項目で振れる（耳で決める値のため）
+- Docked 状態で Engine に **ローパス（2kHz）**をかけ「エンジンが休んでいる」感を出す。**ローパスは `AudioRouting` が持つ 1 個だけ**（二重掛けを残さない）
 - **ローパスは Mixer 側に一本化する（決定）。** Step 6 の `EngineAudio` は AudioSource に
   `AudioLowPassFilter` を付けて cutoff 220〜1400 Hz をスラストで駆動しているが、**撤去する。**
   二重掛けを残さない
-- Mixer と Snapshot（Flying / Docked）は Editor スクリプトで生成し、シーンと同様に手作業を残さない
+- **Snapshot も使わない（決定）。** Mixer を使わないのでスナップショット機能も使えない。
+  Flying ⇔ Docked の遷移は `AudioMix` の純関数で時間補間する（カットオフは**対数補間**、両端で速度 0）。
+  **補間曲線を EditMode で数値検証できる**ので、このプロジェクトにはこちらのほうが合っている（§10-5）
 
 ### 10-3 エンジン音の速度連動
 
@@ -501,9 +510,15 @@ Kenney は全て OGG。単発音を WAV に再エンコードしても **Vorbis 
 - Tab / Enter / BackSpace / T / G の各操作に UI 音。「要求NG」表示時は否定音
 - 二重再生防止: 同一イベントは 0.2 秒以内に再発火しない
 
-### 10-5 スナップショット切替
+### 10-5 ドッキングでの音の切替（旧「スナップショット切替」）
 
-- ドッキング状態の Docked ⇄ それ以外で Mixer Snapshot を 1.5 秒クロスフェード
+- **Mixer のスナップショットは使わない（決定）。** Mixer 自体を使わないため（§10-2）。
+  **グループ音量とローパスのカットオフをコード側で時間補間する。**
+  むしろ補間曲線を EditMode で数値検証できるので、このプロジェクトにはそちらが合っている
+- ドッキング状態の Docked ⇄ それ以外を **1.5 秒**（`AudioMix.TransitionSeconds`）で遷移
+  - カットオフ 12000 Hz ⇄ 2000 Hz。**対数で補間する**（線形だと前半でほとんど変化が聴こえず、終わり際に急にこもる。周波数は耳に対して対数のため）
+  - エンジン音量はドッキング中 **0.35 倍**
+  - 補間は両端で速度 0（`smoothstep`）。遷移の開始と終了を目立たなくするため
 
 テスト（音は batchmode で聴けないため、パラメータと発火を検証する）
 - EditMode: `EngineAudioModel` の入出力表（スラスト 0 / 0.5 / 1、制動中）が仕様値と一致 / 一次遅れの時定数 / 全素材が Audio/ に存在しインポート設定（Load Type、Compression）が仕様通り

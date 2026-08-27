@@ -32,7 +32,11 @@ namespace SolarSystem.Tests.EditMode
                 PlanetAppearance.BloomThreshold,
                 PlanetAppearance.BloomScatter,
                 PlanetAppearance.CoronaFalloff,
-                PlanetAppearance.FlareSpikeThickness);
+                PlanetAppearance.FlareSpikeThickness,
+                AudioMix.MasterVolume,
+                AudioMix.EngineVolume,
+                AudioMix.CockpitVolume,
+                AudioMix.SfxVolume);
         }
 
         [Test]

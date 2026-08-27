@@ -222,6 +222,12 @@ namespace SolarSystem.Core
         /// <summary>光条の太さ (Step 9-4)。</summary>
         public const string SpikeThicknessId = "num.spikeThickness";
 
+        /// <summary>音量 (Step 10-2)。**耳で決める値なので実機で振る。**</summary>
+        public const string MasterVolumeId = "num.volMaster";
+        public const string EngineVolumeId = "num.volEngine";
+        public const string CockpitVolumeId = "num.volCockpit";
+        public const string SfxVolumeId = "num.volSfx";
+
         readonly List<DebugItem> _items = new List<DebugItem>();
 
         public IReadOnlyList<DebugItem> Items => _items;
@@ -252,7 +258,11 @@ namespace SolarSystem.Core
             double bloomThreshold,
             double bloomScatter,
             double coronaFalloff,
-            double spikeThickness)
+            double spikeThickness,
+            double masterVolume,
+            double engineVolume,
+            double cockpitVolume,
+            double sfxVolume)
         {
             var m = new DebugPanelModel();
 
@@ -313,6 +323,16 @@ namespace SolarSystem.Core
                 bloomThreshold, 0.0, 3.0, 0.05, "F2"));
             m._items.Add(DebugItem.MakeNumber(BloomScatterId, "bloom 拡散",
                 bloomScatter, 0.0, 1.0, 0.05, "F2"));
+            // ---- 音量 (Step 10-2) ----
+            m._items.Add(DebugItem.MakeNumber(MasterVolumeId, "音量 Master",
+                masterVolume, AudioMix.MinVolume, AudioMix.MaxVolume, 0.05, "F2"));
+            m._items.Add(DebugItem.MakeNumber(EngineVolumeId, "音量 Engine",
+                engineVolume, AudioMix.MinVolume, AudioMix.MaxVolume, 0.05, "F2"));
+            m._items.Add(DebugItem.MakeNumber(CockpitVolumeId, "音量 Cockpit",
+                cockpitVolume, AudioMix.MinVolume, AudioMix.MaxVolume, 0.05, "F2"));
+            m._items.Add(DebugItem.MakeNumber(SfxVolumeId, "音量 SFX",
+                sfxVolume, AudioMix.MinVolume, AudioMix.MaxVolume, 0.05, "F2"));
+
             m._items.Add(DebugItem.MakeNumber(ShakeId, "微振動の振幅 [rad]",
                 shakeAmplitude, 0.0, 5.0e-3, 2.5e-4, "E3"));
 

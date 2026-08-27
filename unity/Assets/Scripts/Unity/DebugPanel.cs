@@ -84,7 +84,11 @@ namespace SolarSystem.Unity
                 PlanetAppearance.BloomThreshold,
                 PlanetAppearance.BloomScatter,
                 PlanetAppearance.CoronaFalloff,
-                PlanetAppearance.FlareSpikeThickness);
+                PlanetAppearance.FlareSpikeThickness,
+                AudioMix.MasterVolume,
+                AudioMix.EngineVolume,
+                AudioMix.CockpitVolume,
+                AudioMix.SfxVolume);
 
             if (HasDebugPanelArg())
             {

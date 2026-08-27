@@ -174,6 +174,25 @@ namespace SolarSystem.Editor
             var shake = cockpit.ShakeRig.gameObject.AddComponent<CockpitShake>();
             shake.Bind(cockpit.ShakeRig);
 
+            // ---- 音 (Step 10-1 / 10-2) ----
+            // **すべて船内音。** 「宇宙は無音が正しい」(計画書 §7) を選んでいるので、
+            // 全て 2D 再生 (spatialBlend = 0)。距離減衰も定位も無い。
+            AudioImportSetup.Run();
+
+            var audioGo = new GameObject("Audio");
+            audioGo.transform.SetParent(shipGo.transform, false);
+
+            AudioSource engineSource = AddSource(audioGo, "engine_loop.wav", loop: true);
+            AudioSource cockpitSource = AddSource(audioGo, "cockpit_loop.wav", loop: true);
+            AudioSource sfxSource = AddSource(audioGo, null, loop: false);
+
+            // **ローパスはここ 1 個だけ。** 書くのは AudioRouting だけ。
+            var lowPass = audioGo.AddComponent<AudioLowPassFilter>();
+            lowPass.cutoffFrequency = (float)SolarSystem.Core.AudioMix.FlyingCutoffHz;
+
+            var audioRouting = audioGo.AddComponent<AudioRouting>();
+            audioRouting.Bind(engineSource, cockpitSource, sfxSource, lowPass);
+
             // ---- デバッグパネル (Step 8-0b) ----
             // F1 の情報表示とは別。F4 で開く操作盤。
             var panelGo = new GameObject("DebugPanel");
@@ -188,26 +207,14 @@ namespace SolarSystem.Editor
                          MaterialLibrary.CloudMaterial(appearanceModel.Earth),
                          MaterialLibrary.MeshMaterial(appearanceModel.Sun),
                          MaterialLibrary.PointMaterial(appearanceModel.Sun),
-                         MaterialLibrary.CoronaMaterial(appearanceModel.Sun));
+                         MaterialLibrary.CoronaMaterial(appearanceModel.Sun),
+                         audioRouting);
             debugPanel.Bind(universeRoot, rig, applier, stack, overlay);
 
             // ---- exe からのスクショ用 (Step 7) ----
             // 引数が無ければ何もしない。見た目には影響しない。
             rootGo.AddComponent<StandaloneCapture>();
 
-            // ---- エンジン音 (Step 6) ----
-            var audioGo = new GameObject("EngineAudio");
-            audioGo.transform.SetParent(shipGo.transform, false);
-            var audioSource = audioGo.AddComponent<AudioSource>();
-            audioSource.clip = EngineAudioClipBuilder.GetOrCreate();
-            audioSource.loop = true;
-            audioSource.playOnAwake = true;
-            audioSource.spatialBlend = 0f;
-            audioSource.volume = 0.06f;
-            var lowPass = audioGo.AddComponent<AudioLowPassFilter>();
-            lowPass.cutoffFrequency = 220f;
-            var engineAudio = audioGo.AddComponent<EngineAudio>();
-            engineAudio.Bind(audioSource, lowPass);
 
             // リスナーはコックピット (視点) に置く。
             if (Object.FindAnyObjectByType<AudioListener>() == null)
@@ -216,7 +223,7 @@ namespace SolarSystem.Editor
             }
 
             universeRoot.Configure(shiftDriver, shipGo.transform, solarSystemView, aimer, rig,
-                                   cockpit.Panel, stationSet, preset, engineAudio,
+                                   cockpit.Panel, stationSet, preset, audioRouting,
                                    overlay, scenarioRunner, shake, stack, sunFlare, debugPanel);
 
             // 登録漏れの検査 (docs/01-architecture.md §2-5)。
@@ -322,6 +329,32 @@ namespace SolarSystem.Editor
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             return go.AddComponent<Camera>();
+        }
+
+        /// <summary>
+        /// 船内音の AudioSource を 1 本足す。**全て 2D (spatialBlend = 0)。**
+        /// 音量は AudioRouting が毎フレーム書くので、ここでは決めない。
+        /// </summary>
+        static AudioSource AddSource(GameObject host, string clipName, bool loop)
+        {
+            AudioSource source = host.AddComponent<AudioSource>();
+            source.loop = loop;
+            source.playOnAwake = loop;
+            source.spatialBlend = 0f;
+            source.volume = 0f; // AudioRouting が上書きする
+
+            if (!string.IsNullOrEmpty(clipName))
+            {
+                source.clip = AssetDatabase.LoadAssetAtPath<AudioClip>(
+                    AudioImportSetup.AssetPath(clipName));
+                if (source.clip == null)
+                {
+                    throw new System.InvalidOperationException(
+                        "音が取り込めていない: " + AudioImportSetup.AssetPath(clipName));
+                }
+            }
+
+            return source;
         }
 
         static CelestialBodyView CreateBodyView(CelestialBody body, Transform parent, int deepLayer)

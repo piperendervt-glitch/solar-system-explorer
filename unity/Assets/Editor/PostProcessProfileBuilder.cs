@@ -239,24 +239,4 @@ namespace SolarSystem.Editor
         }
     }
 
-    /// <summary>エンジン音のループを AudioClip アセットとして作る (Step 6)。</summary>
-    public static class EngineAudioClipBuilder
-    {
-        const string Path = "Assets/Materials/EngineRumble.asset";
-
-        public static AudioClip GetOrCreate()
-        {
-            var existing = AssetDatabase.LoadAssetAtPath<AudioClip>(Path);
-            if (existing != null)
-            {
-                return existing;
-            }
-
-            AudioClip clip = EngineAudio.CreateRumbleClip();
-            AssetDatabase.CreateAsset(clip, Path);
-            EditorUtility.SetDirty(clip);
-            AssetDatabase.SaveAssets();
-            return clip;
-        }
-    }
 }
