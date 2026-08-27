@@ -47,6 +47,11 @@ namespace SolarSystem.Unity
 
         public void BindScenario(ScenarioRunner scenario) => _scenario = scenario;
 
+        /// <summary>どの定義で組まれたか (Step 11-0c)。**実機で取り違えに気づくため。**</summary>
+        [SerializeField] CockpitIdentity _cockpit;
+
+        public void BindCockpit(CockpitIdentity cockpit) => _cockpit = cockpit;
+
         void Awake()
         {
             // 既定は非表示。引数が付いていれば出した状態で始まる。
@@ -153,6 +158,11 @@ namespace SolarSystem.Unity
             {
                 sb.AppendLine($"FLARE    : occl {flare.LastOcclusion:0.00}  int {flare.LastIntensity:0.00}  " +
                               $"(基準 {flare.Base:0.00})");
+            }
+
+            if (_cockpit != null)
+            {
+                sb.AppendLine($"コックピット: {_cockpit.Describe()}");
             }
 
             // **音は「鳴ったかどうか」を目で確かめられない (CLAUDE.md 0-B)。**

@@ -180,6 +180,19 @@ CC0 なのでクレジット表記は**必須ではありません**が、出所
 
 ---
 
+### コックピットモデル (Demo 3) — **未取得**
+
+**まだリポジトリには何も入っていません。** Step 11-1 で取り込みます。
+
+取り込んだアセットは **Standard Unity Asset Store EULA** に基づいて使用します。
+EULA は**アセット自体の再配布を禁じている**ため、**このリポジトリには含めません**
+（`unity/Assets/ThirdParty/` は追跡除外）。
+clone しただけの環境では**箱コックピットにフォールバック**します。
+
+入手手順と取り込み先は [docs/asset-sources.md](docs/asset-sources.md) §4 にあります。
+
+---
+
 ### 星空 (スカイボックス)
 
 **NASA/Goddard Space Flight Center Scientific Visualization Studio**

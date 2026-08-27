@@ -108,6 +108,7 @@ namespace SolarSystem.Editor
             var overlayGo = new GameObject("DebugOverlay");
             overlayGo.transform.SetParent(rootGo.transform, false);
             var overlay = overlayGo.AddComponent<DebugOverlay>();
+            overlay.BindCockpit(cockpit.Identity);
             overlay.Bind(universeRoot, rig);
 
             // ---- 天体 (プロキシ殻。Deep レイヤー) ----

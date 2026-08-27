@@ -96,7 +96,54 @@ D:\Users\pipe_render\Downloads\solar-system-explorer\sound\
 > 「CC0 のみ採用」方針どおり見送る。**未確認のまま `unity/Assets/` へ入れない。**
 
 ---
-## 4. 未確認事項
+
+## 4. コックピットモデル（Demo 3 / Step 11-0） — **未取得**
+
+**まだ 1 ファイルも手元に無い。器だけ先に作ってある。**
+取得したらこの表を埋めること。
+
+| | |
+| --- | --- |
+| アセット名 | 未取得（第 1 候補: Hi-Rez Spaceships Creator Free Sample） |
+| 提供元 | 未取得（同: Ebal Studios） |
+| バージョン | 未取得 |
+| 入手日 | 未取得 |
+| ライセンス | **Standard Unity Asset Store EULA**。ゲームに組み込んでの配布は可、**アセット自体の再配布は不可** |
+| 取り込み先 | `unity/Assets/ThirdParty/<Publisher>/`（**追跡除外**） |
+| プレハブ GUID | 未取得（`CockpitCatalog.Requested` に入れる） |
+
+> **このリポジトリは PUBLIC。** EULA が再配布を禁じるので、
+> `unity/Assets/ThirdParty/` 配下は 1 ファイルも追跡しない。
+> `.gitignore` の 2 行（`/unity/Assets/ThirdParty/*` と `/unity/Assets/ThirdParty.meta`）と、
+> EditMode テスト `ThirdPartyTrackingTests` がこれを縛っている。
+
+### 再現手順（別マシンで復元するとき）
+
+**1 と 2 は GUI が要る。** Asset Store の取得は Package Manager ウィンドウの
+対話操作で `-batchmode` から叩く口が無い（CLAUDE.md §0-B）。
+3 以降は CLI に閉じる。
+
+1. Unity Editor を開き、**Window > Package Manager > My Assets** から対象アセットを
+   Download する（購入済みであること）
+2. ダウンロード先を確認する:
+   `%APPDATA%\Unity\Asset Store-5.x\<publisher>\<category>\<name>.unitypackage`
+   **UPM のレジストリパッケージと違い `Packages/manifest.json` には残らない。**
+   だからこのファイルの記録が唯一の手掛かりになる
+3. **取り込み先のフォルダを作る。**
+   `unity/Assets/ThirdParty/` は `.gitignore` の内側なので、**clone 直後には存在しない。**
+   取り込みスクリプトはフォルダの作成から始めること
+4. `AssetDatabase.ImportPackageImmediately` で取り込む（Step 11-1a の
+   `CockpitImporter.Import`）。TMP と同じ経路で batchmode に閉じる
+5. 不要物（デモシーン・Built-in 専用のポストプロセス・サンプルスクリプト）を
+   削除リストに従って消す
+6. URP 変換（Step 11-1b）→ `run_tests.ps1` で全緑を確認
+
+**アセットが無いままでも Editor・テスト・ビルドは通る。** 箱コックピットへ
+フォールバックする（`CockpitCatalog.Resolve`）。判定はフォルダの有無ではなく
+**プレハブ GUID が解決できるか**で行う。
+
+---
+## 5. 未確認事項
 
 - [x] ~~freesound #343738 / #715475 のライセンス~~ → **不採用にしたので確認不要**（将来使うなら上の注記のとおり要確認）
 - [x] ~~各用途に採用するファイルの確定~~ → [audio-candidates.md](audio-candidates.md) の「決定」で確定

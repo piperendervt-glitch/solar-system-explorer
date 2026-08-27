@@ -47,6 +47,9 @@ namespace SolarSystem.Editor
 
             /// <summary>微振動で揺らす対象 (Step 8-0)。カメラと枠の共通の親。</summary>
             public Transform ShakeRig;
+
+            /// <summary>どの定義で組んだか (Step 11-0c)。HUD とテストが読む。</summary>
+            public CockpitIdentity Identity;
         }
 
         public static Result Build(Transform shipTransform, int cockpitLayer)
@@ -60,6 +63,15 @@ namespace SolarSystem.Editor
             var root = new GameObject("Cockpit");
             root.transform.SetParent(rig.transform, false);
             SetLayerRecursive(root, cockpitLayer);
+
+            // **どの定義で組んだかをシーンに残す (Step 11-0c)。**
+            // 「レンダラー数が箱より多い」のような間接的な判定ではなく、
+            // Id を直接読めるようにする。HUD にも出るので実機で取り違えに気づける。
+            SolarSystem.Core.CockpitDefinition requested = CockpitCatalog.Requested;
+            SolarSystem.Core.CockpitDefinition built =
+                CockpitCatalog.Resolve(requested, out bool fellBackToBox);
+            CockpitIdentity identity = root.AddComponent<CockpitIdentity>();
+            identity.Bind(built.Id, requested.Id, fellBackToBox);
 
             // ---- カメラ (視点は固定。船の姿勢に従う) ----
             var camGo = new GameObject("Cam_Cockpit");
@@ -111,7 +123,11 @@ namespace SolarSystem.Editor
 
             InstrumentPanel panel = BuildInstrumentSource(root.transform, rt);
 
-            return new Result { CockpitCamera = cockpitCam, Panel = panel, ShakeRig = rig.transform };
+            return new Result
+            {
+                CockpitCamera = cockpitCam, Panel = panel,
+                ShakeRig = rig.transform, Identity = identity,
+            };
         }
 
         /// <summary>

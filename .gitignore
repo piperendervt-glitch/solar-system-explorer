@@ -43,6 +43,12 @@ crashlytics-build.properties
 # 入手元・ライセンス・ファイル名は docs/02-assets.md に記録する。
 # unity/Assets/ へ取り込んだ複製だけを追跡する。
 /source_assets/*
+# Asset Store のアセット (Step 11-0)。EULA が再配布を禁じるため追跡しない。
+# 入手元・バージョン・取り込み手順は docs/asset-sources.md に記録する。
+# フォルダの .meta も追跡しない。追跡すると、アセットが無いクローンで
+# 空の ThirdParty だけが復元され、フォルダの有無での判定が壊れる。
+/unity/Assets/ThirdParty/*
+/unity/Assets/ThirdParty.meta
 
 # ---------------- 例外 (必ずファイル末尾に置く) ----------------
 # 空ディレクトリを git 上に残すための .gitkeep だけは追跡する。
