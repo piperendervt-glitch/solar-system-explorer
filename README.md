@@ -137,13 +137,48 @@ STOP  →  10 m/s  →  100 m/s  →  1 km/s  →  0.001c  →  0.01c  →  0.1c
 **Solar System Scope** — <https://www.solarsystemscope.com/textures/>
 **Licensed under CC BY 4.0** — <https://creativecommons.org/licenses/by/4.0/>
 
-使用ファイル:
+使用ファイル（Demo 2 で 4 枚追加。**取り込み時に 4k へ縮小したものも含めて再配布にあたる**）:
 
-- `8k_earth_daymap.jpg` (8192 x 4096) — 地球のアルベド
-- `8k_mars.jpg` (8192 x 4096) — 火星のアルベド
-- `8k_sun.jpg` (4096 x 2048) — 太陽の表面
+| ファイル | 解像度 | 用途 |
+| --- | --- | --- |
+| `8k_earth_daymap.jpg` | 8192 x 4096 | 地球のアルベド |
+| `4k_earth_clouds.jpg` | 4096 x 2048 | 地球の雲層（Demo 2） |
+| `4k_earth_nightmap.jpg` | 4096 x 2048 | 地球の夜側の街灯り（Demo 2） |
+| `4k_earth_normal.png` | 4096 x 2048 | 地球の法線（Demo 2） |
+| `4k_earth_specular.png` | 4096 x 2048 | 海の鏡面マスク（Demo 2） |
+| `8k_mars.jpg` | 8192 x 4096 | 火星のアルベド |
+| `8k_sun.jpg` | 4096 x 2048 | 太陽の表面 |
 
-地球の雲・夜景・法線マップは使っていません。
+> `4k_*` は Solar System Scope の 8k 版を**このリポジトリで縮小したもの**です。
+> CC BY 4.0 は改変を許可していますが、**改変した旨の明示**が条件に含まれるため
+> ここに記載しています。元データの出所・ライセンスは上と同じです。
+
+`sun_corona.png` と `flare_streak.png` は**このリポジトリがコードで生成したもの**で、
+外部素材ではありません（`Editor/CoronaTextureBuilder.cs` / `Editor/FlareTextureBuilder.cs`）。
+
+### 効果音 (Demo 2 で追加)
+
+**Kenney** — <https://kenney.nl/>
+**Licensed under CC0 1.0 (Public Domain Dedication)** — <https://creativecommons.org/publicdomain/zero/1.0/>
+
+CC0 なのでクレジット表記は**必須ではありません**が、出所として記載します。
+
+| ファイル | 元素材 | パック |
+| --- | --- | --- |
+| `engine_loop.wav` | `spaceEngineLow_003.ogg` | Sci-Fi Sounds |
+| `cockpit_loop.wav` | `forceField_000.ogg` | Sci-Fi Sounds |
+| `dock_impact.ogg` | `impactPlate_heavy_001.ogg` | Impact Sounds |
+| `undock.ogg` | `switch_004.ogg` | Interface Sounds |
+| `ui_select.ogg` | `select_001.ogg` | Interface Sounds |
+| `ui_confirm.ogg` | `confirmation_003.ogg` | Interface Sounds |
+| `warning.ogg` | `error_008.ogg` | Interface Sounds |
+
+> `engine_loop.wav` と `cockpit_loop.wav` は**ループ用に加工したもの**です。
+> 加工は `Editor/AudioLoopBuilder.cs` が行い、パラメータと加工後の実測値は
+> [docs/audio-candidates.md](docs/audio-candidates.md) に記録しています。
+> 他の 5 本は原本のままです。
+
+---
 
 ### 星空 (スカイボックス)
 
@@ -175,8 +210,9 @@ Gaia (ESA) など第三者のデータを含みます。詳細は [docs/02-asset
 
 ## 実装状況
 
-**Step 0 〜 Step 7 まで完了**しています。各 Step の完了時点に git タグを打ってあります
-(`step-0` 〜 `step-7`、および `v0.1-minimal-demo`)。
+**最小デモ（Step 0〜7）と Demo 2（Step 8〜10）が完了**しています。
+各 Step の完了時点に git タグを打ってあります
+(`step-0` 〜 `step-7` / `v0.1-minimal-demo`、`step8-0` 〜 `step10-4` / `demo2`)。
 
 | Step | 内容 |
 | --- | --- |
@@ -190,6 +226,34 @@ Gaia (ESA) など第三者のデータを含みます。詳細は [docs/02-asset
 | 6 | 見た目の仕上げ (星空、惑星テクスチャ、ポストプロセス、エンジン音) |
 | 7 | セーブ、計器レイアウトの改修、スタンドアロンビルド |
 
+### Demo 2（見た目デモ）
+
+新機能は足さず、**画面に映るものと聴こえるものを本物へ置き換え**ました。
+
+| Step | 内容 |
+| --- | --- |
+| 8-0 | F1 デバッグ HUD のトグル、コックピットの微振動、検証ハーネス（シナリオ 18 件） |
+| 8-0b | **F4 デバッグパネル** — 実機で「目と耳で決めるしかない値」を振るための操作盤 |
+| 8-1 / 8-2 | 4k テクスチャの取り込み、**手書きの惑星シェーダ**（法線・海の鏡面・夜側の街灯り・大気の縁） |
+| 8-3 / 8-4 | 雲層、自転（等倍。ETA と時計を共有するため誇張しない） |
+| 8-5 | プロキシ殻と実スケールメッシュの整合（引き渡し帯での二重像・位相ずれの解消） |
+| 9-1 | 太陽の HDR 化（**手書きの太陽シェーダ**、周辺減光） |
+| 9-2 | コロナ（ビルボード 1 枚、プロシージャル生成） |
+| 9-3 | レンズフレア（**深度を使わない解析的な遮蔽判定** + 光条・水平の縞・ゴースト） |
+| 9-4 | bloom と露出の再調整（**Step 6 以来 bloom が実行時に効いていなかったのを修正**） |
+| 10 | 音（ループ 2 本 + イベント音 5 種、グループ音量、ドッキングでのローパス遷移） |
+
+計画と決定値の一覧は [docs/02-demo2-plan.md](docs/02-demo2-plan.md) §0-A にあります。
+**実機で目と耳で決めた値**がどれかも、そこに分けて書いてあります。
+
+### 代表カット
+
+| | |
+| --- | --- |
+| ![地球（昼側）](docs/screenshots/demo2/01_earth-day.jpg) | 4k テクスチャ・雲層・大気の縁 |
+| ![明暗境界](docs/screenshots/demo2/02_earth-terminator.jpg) | 夜側の街灯り・海の鏡面反射 |
+| ![惑星の縁から昇る太陽](docs/screenshots/demo2/03_sun-over-limb.jpg) | HDR ディスク・コロナ・光条 |
+
 船の乗り換え・相対論効果の描画・惑星への着陸・PCVR 対応・戦闘などは
 **スコープ外**です。理由は [docs/00-requirements.md](docs/00-requirements.md) §4 を参照してください。
 
@@ -200,4 +264,7 @@ Gaia (ESA) など第三者のデータを含みます。詳細は [docs/02-asset
 | [docs/00-requirements.md](docs/00-requirements.md) | 要件 (凍結。変更は追記のみ) |
 | [docs/01-architecture.md](docs/01-architecture.md) | 設計と決定 D-1 〜 D-25 |
 | [docs/02-assets.md](docs/02-assets.md) | 外部アセットの出所とライセンス |
+| [docs/02-demo2-plan.md](docs/02-demo2-plan.md) | Demo 2 の計画・完了状態・決定値の一覧 |
+| [docs/asset-sources.md](docs/asset-sources.md) | Demo 2 で追加した素材の出所とライセンス |
+| [docs/audio-candidates.md](docs/audio-candidates.md) | 音の選定経緯とループ加工のパラメータ |
 | [CLAUDE.md](CLAUDE.md) | 開発時の運用ルール・コマンド |
