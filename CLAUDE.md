@@ -8,21 +8,48 @@
 
 ---
 
-## 0. 現在の作業（Demo 2）
+## 0. 現在の作業（Demo 3）
 
-**Step 0〜7（最小デモ）は完了・タグ済み（`step-0`〜`step-7` / `v0.1-minimal-demo`）。**
+**完了・タグ済み:**
 
-現在は [docs/02-demo2-plan.md](docs/02-demo2-plan.md) の **Demo 2（見た目デモ）** を進める。
-**Step 番号は `8-0` から。** 計画上の区切りは次のとおり。
+| | Step | タグ |
+| --- | --- | --- |
+| 最小デモ | 0〜7 | `step-0`〜`step-7` / `v0.1-minimal-demo` |
+| Demo 2（見た目） | 8〜10 | `step8-0`〜`step10-4` / `demo2` |
+
+現在は [docs/03-demo3-plan.md](docs/03-demo3-plan.md) の **Demo 3（コックピット3Dモデル）** を進める。
+**Step 番号は `11-0` から。** 計画上の区切りは次のとおり。
 
 | Step | 内容 |
 | --- | --- |
-| 8-0 | 共通の小物（F1 トグル・微振動） |
-| 8 | 惑星の表現（テクスチャ → シェーダ → 雲 → 自転 → 整合） |
-| 9 | 太陽の表現（HDR ディスク → コロナ → フレア → 露出再調整） |
-| 10 | 音（素材 → Mixer → エンジン → イベント → スナップショット） |
+| 11-0 | 調達とライセンスの整理（追跡除外・出典記録・フォールバック骨格） |
+| 11-1 | 取り込みと URP 変換・マテリアルの棚卸し |
+| 11-2 | 配置・スケール・視点（`CockpitDefinition`） |
+| 11-3 | 計器の画面への移設（RT 分割・帯の撤去） |
+| 11-4 | 照明（太陽光の差し込み・補助光） |
+| 11-5 | 有料コックピットの判断ゲート（**購入前に止まる**） |
+| 11-6 | 有料コックピットへの差し替え（**任意**） |
 
-Demo 2 の「やらない」ことは計画書 §7 にある。**勝手に広げない。**
+Demo 3 の「やらない」ことは計画書 §11 にある。**勝手に広げない。**
+
+### Demo 3 で特に効く前提
+
+- **リポジトリは PUBLIC。Asset Store の EULA はアセットの再配布を禁じる。**
+  取り込み先 `unity/Assets/ThirdParty/` は追跡除外にし、**追跡ファイルに 1 件も
+  入っていないこと**を EditMode テストで縛る。取り込みは追跡除外のコミットの後に行う
+- **アセットが無いクローンでも Editor・テスト・ビルドが通ること。** 箱コックピットへ
+  フォールバックする。判定はフォルダの有無ではなく**プレハブ GUID の存在**
+- コックピットは **1000 倍の描画空間**にある（1 m = 1 unit）。メートル単位で作られた
+  アセットは**スケール 1 のまま**置ける
+- **bloom 3.00 / しきい値 0.90 / 拡散 0.70 は Demo 2 で太陽を見て決めた値。Demo 3 では変えない。**
+  画面の文字が潰れるなら画面の発光側を下げて対処する
+
+### Demo 2 で作った道具はそのまま使う
+
+検証ハーネス（`-scenario` / `F2` / `F3` / `ScenarioCapture` / `StandaloneCapture`）、
+`F1` のデバッグ HUD、`F4` のデバッグパネル（38 項目）は Demo 3 でも使う。
+**使い方は §0-B / §0-C にある（Demo 2 専用の記述ではない）。**
+目で決める値は F4 で振り、閉じたときのログをコードの定数へ反映する運用も同じ。
 
 ### 運用メモ
 
@@ -54,16 +81,26 @@ Demo 2 の「やらない」ことは計画書 §7 にある。**勝手に広げ
 
 | ファイル | 追跡 | 内容 |
 | --- | --- | --- |
-| [docs/asset-sources.md](docs/asset-sources.md) | する | 出典・ライセンス一覧（**雛形。「要確認」が残っている**） |
-| [docs/audio-candidates.md](docs/audio-candidates.md) | する | §10-1 の 6 用途ごとの候補（**未決定。人間が試聴して選ぶ**） |
+| [docs/asset-sources.md](docs/asset-sources.md) | する | 出典・ライセンス一覧。**Demo 2 分は確定済み。** Demo 3 の Asset Store 分もここに追記する |
+| [docs/audio-candidates.md](docs/audio-candidates.md) | する | 音の選定経緯と**ループ加工のパラメータ**（Demo 2 で確定済み） |
 | `source_assets/AUDIO_INVENTORY.txt` | しない | 音声 360 本の長さ / Hz / ch / ピーク。ffprobe から再生成できる |
 
 **出典の記録は `source_assets/` に置かない。** あそこは丸ごと gitignore されるので、
 リポジトリに残らない。ライセンス関係は必ず `docs/` 側に置くこと。
 
 Kenney の 4 パックは `source_assets/audio/kenney/<パック名>/` に展開済みで、
-すべて **CC0**（クレジット任意）。freesound の 2 ファイルは **ライセンス未確認**。
-計画書 §10-1 は「CC0 のみ採用」なので、**確認するまで採用しない。**
+すべて **CC0**（クレジット任意）。**採用した 7 本はすべて Kenney。**
+freesound の 2 ファイルは**ライセンス未確認のまま不採用**とした（採用素材を CC0 に統一）。
+
+### Demo 3 で増える置き場所
+
+| | |
+| --- | --- |
+| Asset Store のダウンロード物 | `%APPDATA%\Unity\Asset Store-5.x\<publisher>\<category>\<name>.unitypackage`（**リポジトリ外**） |
+| 取り込み先 | `unity/Assets/ThirdParty/<Publisher>/`（**追跡除外。EULA のため**。Step 11-0 で `.gitignore` に追加する） |
+
+**取り込みは追跡除外のコミットの後に行う。** 順序を逆にすると、取り込んだ瞬間に
+アセットが public リポジトリに乗る。
 
 ---
 
@@ -84,6 +121,7 @@ Kenney の 4 パックは `source_assets/audio/kenney/<パック名>/` に展開
 | 描画 | **HDR 値（bloom しきい値を超えたか）** | ARGBHalf の RT へ描いて float で読む | 確立済み（Step 9-1）。**カメラの `renderPostProcessing = false` が必須。`Volume.enabled = false` だけでは ACES が残り、2.4 も 9.6 も 0.59 / 0.63 に潰れて「強度を変えても絵が変わらない」ように見える** |
 | 描画 | **bloom が効いているか（滲みの量）** | exe のスクショを画素で比較する。**`Camera.Render()` → RenderTexture でも測れる** | 小さい光源では差が出ない（太陽 4px で強度 0.00 と 0.80 が明部 52 画素と 52 画素、差 0）。**画面いっぱいの地球なら RT でもはっきり出る**（縁の青の比が bloom 0.00 で 0.5369、3.00 で 0.4102）。**「RT では bloom が出ない」と一度書いたが誤り。** 小さい光源で検出できなかっただけ |
 | 全般 | **Editor スクリプトで Volume / ScriptableObject の値を変えたとき** | `EditorUtility.SetDirty` + `AssetDatabase.SaveAssets` | **しないとアセットに残らず、実行時は既定値で動く。** Step 6 の bloom 消灯はこれ。Editor セッション中は値が生きているので、その場の測定には現れてしまう |
+| 全般 | **Asset Store のアセットの入手（Package Manager の My Assets からのダウンロード）** | 無い。人が Editor の GUI で 1 回だけ行う | Asset Store の取得は Package Manager ウィンドウの対話操作で `-batchmode` から叩く口が無い。ダウンロードされた `.unitypackage` は `%APPDATA%\Unity\Asset Store-5.x\` 配下に置かれ、UPM のレジストリパッケージと違い `Packages/manifest.json` には残らない。**そこから `Assets/` への取り込みは `AssetDatabase.ImportPackageImmediately` で CLI に閉じる**（TMP と同じ経路）。取り込み先は EULA のため追跡除外なので、別マシンでの復元は「GUI で再ダウンロード → 取り込みスクリプト」になる。再現手順は `docs/asset-sources.md` に記録 |
 | 音 | **音が鳴らない** | `volume` / `pitch` / `Play()` 回数を記録する | batchmode では原理的に不可 |
 | 音 | **AudioMixer を使う手順** | 使わない。`Core/AudioMix.cs` + `Unity/AudioRouting.cs` で同等のことを行う | **`AudioMixer` アセットを作る公開 API が無い。** 生成系（`UnityEditor.Audio.AudioMixerController`）は**すべて internal** で、リフレクションだと壊れたときに実行時まで分からない。GUI で作るのは §0-B の方針に反する |
 | 音 | AudioMixer のスナップショット遷移・ローパスの効き | 露出パラメータの値を検証 | 数値は読めるが音は聴けない |
