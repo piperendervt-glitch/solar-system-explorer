@@ -47,7 +47,7 @@ Material:
     - _Cutoff: 0.5
     - _DstBlend: 10
     - _DstBlendAlpha: 10
-    - _EmissionIntensity: 6
+    - _EmissionIntensity: 16
     - _LimbDarkening: 1
     - _LimbFloor: 0.6
     - _QueueOffset: 0

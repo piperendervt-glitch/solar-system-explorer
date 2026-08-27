@@ -1658,7 +1658,7 @@ MonoBehaviour:
     noiseSpeed: 0
     shapeCutOffSpeed: 0
     shapeCutOffRadius: 10
-    m_LocalIntensity: 0.4
+    m_LocalIntensity: 1.25
     lensFlareTexture: {fileID: 0}
     uniformScale: 0.07
     sizeXY: {x: 1, y: 1}

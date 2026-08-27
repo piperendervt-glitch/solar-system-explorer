@@ -59,6 +59,7 @@ namespace SolarSystem.Tests.PlayMode
         {
             Assert.That(_runner.Select(_root.Model, name), Is.True, name + " が無い");
             _runner.Apply(_root, _rig, _stack, Object.FindAnyObjectByType<DebugOverlay>());
+            DisableBloom();
             for (int i = 0; i < 20; i++)
             {
                 _root.Tick(Dt);
@@ -85,6 +86,37 @@ namespace SolarSystem.Tests.PlayMode
                 RenderTexture.active = prevActive;
                 rt.Release();
                 Object.DestroyImmediate(rt);
+            }
+        }
+
+        /// <summary>
+        /// **bloom を切ってから測る (Step 9-4 で追加)。**
+        ///
+        /// このファイルが見ているのは PlanetSurface シェーダ (Step 8-2) であって、
+        /// ポストプロセスではない。9-4 で bloom を実行時に効かせ、実機で
+        /// 強度 3.00 / しきい値 0.90 に決めたところ、地球の円盤が広く滲んで
+        /// **縁と中心の相対的な青の差が消えた**（実測）。
+        ///
+        ///   bloom 0.00 : 縁 0.5369 / 中心 0.4986 (差 +0.0384)
+        ///   bloom 3.00 : 縁 0.4102 / 中心 0.4405 (差 -0.0303)
+        ///
+        /// 滲みが被さると大気の縁の信号そのものが測れないので、
+        /// **シェーダを見るテストからは bloom を外す。**
+        /// 滲んだ状態の見た目がよいかどうかは人が exe で判断する。
+        /// </summary>
+        void DisableBloom()
+        {
+            foreach (UnityEngine.Rendering.Volume vol in Object.FindObjectsByType<
+                         UnityEngine.Rendering.Volume>(FindObjectsInactive.Include,
+                                                       FindObjectsSortMode.None))
+            {
+                UnityEngine.Rendering.VolumeProfile profile =
+                    vol.sharedProfile != null ? vol.sharedProfile : vol.profile;
+                if (profile != null &&
+                    profile.TryGet(out UnityEngine.Rendering.Universal.Bloom bloom))
+                {
+                    bloom.intensity.value = 0f;
+                }
             }
         }
 

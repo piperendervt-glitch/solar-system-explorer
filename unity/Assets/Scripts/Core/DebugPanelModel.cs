@@ -287,8 +287,10 @@ namespace SolarSystem.Core
                 flareIntensity, 0.0, 2.0, 0.05, "F2"));
             m._items.Add(DebugItem.MakeNumber(SunEmissionId, "太陽の発光強度",
                 sunEmission, 0.0, 16.0, 0.25, "F2"));
+            // **上限は 12.0。** 6.00 で確定したが、それは当時の上限 6.0 に
+            // 張り付いた値だった。bloom 強度と同じ理由で広げてある。
             m._items.Add(DebugItem.MakeNumber(CoronaSizeId, "コロナの大きさ (本体比)",
-                coronaSize, 1.0, 6.0, 0.25, "F2"));
+                coronaSize, 1.0, 12.0, 0.25, "F2"));
             m._items.Add(DebugItem.MakeNumber(SpikeLengthId, "光条の長さ (本体比)",
                 spikeLength, 0.0, 6.0, 0.25, "F2"));
 
@@ -303,8 +305,10 @@ namespace SolarSystem.Core
                 coronaFalloff, 0.5, 6.0, 0.25, "F2"));
 
             // **bloom は 9-4 で決め直す。** Step 6 の値は実行時に効いていなかった。
+            // **上限は 6.0。** 3.00 で確定したが、それは当時の上限 3.0 に
+            // 張り付いた値だった。足りているのかを確かめられるよう広げてある。
             m._items.Add(DebugItem.MakeNumber(BloomIntensityId, "bloom 強度",
-                bloomIntensity, 0.0, 3.0, 0.05, "F2"));
+                bloomIntensity, 0.0, 6.0, 0.05, "F2"));
             m._items.Add(DebugItem.MakeNumber(BloomThresholdId, "bloom しきい値",
                 bloomThreshold, 0.0, 3.0, 0.05, "F2"));
             m._items.Add(DebugItem.MakeNumber(BloomScatterId, "bloom 拡散",

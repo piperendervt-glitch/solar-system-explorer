@@ -35,7 +35,8 @@ namespace SolarSystem.Tests.EditMode
         [Test]
         public void 太陽の縁での寄与がbloomしきい値を超える()
         {
-            // 2.5 倍のとき太陽の縁は r = 1/2.5 = 0.40 に来る。
+            // 太陽の縁は r = 1 / 半径倍率 に来る。
+            // 6.0 倍なら r = 0.1667、減衰 (1-r)^3 = 0.5787。
             float r = 1f / (float)PlanetAppearance.CoronaRadiusScale;
             float contribution = CoronaTextureBuilder.Shaped(r, PlanetAppearance.CoronaFalloff)
                                  * (float)PlanetAppearance.SunEmissionIntensity;
@@ -45,7 +46,7 @@ namespace SolarSystem.Tests.EditMode
                     SolarSystem.Unity.PostProcessStrength.Medium);
 
             Assert.That(CoronaTextureBuilder.Shaped(r, PlanetAppearance.CoronaFalloff),
-                        Is.EqualTo(0.216f).Within(1e-3f));
+                        Is.EqualTo(0.5787f).Within(1e-3f));
             Assert.That(contribution, Is.GreaterThan(threshold),
                         $"太陽の縁でのコロナの寄与 {contribution} がしきい値 {threshold} 以下");
         }
