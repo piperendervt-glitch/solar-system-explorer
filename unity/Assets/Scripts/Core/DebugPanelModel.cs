@@ -207,6 +207,21 @@ namespace SolarSystem.Core
         /// <summary>ゴーストの強さ (Step 9-3b)。</summary>
         public const string GhostId = "num.ghost";
 
+        /// <summary>Bloom の強度 (Step 9-4)。</summary>
+        public const string BloomIntensityId = "num.bloomIntensity";
+
+        /// <summary>Bloom のしきい値 (Step 9-4)。</summary>
+        public const string BloomThresholdId = "num.bloomThreshold";
+
+        /// <summary>Bloom の拡散 (Step 9-4)。</summary>
+        public const string BloomScatterId = "num.bloomScatter";
+
+        /// <summary>コロナの減衰の指数 (Step 9-4)。小さいほどハローが広がる。</summary>
+        public const string CoronaFalloffId = "num.coronaFalloff";
+
+        /// <summary>光条の太さ (Step 9-4)。</summary>
+        public const string SpikeThicknessId = "num.spikeThickness";
+
         readonly List<DebugItem> _items = new List<DebugItem>();
 
         public IReadOnlyList<DebugItem> Items => _items;
@@ -232,7 +247,12 @@ namespace SolarSystem.Core
             double coronaSize,
             double spikeLength,
             double spikeCount,
-            double ghostIntensity)
+            double ghostIntensity,
+            double bloomIntensity,
+            double bloomThreshold,
+            double bloomScatter,
+            double coronaFalloff,
+            double spikeThickness)
         {
             var m = new DebugPanelModel();
 
@@ -277,6 +297,18 @@ namespace SolarSystem.Core
                 spikeCount, 0.0, 12.0, 2.0, "F0"));
             m._items.Add(DebugItem.MakeNumber(GhostId, "ゴーストの強さ",
                 ghostIntensity, 0.0, 2.0, 0.05, "F2"));
+            m._items.Add(DebugItem.MakeNumber(SpikeThicknessId, "光条の太さ",
+                spikeThickness, 0.02, 0.40, 0.02, "F2"));
+            m._items.Add(DebugItem.MakeNumber(CoronaFalloffId, "コロナの減衰 (指数)",
+                coronaFalloff, 0.5, 6.0, 0.25, "F2"));
+
+            // **bloom は 9-4 で決め直す。** Step 6 の値は実行時に効いていなかった。
+            m._items.Add(DebugItem.MakeNumber(BloomIntensityId, "bloom 強度",
+                bloomIntensity, 0.0, 3.0, 0.05, "F2"));
+            m._items.Add(DebugItem.MakeNumber(BloomThresholdId, "bloom しきい値",
+                bloomThreshold, 0.0, 3.0, 0.05, "F2"));
+            m._items.Add(DebugItem.MakeNumber(BloomScatterId, "bloom 拡散",
+                bloomScatter, 0.0, 1.0, 0.05, "F2"));
             m._items.Add(DebugItem.MakeNumber(ShakeId, "微振動の振幅 [rad]",
                 shakeAmplitude, 0.0, 5.0e-3, 2.5e-4, "E3"));
 

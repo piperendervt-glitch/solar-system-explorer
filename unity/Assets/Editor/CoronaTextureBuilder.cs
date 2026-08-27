@@ -20,17 +20,17 @@ namespace SolarSystem.Editor
         public const string FileName = "sun_corona.png";
         public const int Size = 256;
 
-        /// <summary>減衰の指数。大きいほど中心に集まる。</summary>
-        public const float Falloff = 3.0f;
-
-        /// <summary>中心の色。少し橙に寄せる。</summary>
+        /// <summary>中心の色。少し橙に寄せる。**シェーダの _CoronaColor の既定と揃える。**</summary>
         public static readonly Color Core = new Color(1.0f, 0.82f, 0.55f, 1f);
 
         public static string AssetPath => PlanetTextureSetup.TextureFolder + "/" + FileName;
 
         /// <summary>
-        /// 中心からの正規化距離 r における減衰。
+        /// テクスチャに入れる値。**中心からの正規化距離だけ (1 - r)。**
         /// r = 0 で 1.0、r = 1 で厳密に 0。**縁で切れないことが要件。**
+        ///
+        /// **減衰の指数はここでは掛けない (Step 9-4)。** 焼き込むと実機で
+        /// 振れないので、シェーダが pow(この値, _Falloff) を計算する。
         /// </summary>
         public static float Profile(float r)
         {
@@ -44,7 +44,16 @@ namespace SolarSystem.Editor
                 return 1f;
             }
 
-            return Mathf.Pow(1f - r, Falloff);
+            return 1f - r;
+        }
+
+        /// <summary>
+        /// シェーダが出す最終的な減衰。テストと計算の突き合わせ用。
+        /// </summary>
+        public static float Shaped(float r, double falloff)
+        {
+            float d = Profile(r);
+            return d <= 0f ? 0f : Mathf.Pow(d, (float)falloff);
         }
 
         public static Texture2D GetOrCreate()
@@ -71,11 +80,9 @@ namespace SolarSystem.Editor
                     float r = Mathf.Sqrt(dx * dx + dy * dy);
                     float p = Profile(r);
 
-                    pixels[y * Size + x] = new Color32(
-                        (byte)Mathf.RoundToInt(Mathf.Clamp01(Core.r * p) * 255f),
-                        (byte)Mathf.RoundToInt(Mathf.Clamp01(Core.g * p) * 255f),
-                        (byte)Mathf.RoundToInt(Mathf.Clamp01(Core.b * p) * 255f),
-                        255);
+                    // **グレースケール。** 色はシェーダの _CoronaColor が持つ。
+                    var v = (byte)Mathf.RoundToInt(Mathf.Clamp01(p) * 255f);
+                    pixels[y * Size + x] = new Color32(v, v, v, 255);
                 }
             }
 

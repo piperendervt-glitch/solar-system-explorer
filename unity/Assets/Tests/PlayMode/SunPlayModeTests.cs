@@ -448,11 +448,11 @@ namespace SolarSystem.Tests.PlayMode
             Assert.That(flare, Is.Not.Null);
 
             // 長く多くして差を出す。
-            flare.Look.Apply(spikeCount: 12, spikeLength: 6.0, ghostIntensity: 0.0);
+            flare.Look.Apply(spikeCount: 12, spikeLength: 6.0, spikeThickness: 0.10, ghostIntensity: 0.0);
             yield return null;
             int on = LitPixels();
 
-            flare.Look.Apply(spikeCount: 0, spikeLength: 6.0, ghostIntensity: 0.0);
+            flare.Look.Apply(spikeCount: 0, spikeLength: 6.0, spikeThickness: 0.10, ghostIntensity: 0.0);
             yield return null;
             int off = LitPixels();
 
@@ -474,7 +474,7 @@ namespace SolarSystem.Tests.PlayMode
             var flare = Object.FindAnyObjectByType<SunFlareController>();
             Assert.That(flare, Is.Not.Null);
 
-            flare.Look.Apply(spikeCount: 12, spikeLength: 6.0, ghostIntensity: 1.0);
+            flare.Look.Apply(spikeCount: 12, spikeLength: 6.0, spikeThickness: 0.10, ghostIntensity: 1.0);
             for (int i = 0; i < 5; i++)
             {
                 _root.Tick(Dt);
@@ -504,7 +504,7 @@ namespace SolarSystem.Tests.PlayMode
             Assert.That(flare.Look.HasCopy, Is.False, "触る前からコピーがある");
 
             UnityEngine.Rendering.LensFlareDataSRP before = flare.Flare.lensFlareData;
-            flare.Look.Apply(spikeCount: 2, spikeLength: 1.0, ghostIntensity: 0.1);
+            flare.Look.Apply(spikeCount: 2, spikeLength: 1.0, spikeThickness: 0.10, ghostIntensity: 0.1);
 
             Assert.That(flare.Look.HasCopy, Is.True, "コピーが作られていない");
             Assert.That(flare.Flare.lensFlareData, Is.Not.SameAs(before),
@@ -526,11 +526,11 @@ namespace SolarSystem.Tests.PlayMode
             Assert.That(flare, Is.Not.Null);
 
             // **光条を消してゴーストだけを見る。** 光条が残ると差が埋もれる。
-            flare.Look.Apply(spikeCount: 0, spikeLength: 1.0, ghostIntensity: 2.0);
+            flare.Look.Apply(spikeCount: 0, spikeLength: 1.0, spikeThickness: 0.10, ghostIntensity: 2.0);
             yield return null;
             int on = LitPixels();
 
-            flare.Look.Apply(spikeCount: 0, spikeLength: 1.0, ghostIntensity: 0.0);
+            flare.Look.Apply(spikeCount: 0, spikeLength: 1.0, spikeThickness: 0.10, ghostIntensity: 0.0);
             yield return null;
             int off = LitPixels();
 

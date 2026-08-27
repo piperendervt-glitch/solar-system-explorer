@@ -79,7 +79,12 @@ namespace SolarSystem.Unity
                 PlanetAppearance.CoronaRadiusScale,
                 PlanetAppearance.FlareSpikeLength,
                 PlanetAppearance.FlareSpikeCount,
-                PlanetAppearance.FlareGhostIntensity);
+                PlanetAppearance.FlareGhostIntensity,
+                PlanetAppearance.BloomIntensity,
+                PlanetAppearance.BloomThreshold,
+                PlanetAppearance.BloomScatter,
+                PlanetAppearance.CoronaFalloff,
+                PlanetAppearance.FlareSpikeThickness);
 
             if (HasDebugPanelArg())
             {

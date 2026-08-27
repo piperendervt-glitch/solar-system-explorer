@@ -6,7 +6,21 @@ using UnityEngine.Rendering.Universal;
 
 namespace SolarSystem.Editor
 {
-    /// <summary>ポストプロセスのプロファイルをコードから作る (Step 6)。</summary>
+    /// <summary>
+    /// ポストプロセスのプロファイルをコードから作る (Step 6 / 9-4)。
+    ///
+    /// **値の出所は SolarSystem.Core.PlanetAppearance が唯一。**
+    /// このアセット (Assets/Materials/PostProcess.asset) はそこから
+    /// 生成されるものであって、**アセット側の値を正としない。**
+    /// 実行時は PostProcessPreset.Awake が同じ定数から上書きするので、
+    /// ここで書く値は「Editor でプロファイルを開いたときに実行時と同じに
+    /// 見える」ためのもの。
+    ///
+    /// **Step 6 の事故:** ここが Bloom の値を書かず (既定 intensity 0)、
+    /// SceneBuilder が呼ぶ Apply もアセットへ保存していなかったため、
+    /// bloom が実行時に一度も効いていなかった。
+    /// **Editor スクリプトで Volume の値を変えたら SetDirty / SaveAssets が要る。**
+    /// </summary>
     public static class PostProcessProfileBuilder
     {
         const string Path = "Assets/Materials/PostProcess.asset";
@@ -22,10 +36,13 @@ namespace SolarSystem.Editor
 
             // 控えめに 3 つだけ。強度は PostProcessPreset が上書きする。
             Bloom bloom = Ensure<Bloom>(profile);
+            bloom.active = true;
             bloom.intensity.overrideState = true;
+            bloom.intensity.value = (float)SolarSystem.Core.PlanetAppearance.BloomIntensity;
             bloom.threshold.overrideState = true;
+            bloom.threshold.value = (float)SolarSystem.Core.PlanetAppearance.BloomThreshold;
             bloom.scatter.overrideState = true;
-            bloom.scatter.value = 0.6f;
+            bloom.scatter.value = (float)SolarSystem.Core.PlanetAppearance.BloomScatter;
 
             Tonemapping tonemapping = Ensure<Tonemapping>(profile);
             tonemapping.mode.overrideState = true;
@@ -113,7 +130,7 @@ namespace SolarSystem.Editor
                 LensFlareDataElementSRP spike = Streak(
                     streak,
                     length: (float)SolarSystem.Core.PlanetAppearance.FlareSpikeLength,
-                    thickness: 0.10f,
+                    thickness: (float)SolarSystem.Core.PlanetAppearance.FlareSpikeThickness,
                     // **有効な本数で角度を割る。** max で割ると、本数を減らしたとき
                     // 片側へ寄る。FlareRuntimeData.Apply と同じ式にすること。
                     rotation: active > 0 ? i * 180f / active : 0f,

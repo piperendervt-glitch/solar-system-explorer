@@ -21,6 +21,11 @@ namespace SolarSystem.Core
         /// `y &lt; Height - PanelTop` となっており、計器パネルを除くつもりで
         /// 画面下 1/3 だけを見ていた (GetPixels32 は下から上に並ぶ)。
         /// 修正後の絶対値は 縁 132.4 / 中心 130.6 で、差は +1.8 しかない。
+        ///
+        /// **bloom 無しの状態で決めた値。9-4 後に要再確認。**
+        /// 決めた当時 bloom は実行時に効いていなかった (intensity 0)。
+        /// 滲みが乗ると見え方が変わるので、9-4 で bloom を有効にしたあと
+        /// 人が見直すこと。
         /// </summary>
         public const double EarthAtmosphereStrength = 5.0;
 
@@ -36,6 +41,11 @@ namespace SolarSystem.Core
         /// **EditMode テストは下限 1.12 しか縛っていない。**
         /// 「素材の最大 0.89 のままでは薄い」ことしか自動では言えないため。
         /// 濃さそのものは目視で決めた値なので、変えるならまた目で見ること。
+        ///
+        /// **bloom 無しの状態で決めた値。9-4 後に要再確認。**
+        /// 決めた当時 bloom は実行時に効いていなかった (intensity 0)。
+        /// 滲みが乗ると見え方が変わるので、9-4 で bloom を有効にしたあと
+        /// 人が見直すこと。
         /// </summary>
         public const double CloudOpacity = 1.15;
 
@@ -98,5 +108,47 @@ namespace SolarSystem.Core
         /// **暫定値。実機で決める。** 確認は sun-offaxis シナリオ。
         /// </summary>
         public const double FlareGhostIntensity = 0.4;
+    
+        // ---- ポストプロセス (Step 9-4) ----
+        //
+        // **ここが唯一の出所。** VolumeProfile アセット
+        // (Assets/Materials/PostProcess.asset) はこの定数から生成されるもので、
+        // アセット側の値を正としない。
+        //
+        // **Step 6 の「Medium で確定」は実行時には一度も効いていなかった。**
+        // Apply を呼ぶのが SceneBuilder (Editor) だけで、実行時に呼ぶ口が無く、
+        // かつアセットへ保存もしていなかったため、実行時は Bloom の既定値
+        // (intensity 0 = 消灯) で動いていた。
+
+        /// <summary>
+        /// Bloom の強度。**暫定値。実機で決める (9-4)。**
+        /// Step 6 の値を引き継いでいるが、あれは bloom が効いていない状態で
+        /// 決めたものなので、根拠としては弱い。
+        /// </summary>
+        public const double BloomIntensity = 0.80;
+
+        /// <summary>
+        /// Bloom のしきい値。**暫定値。実機で決める (9-4)。**
+        /// 太陽のトーンマップ前の出力は 9.055 なので、これを超えていれば滲む。
+        /// </summary>
+        public const double BloomThreshold = 1.05;
+
+        /// <summary>Bloom の拡散。**暫定値。実機で決める (9-4)。**</summary>
+        public const double BloomScatter = 0.60;
+
+        /// <summary>
+        /// コロナの減衰の指数 (Step 9-4 でシェーダ側へ移した)。
+        /// **テクスチャには焼かない。** 焼くと実機で振れない。
+        /// テクスチャは (1 - r) だけを持ち、シェーダが pow(値, 指数) を計算する。
+        /// 大きいほど中心に集まり、小さいほどハローが広がる。
+        /// **暫定値。実機で決める。**
+        /// </summary>
+        public const double CoronaFalloff = 3.0;
+
+        /// <summary>
+        /// 光条の太さ。要素の sizeXY.y に入る (Step 9-4)。
+        /// **暫定値。実機で決める。**
+        /// </summary>
+        public const double FlareSpikeThickness = 0.10;
     }
 }

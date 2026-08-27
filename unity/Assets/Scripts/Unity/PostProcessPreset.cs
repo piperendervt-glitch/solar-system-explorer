@@ -1,3 +1,4 @@
+using SolarSystem.Core;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -52,22 +53,48 @@ namespace SolarSystem.Unity
 
         public void Bind(Volume volume) => _volume = volume;
 
-        /// <summary>各段階のパラメータ。ここだけ見れば強度の違いが分かる。</summary>
+        /// <summary>
+        /// 各段階のパラメータ。ここだけ見れば強度の違いが分かる。
+        ///
+        /// **Medium は Core の定数から取る。ここに数値を二重定義しない。**
+        /// Subtle / Strong は Medium からの比で出す。
+        ///
+        /// **値の出所は SolarSystem.Core.PlanetAppearance が唯一。**
+        /// VolumeProfile アセット (Assets/Materials/PostProcess.asset) は
+        /// そこから生成されるものであって、アセット側の値を正としない。
+        /// この二重管理が Step 6 以来 bloom が消灯していた原因 (下記 Awake 参照)。
+        ///
+        /// **これらは暫定値。** Step 6 で 3 案を比較して Medium に決めたが、
+        /// bloom が実行時に効いていない状態での比較だった。9-4 で決め直す。
+        /// </summary>
         public static (float bloomIntensity, float bloomThreshold, float vignette) Values(
             PostProcessStrength strength)
         {
+            var mediumIntensity = (float)PlanetAppearance.BloomIntensity;
+            var mediumThreshold = (float)PlanetAppearance.BloomThreshold;
+            const float mediumVignette = 0.22f;
+
             switch (strength)
             {
                 case PostProcessStrength.Subtle:
-                    return (0.35f, 1.30f, 0.12f);
-                case PostProcessStrength.Medium:
-                    return (0.80f, 1.05f, 0.22f);
+                    return (mediumIntensity * 0.44f, mediumThreshold * 1.24f, mediumVignette * 0.55f);
                 case PostProcessStrength.Strong:
-                    return (1.60f, 0.85f, 0.34f);
+                    return (mediumIntensity * 2.0f, mediumThreshold * 0.81f, mediumVignette * 1.55f);
                 default:
-                    return (0.80f, 1.05f, 0.22f); // 既定 = Medium (確定値)
+                    return (mediumIntensity, mediumThreshold, mediumVignette); // 既定 = Medium
             }
         }
+
+        /// <summary>
+        /// **実行時に必ず適用する (Step 9-4)。**
+        ///
+        /// Step 6 では SceneBuilder (Editor) から Apply を呼ぶだけで、
+        /// 実行時に呼ぶ口が無かった。しかも Editor 側の Apply は
+        /// VolumeProfile アセットへ SetDirty / SaveAssets をしていなかったので、
+        /// アセットには Bloom の既定値 (intensity 0 = 消灯) が残っていた。
+        /// **結果、Step 6 以来 bloom は一度も効いていなかった。**
+        /// </summary>
+        void Awake() => Apply(_strength);
 
         public void Apply(PostProcessStrength strength)
         {
@@ -88,6 +115,8 @@ namespace SolarSystem.Unity
             if (profile.TryGet(out Bloom bloom))
             {
                 bloom.active = true;
+                bloom.scatter.overrideState = true;
+                bloom.scatter.value = (float)PlanetAppearance.BloomScatter;
                 bloom.intensity.overrideState = true;
                 bloom.intensity.value = bloomIntensity;
                 bloom.threshold.overrideState = true;

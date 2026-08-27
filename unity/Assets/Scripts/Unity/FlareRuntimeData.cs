@@ -68,9 +68,10 @@ namespace SolarSystem.Unity
 
         /// <summary>
         /// 見た目の 3 つを反映する。
-        /// spikeCount は**画面上の本数**。length は本体比。
+        /// spikeCount は**画面上の本数**。length は本体比、thickness は筋の太さ。
         /// </summary>
-        public void Apply(double spikeCount, double spikeLength, double ghostIntensity)
+        public void Apply(double spikeCount, double spikeLength, double spikeThickness,
+                          double ghostIntensity)
         {
             LensFlareDataSRP data = Data;
             if (data == null || data.elements == null)
@@ -103,7 +104,7 @@ namespace SolarSystem.Unity
                     e.rotation = i * 180f / active;
                 }
 
-                e.sizeXY = new Vector2((float)spikeLength, e.sizeXY.y);
+                e.sizeXY = new Vector2((float)spikeLength, (float)spikeThickness);
             }
 
             if (GhostIndex < data.elements.Length && data.elements[GhostIndex] != null)

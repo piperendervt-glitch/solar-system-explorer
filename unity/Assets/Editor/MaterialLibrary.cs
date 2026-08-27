@@ -264,6 +264,10 @@ namespace SolarSystem.Editor
             Material material = existing != null ? existing : new Material(shader);
             material.shader = shader;
             material.SetTexture("_BaseMap", CoronaTextureBuilder.GetOrCreate());
+            material.SetColor("_CoronaColor", CoronaTextureBuilder.Core);
+
+            // **減衰の指数はシェーダ側 (Step 9-4)。** テクスチャに焼くと実機で振れない。
+            material.SetFloat("_Falloff", (float)PlanetAppearance.CoronaFalloff);
 
             // **本体と同じ強度。** コロナだけ取り残されると縁で段差になる。
             material.SetFloat("_EmissionIntensity", SunEmissionIntensity);

@@ -28,6 +28,11 @@ Demo 2 の「やらない」ことは計画書 §7 にある。**勝手に広げ
 
 - claude.ai の Gmail / Google Calendar コネクタは認証しない方針。未認証の
   システム通知が出ても、作業報告に含めなくてよい。
+- **実行時に効く値と、アセットに保存された値を二重管理しない。** どちらが正かを
+  コードのコメントに書く。（2026-08-27: ポストプロセスの強度が二重管理で、
+  **Step 6 以来 bloom が実行時に一度も効いていなかった。** 現在は
+  `Core/PlanetAppearance.cs` を唯一の出所とし、`PostProcessPreset.Awake` が
+  実行時に必ず適用する）
 - **報告に数値を載せるときは、実行結果に由来するものだけを実測として書く。**
   書式を示すための例を書く場合は、値をダミーと分かる形（例: `<n>x<n>`）にするか、
   「例」と明記する。**実測でない数値を実測として提示しない。**
@@ -77,6 +82,8 @@ Kenney の 4 パックは `source_assets/audio/kenney/<パック名>/` に展開
 | 描画 | **SRP Lens Flare が `Camera.Render()` → RenderTexture 経路で描かれるか** | 要実測 | **未確認。** 現行のスクショは `Deep.Render()` で RT に描いている。乗らない場合は exe 経由（Step 7 で確立）へ切り替える |
 | 描画 | 「眩しい」「暗すぎる」の判断 | 輝度分布の測定 | 閾値の妥当性は人手 |
 | 描画 | **HDR 値（bloom しきい値を超えたか）** | ARGBHalf の RT へ描いて float で読む | 確立済み（Step 9-1）。**カメラの `renderPostProcessing = false` が必須。`Volume.enabled = false` だけでは ACES が残り、2.4 も 9.6 も 0.59 / 0.63 に潰れて「強度を変えても絵が変わらない」ように見える** |
+| 描画 | **bloom が効いているか（滲みの量）** | **exe のスクショを画素で比較する** | `Camera.Render()` → RenderTexture の経路では**差が出ない**（実測: 強度 0.00 と 0.80 で明部 52 画素と 52 画素、差 0）。トーンマップは同じ経路で効くので、ポストプロセス自体は走っている。**bloom だけ出ない理由は未特定。** exe では 152,532 画素（7.36%）が変化する |
+| 全般 | **Editor スクリプトで Volume / ScriptableObject の値を変えたとき** | `EditorUtility.SetDirty` + `AssetDatabase.SaveAssets` | **しないとアセットに残らず、実行時は既定値で動く。** Step 6 の bloom 消灯はこれ。Editor セッション中は値が生きているので、その場の測定には現れてしまう |
 | 音 | **音が鳴らない** | `volume` / `pitch` / `Play()` 回数を記録する | batchmode では原理的に不可 |
 | 音 | AudioMixer のスナップショット遷移・ローパスの効き | 露出パラメータの値を検証 | 数値は読めるが音は聴けない |
 | 描画 | **OnGUI（デバッグ HUD・シナリオの確認項目テキスト・F4 デバッグパネル）** | exe 経由で撮る（Step 7 の `StandaloneCapture`） | `Camera.Render` → RenderTexture の経路には**写らない**。実測済み・PlayMode テストで回帰を見ている。**F4 パネル（§0-C）も同じ**ので、パネルで決めた値の確認は必ず exe で行う |

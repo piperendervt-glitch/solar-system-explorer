@@ -19,7 +19,11 @@ Shader "SolarSystem/SunCorona"
 {
     Properties
     {
-        _BaseMap("Corona Gradient", 2D) = "black" {}
+        // **テクスチャは (1 - r) だけを持つ。** 減衰の指数はここで掛ける。
+        // 焼き込むと実機で振れない (Step 9-4)。
+        _BaseMap("Corona Distance (1 - r)", 2D) = "black" {}
+        _CoronaColor("Corona Color", Color) = (1.0, 0.82, 0.55, 1.0)
+        _Falloff("Falloff (減衰の指数)", Float) = 3.0
         _EmissionIntensity("Emission Intensity (HDR 強度)", Float) = 1.0
     }
 
@@ -49,6 +53,8 @@ Shader "SolarSystem/SunCorona"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseMap_ST;
+                float4 _CoronaColor;
+                float _Falloff;
                 float _EmissionIntensity;
             CBUFFER_END
 
@@ -76,11 +82,20 @@ Shader "SolarSystem/SunCorona"
 
             half4 Fragment(Varyings input) : SV_Target
             {
-                half3 corona = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv).rgb;
+                // テクスチャは中心 1 / 縁 0 の (1 - r)。
+                half distance01 = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv).r;
+
+                // pow の底を 0 にすると NaN が出るのでガードする (Step 8-2 で踏んだ)。
+                half falloff = pow(max(distance01, 1e-4h), max(_Falloff, 1e-2h));
+
+                // 縁で厳密に 0 にする。1e-4 のガードが残ると四角い輪郭が出る。
+                falloff *= step(1e-4h, distance01);
+
+                half3 corona = _CoronaColor.rgb * falloff * _EmissionIntensity;
 
                 // **アルファは 0 を返す。** Additive では出力アルファが効かないので、
                 // ここに減衰を入れると「効いているように見えて効かない」値になる。
-                return half4(corona * _EmissionIntensity, 0.0h);
+                return half4(corona, 0.0h);
             }
             ENDHLSL
         }

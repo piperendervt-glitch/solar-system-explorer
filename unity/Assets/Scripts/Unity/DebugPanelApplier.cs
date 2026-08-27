@@ -183,6 +183,7 @@ namespace SolarSystem.Unity
                 _flare.Look.Apply(
                     model.NumberOf(DebugPanelModel.SpikeCountId),
                     model.NumberOf(DebugPanelModel.SpikeLengthId),
+                    model.NumberOf(DebugPanelModel.SpikeThicknessId),
                     model.NumberOf(DebugPanelModel.GhostId));
             }
 
@@ -197,7 +198,29 @@ namespace SolarSystem.Unity
             if (_sunPoint != null) { _sunPoint.SetFloat("_EmissionIntensity", sun); }
 
             // **コロナも本体と同じ強度。** 取り残されると縁で段差になる。
-            if (_sunCorona != null) { _sunCorona.SetFloat("_EmissionIntensity", sun); }
+            if (_sunCorona != null)
+            {
+                _sunCorona.SetFloat("_EmissionIntensity", sun);
+                _sunCorona.SetFloat("_Falloff",
+                    (float)model.NumberOf(DebugPanelModel.CoronaFalloffId));
+            }
+
+            // **bloom は Volume のプロファイルへ直接。** 実行時コピーではないが、
+            // PostProcessPreset.Awake が毎回 Core の定数から入れ直すので、
+            // 次の起動には持ち越さない。
+            if (_post != null && _post.Volume != null)
+            {
+                UnityEngine.Rendering.VolumeProfile profile =
+                    _post.Volume.sharedProfile != null ? _post.Volume.sharedProfile : _post.Volume.profile;
+                if (profile != null &&
+                    profile.TryGet(out UnityEngine.Rendering.Universal.Bloom bloom))
+                {
+                    bloom.active = true;
+                    bloom.intensity.value = (float)model.NumberOf(DebugPanelModel.BloomIntensityId);
+                    bloom.threshold.value = (float)model.NumberOf(DebugPanelModel.BloomThresholdId);
+                    bloom.scatter.value = (float)model.NumberOf(DebugPanelModel.BloomScatterId);
+                }
+            }
 
             var coronaSize = (float)model.NumberOf(DebugPanelModel.CoronaSizeId);
             bool coronaOn = model.BoolOf("show.corona");

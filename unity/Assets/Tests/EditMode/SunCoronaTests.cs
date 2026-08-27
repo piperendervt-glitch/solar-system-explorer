@@ -37,14 +37,15 @@ namespace SolarSystem.Tests.EditMode
         {
             // 2.5 倍のとき太陽の縁は r = 1/2.5 = 0.40 に来る。
             float r = 1f / (float)PlanetAppearance.CoronaRadiusScale;
-            float contribution = CoronaTextureBuilder.Profile(r)
+            float contribution = CoronaTextureBuilder.Shaped(r, PlanetAppearance.CoronaFalloff)
                                  * (float)PlanetAppearance.SunEmissionIntensity;
 
             (float _, float threshold, float __) =
                 SolarSystem.Unity.PostProcessPreset.Values(
                     SolarSystem.Unity.PostProcessStrength.Medium);
 
-            Assert.That(CoronaTextureBuilder.Profile(r), Is.EqualTo(0.216f).Within(1e-3f));
+            Assert.That(CoronaTextureBuilder.Shaped(r, PlanetAppearance.CoronaFalloff),
+                        Is.EqualTo(0.216f).Within(1e-3f));
             Assert.That(contribution, Is.GreaterThan(threshold),
                         $"太陽の縁でのコロナの寄与 {contribution} がしきい値 {threshold} 以下");
         }
