@@ -29,6 +29,33 @@ namespace SolarSystem.Unity
         [SerializeField] Renderer _meshRenderer;
         [SerializeField] Renderer _realMeshRenderer;
 
+        // ---- Step 8-3 / 8-4 で足した Transform ----
+        // **1 つの Transform に 2 つの駆動を乗せない。**
+        //   Spin      : localRotation (自転)
+        //   Mesh      : localScale     (見かけの大きさ)
+        //   RealAnchor: position       (実スケールのワールド位置)
+        [SerializeField] Transform _spin;
+        [SerializeField] Transform _cloudSpin;
+        [SerializeField] Transform _cloudMesh;
+        [SerializeField] Renderer _cloudRenderer;
+        [SerializeField] Transform _realAnchor;
+        [SerializeField] Transform _realSpin;
+        [SerializeField] Transform _realCloudSpin;
+        [SerializeField] Transform _realCloudMesh;
+        [SerializeField] Renderer _realCloudRenderer;
+
+        /// <summary>直近の自転角 [度]。テストが読む。</summary>
+        public float LastSpinDegrees { get; private set; }
+
+        /// <summary>直近の雲の回転角 [度]。</summary>
+        public float LastCloudSpinDegrees { get; private set; }
+
+        public Transform Spin => _spin;
+        public Transform Mesh => _mesh;
+        public Transform CloudMesh => _cloudMesh;
+        public Renderer CloudRenderer => _cloudRenderer;
+        public Renderer RealCloudRenderer => _realCloudRenderer;
+
         readonly BodyLodSolver _lod = new BodyLodSolver();
 
         MaterialPropertyBlock _block;
@@ -54,6 +81,29 @@ namespace SolarSystem.Unity
         public string BodyName => _bodyName;
 
         public void Bind(CelestialBody body, Transform point, Transform mesh, Transform realMesh)
+        {
+            BindCore(body, point, mesh, realMesh);
+        }
+
+        /// <summary>Step 8-3 / 8-4 の Transform も含めて結び付ける。</summary>
+        public void BindAll(CelestialBody body, Transform point, Transform mesh, Transform realMesh,
+                            Transform spin, Transform realAnchor, Transform realSpin,
+                            Transform cloudSpin, Transform cloudMesh,
+                            Transform realCloudSpin, Transform realCloudMesh)
+        {
+            BindCore(body, point, mesh, realMesh);
+            _spin = spin;
+            _realAnchor = realAnchor;
+            _realSpin = realSpin;
+            _cloudSpin = cloudSpin;
+            _cloudMesh = cloudMesh;
+            _realCloudSpin = realCloudSpin;
+            _realCloudMesh = realCloudMesh;
+            _cloudRenderer = cloudMesh != null ? cloudMesh.GetComponent<Renderer>() : null;
+            _realCloudRenderer = realCloudMesh != null ? realCloudMesh.GetComponent<Renderer>() : null;
+        }
+
+        void BindCore(CelestialBody body, Transform point, Transform mesh, Transform realMesh)
         {
             Body = body;
             _bodyName = body != null ? body.Name : null;
@@ -89,6 +139,10 @@ namespace SolarSystem.Unity
         /// 観測者の絶対位置から、プロキシ殻上の配置・スケール・切替を更新する。
         /// </summary>
         public void Apply(Vec3d observerAbsolute, double radiansPerPixel)
+            => Apply(observerAbsolute, radiansPerPixel, 0.0);
+
+        /// <summary>elapsedSeconds は自転角の導出に使う (Step 8-4)。</summary>
+        public void Apply(Vec3d observerAbsolute, double radiansPerPixel, double elapsedSeconds)
         {
             if (Body == null)
             {
@@ -120,6 +174,21 @@ namespace SolarSystem.Unity
             LastAngularPixels = pixels;
             _lod.Update(pixels);
 
+            // ---- 自転 (Step 8-4) ----
+            // **Spin に載せる。** Mesh は localScale を毎フレーム上書きするので競合しない。
+            double spin = BodyRotation.AngleDegrees(elapsedSeconds, Body.RotationPeriodHours);
+            double cloudSpin = BodyRotation.AngleDegrees(elapsedSeconds, BodyRotation.EarthCloudPeriodHours);
+            LastSpinDegrees = (float)spin;
+            LastCloudSpinDegrees = (float)cloudSpin;
+
+            var spinRotation = Quaternion.Euler(0f, (float)spin, 0f);
+            var cloudRotation = Quaternion.Euler(0f, (float)cloudSpin, 0f);
+
+            if (_spin != null) { _spin.localRotation = spinRotation; }
+            if (_realSpin != null) { _realSpin.localRotation = spinRotation; }
+            if (_cloudSpin != null) { _cloudSpin.localRotation = cloudRotation; }
+            if (_realCloudSpin != null) { _realCloudSpin.localRotation = cloudRotation; }
+
             // ---- メッシュ: 真の角直径に一致するスケール ----
             // Unity の Sphere プリミティブは直径 1。半径 r の球にするには localScale = 2r。
             if (_mesh != null)
@@ -127,6 +196,15 @@ namespace SolarSystem.Unity
                 float meshRadius = (float)(Body.RadiusKm * scale);
                 _mesh.localScale = Vector3.one * (meshRadius * 2f);
                 _mesh.gameObject.SetActive(_lod.MeshActive && RealScaleBlend < 1.0);
+
+                // 雲はプロキシ殻にも付ける。付けないと引き渡し帯 (5e4 units で
+                // 円盤 263 px) で雲が湧いて出る。
+                if (_cloudMesh != null)
+                {
+                    _cloudMesh.localScale =
+                        Vector3.one * (meshRadius * 2f * SolarSystem.Unity.CloudLayer.RadiusScale);
+                    _cloudMesh.gameObject.SetActive(_mesh.gameObject.activeSelf);
+                }
             }
 
             // ---- 光点: 最小 px でクランプ ----
@@ -145,16 +223,37 @@ namespace SolarSystem.Unity
             {
                 bool active = RealScaleBlend > 0.0;
                 _realMesh.gameObject.SetActive(active);
+                if (_realCloudMesh != null && !active)
+                {
+                    _realCloudMesh.gameObject.SetActive(false);
+                }
                 if (active)
                 {
                     // 親 (この Transform) はプロキシ殻の上にいるので、
                     // 実スケール側はワールド座標で直接置く。観測者は常に原点。
-                    _realMesh.position = new Vector3(
+                    // 位置は RealAnchor が持つ。RealMesh は localScale だけ。
+                    Transform anchor = _realAnchor != null ? _realAnchor : _realMesh;
+                    anchor.position = new Vector3(
                         (float)(dir.X * distance),
                         (float)(dir.Y * distance),
                         (float)(dir.Z * distance));
-                    _realMesh.rotation = Quaternion.identity;
+                    if (_realAnchor != null)
+                    {
+                        _realAnchor.rotation = Quaternion.identity;
+                    }
+                    else
+                    {
+                        _realMesh.rotation = Quaternion.identity;
+                    }
+
                     _realMesh.localScale = Vector3.one * (float)(Body.RadiusKm * 2.0);
+
+                    if (_realCloudMesh != null)
+                    {
+                        _realCloudMesh.localScale = Vector3.one *
+                            (float)(Body.RadiusKm * 2.0 * SolarSystem.Unity.CloudLayer.RadiusScale);
+                        _realCloudMesh.gameObject.SetActive(true);
+                    }
                 }
             }
 
@@ -180,6 +279,11 @@ namespace SolarSystem.Unity
             SetAlpha(_meshRenderer, baseColor, (float)_lod.Blend * proxyShare);
             SetAlpha(_pointRenderer, baseColor, (float)(1.0 - _lod.Blend) * proxyShare);
             SetAlpha(_realMeshRenderer, baseColor, (float)RealScaleBlend);
+
+            // **雲も同じアルファ契約に乗せる (Step 8-3)。**
+            // 地表だけがクロスフェードして雲が残ると、引き渡し帯で雲だけ浮く。
+            SetAlpha(_cloudRenderer, Color.white, (float)_lod.Blend * proxyShare);
+            SetAlpha(_realCloudRenderer, Color.white, (float)RealScaleBlend);
         }
 
         void SetAlpha(Renderer renderer, Color baseColor, float alpha)

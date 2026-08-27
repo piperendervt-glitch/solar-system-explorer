@@ -322,24 +322,78 @@ namespace SolarSystem.Editor
             Object.DestroyImmediate(point.GetComponent<Collider>());
             point.GetComponent<Renderer>().sharedMaterial = MaterialLibrary.PointMaterial(body);
 
+            // ---- 自転 (Step 8-4) ----
+            // **Spin を挟む。** Mesh は localScale を毎フレーム上書きするので、
+            // 自転を Mesh 自身に載せると競合する。root は殻の位置と
+            // LookRotation(dir) に使われているので、そこにも載せられない。
+            var spinGo = new GameObject("Spin");
+            spinGo.transform.SetParent(root.transform, false);
+            spinGo.layer = deepLayer;
+
             // メッシュ: 直径 1 の球。スケールは CelestialBodyView が毎フレーム決める。
             GameObject mesh = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             mesh.name = "Mesh";
-            mesh.transform.SetParent(root.transform, false);
+            mesh.transform.SetParent(spinGo.transform, false);
             mesh.layer = deepLayer;
             Object.DestroyImmediate(mesh.GetComponent<Collider>());
             mesh.GetComponent<Renderer>().sharedMaterial = MaterialLibrary.MeshMaterial(body);
 
-            // 実スケールメッシュ (Step 3b)。Near カメラが描くので Deep レイヤーに置かない。
+            // ---- 実スケール (Step 3b) ----
+            // 位置は RealAnchor、自転は RealSpin、大きさは RealMesh が持つ。
+            var realAnchorGo = new GameObject("RealAnchor");
+            realAnchorGo.transform.SetParent(root.transform, true);
+
+            var realSpinGo = new GameObject("RealSpin");
+            realSpinGo.transform.SetParent(realAnchorGo.transform, false);
+
             GameObject realMesh = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             realMesh.name = "RealMesh";
-            realMesh.transform.SetParent(root.transform, true);
+            realMesh.transform.SetParent(realSpinGo.transform, false);
             Object.DestroyImmediate(realMesh.GetComponent<Collider>());
             realMesh.GetComponent<Renderer>().sharedMaterial = MaterialLibrary.MeshMaterial(body);
             realMesh.SetActive(false);
 
+            // ---- 雲層 (Step 8-3)。地球のみ ----
+            // **プロキシ殻と実スケールの両方に付ける。** 付けないと引き渡し帯
+            // (5e4 units で円盤 263 px) で雲が湧いて出る。
+            Transform cloudSpin = null;
+            Transform cloudMesh = null;
+            Transform realCloudSpin = null;
+            Transform realCloudMesh = null;
+
+            if (body.Name == "Earth")
+            {
+                Material cloudMaterial = MaterialLibrary.CloudMaterial(body);
+
+                var cloudSpinGo = new GameObject("CloudSpin");
+                cloudSpinGo.transform.SetParent(root.transform, false);
+                cloudSpinGo.layer = deepLayer;
+                cloudSpin = cloudSpinGo.transform;
+
+                GameObject cloud = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                cloud.name = "CloudMesh";
+                cloud.transform.SetParent(cloudSpinGo.transform, false);
+                cloud.layer = deepLayer;
+                Object.DestroyImmediate(cloud.GetComponent<Collider>());
+                cloud.GetComponent<Renderer>().sharedMaterial = cloudMaterial;
+                cloudMesh = cloud.transform;
+
+                var realCloudSpinGo = new GameObject("RealCloudSpin");
+                realCloudSpinGo.transform.SetParent(realAnchorGo.transform, false);
+                realCloudSpin = realCloudSpinGo.transform;
+
+                GameObject realCloud = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                realCloud.name = "RealCloudMesh";
+                realCloud.transform.SetParent(realCloudSpinGo.transform, false);
+                Object.DestroyImmediate(realCloud.GetComponent<Collider>());
+                realCloud.GetComponent<Renderer>().sharedMaterial = cloudMaterial;
+                realCloud.SetActive(false);
+                realCloudMesh = realCloud.transform;
+            }
             var view = root.AddComponent<CelestialBodyView>();
-            view.Bind(body, point.transform, mesh.transform, realMesh.transform);
+            view.BindAll(body, point.transform, mesh.transform, realMesh.transform,
+                         spinGo.transform, realAnchorGo.transform, realSpinGo.transform,
+                         cloudSpin, cloudMesh, realCloudSpin, realCloudMesh);
             return view;
         }
     }

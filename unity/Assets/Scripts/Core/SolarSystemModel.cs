@@ -38,6 +38,13 @@ namespace SolarSystem.Core
         /// <summary>ステーションの外形半径 [units] = 500 m。</summary>
         public const double StationRadiusKm = 0.25;
 
+        /// <summary>自転周期 [時間] (Step 8-4)。恒星日。</summary>
+        public const double EarthRotationPeriodHours = 23.93;
+        public const double MarsRotationPeriodHours = 24.62;
+
+        /// <summary>太陽は自転させない (見た目に寄与しないため)。</summary>
+        public const double SunRotationPeriodHours = 0.0;
+
         public CelestialBody Sun { get; private set; }
         public CelestialBody Earth { get; private set; }
         public CelestialBody Mars { get; private set; }
@@ -50,17 +57,17 @@ namespace SolarSystem.Core
             model.Sun = new CelestialBody(
                 "Sun", CelestialBodyKind.Star, SunRadiusKm,
                 Vec3d.Zero,
-                new Rgb(1.0, 0.95, 0.80));
+                new Rgb(1.0, 0.95, 0.80), SunRotationPeriodHours);
 
             model.Earth = new CelestialBody(
                 "Earth", CelestialBodyKind.Planet, EarthRadiusKm,
                 new Vec3d(SunToEarthKm, 0.0, 0.0),
-                new Rgb(0.20, 0.42, 0.72));
+                new Rgb(0.20, 0.42, 0.72), EarthRotationPeriodHours);
 
             model.Mars = new CelestialBody(
                 "Mars", CelestialBodyKind.Planet, MarsRadiusKm,
                 new Vec3d(SunToMarsKm, 0.0, 0.0),
-                new Rgb(0.76, 0.36, 0.22));
+                new Rgb(0.76, 0.36, 0.22), MarsRotationPeriodHours);
 
             model._bodies.Add(model.Sun);
             model._bodies.Add(model.Earth);

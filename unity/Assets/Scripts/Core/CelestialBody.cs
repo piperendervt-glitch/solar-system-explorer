@@ -28,13 +28,15 @@ namespace SolarSystem.Core
     /// </summary>
     public sealed class CelestialBody
     {
-        public CelestialBody(string name, CelestialBodyKind kind, double radiusKm, Vec3d absolutePosition, Rgb color)
+        public CelestialBody(string name, CelestialBodyKind kind, double radiusKm, Vec3d absolutePosition,
+                             Rgb color, double rotationPeriodHours)
         {
             Name = name;
             Kind = kind;
             RadiusKm = radiusKm;
             AbsolutePosition = absolutePosition;
             Color = color;
+            RotationPeriodHours = rotationPeriodHours;
         }
 
         public string Name { get; }
@@ -42,6 +44,14 @@ namespace SolarSystem.Core
         public double RadiusKm { get; }
         public Vec3d AbsolutePosition { get; }
         public Rgb Color { get; }
+
+        /// <summary>
+        /// 自転周期 [時間] (Step 8-4)。0 以下なら自転しない。
+        ///
+        /// **天体に属するデータなのでここに持つ。** 名前引きの表にすると、
+        /// 天体を足したときに無言で既定値へ落ちる。
+        /// </summary>
+        public double RotationPeriodHours { get; }
 
         public double DistanceFrom(Vec3d observer) => Vec3d.Distance(observer, AbsolutePosition);
 

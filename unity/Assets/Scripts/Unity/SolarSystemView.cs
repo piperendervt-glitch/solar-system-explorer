@@ -48,6 +48,10 @@ namespace SolarSystem.Unity
 
         /// <summary>観測者の絶対位置から全天体を更新する。</summary>
         public void Apply(Vec3d observerAbsolute, double radiansPerPixel)
+            => Apply(observerAbsolute, radiansPerPixel, 0.0);
+
+        /// <summary>elapsedSeconds は自転角に使う (Step 8-4)。</summary>
+        public void Apply(Vec3d observerAbsolute, double radiansPerPixel, double elapsedSeconds)
         {
             // 実スケールへ渡すのは**一番近い 1 天体だけ**、しかも帯の内側にいるときだけ。
             // 太陽 (2.28e8) と地球 (7.8e7) はこのシナリオでは決して 5e4 units に入らないので、
@@ -79,7 +83,7 @@ namespace SolarSystem.Unity
                 if (view != null)
                 {
                     view.SetHandoffTarget(ReferenceEquals(view, HandoffTarget));
-                    view.Apply(observerAbsolute, radiansPerPixel);
+                    view.Apply(observerAbsolute, radiansPerPixel, elapsedSeconds);
                 }
             }
         }

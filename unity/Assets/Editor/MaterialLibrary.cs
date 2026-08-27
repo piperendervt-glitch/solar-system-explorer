@@ -54,6 +54,67 @@ namespace SolarSystem.Editor
             return material;
         }
 
+        /// <summary>雲シェーダの名前 (Step 8-3)。</summary>
+        public const string CloudShaderName = "SolarSystem/PlanetClouds";
+
+        /// <summary>雲球の半径倍率。実寸 +8km では 1 画素にならないので見た目優先。</summary>
+        public const float CloudRadiusScale = 1.006f;
+
+        /// <summary>
+        /// 雲の不透明度のゲイン。**1.15 で確定** (earth-close-day を目視して決定)。
+        ///
+        /// 素材 (earth_clouds) の最大値は 227/255 = 0.89 しかない。
+        /// これを 1.0 まで持ち上げる係数は 255/227 = 1.123 で、1.15 はその少し上。
+        ///
+        /// **EditMode テストは下限 1.12 しか縛っていない。**
+        /// 「素材の最大 0.89 のままでは薄い」ことしか自動では言えないため。
+        /// 濃さそのものは目視で決めた値なので、変えるならまた目で見ること。
+        /// </summary>
+        public const float CloudOpacity = 1.15f;
+
+        /// <summary>
+        /// 雲球のマテリアル (Step 8-3)。地球のみ。
+        /// **renderQueue は地表 +1。** 同心球なので距離ソートが同値になり順序が不定になる。
+        /// </summary>
+        public static Material CloudMaterial(CelestialBody body)
+        {
+            Shader shader = Shader.Find(CloudShaderName);
+            if (shader == null)
+            {
+                throw new System.InvalidOperationException("シェーダが見つからない: " + CloudShaderName);
+            }
+
+            string path = $"{Folder}/{body.Name}_Clouds.mat";
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+            Material material = existing != null ? existing : new Material(shader);
+            material.shader = shader;
+
+            material.SetColor("_BaseColor", Color.white);
+            material.SetTexture("_BaseMap",
+                AssetDatabase.LoadAssetAtPath<Texture2D>(
+                    PlanetTextureSetup.AssetPath("4k_earth_clouds.jpg")));
+            material.SetFloat("_CloudOpacity", CloudOpacity);
+
+            material.SetFloat("_Surface", 1f);
+            material.SetFloat("_ZWrite", 0f);
+            material.SetOverrideTag("RenderType", "Transparent");
+            material.renderQueue = SurfaceRenderQueue + 1;
+
+            if (existing == null)
+            {
+                AssetDatabase.CreateAsset(material, path);
+            }
+            else
+            {
+                EditorUtility.SetDirty(material);
+            }
+
+            return material;
+        }
+
+        /// <summary>地表の描画キュー。雲はこれの +1。</summary>
+        public const int SurfaceRenderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+
         /// <summary>惑星シェーダの名前 (Step 8-2)。</summary>
         public const string PlanetShaderName = "SolarSystem/PlanetSurface";
 

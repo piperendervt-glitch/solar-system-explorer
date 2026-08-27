@@ -32,6 +32,11 @@ namespace SolarSystem.Core
             list.Add(CreateEarthClose(model, EarthTerminatorName, SunSide.Terminator));
             list.Add(CreateEarthClose(model, EarthNightName, SunSide.Night));
 
+            // 自転 (Step 8-4)。等倍なので動きとしては見えない。
+            // **時刻を進めた静止画を 2 枚並べて確認する。** F2/F3 で行き来する。
+            list.Add(CreateEarthSpin(model, EarthSpinT0Name, 0.0));
+            list.Add(CreateEarthSpin(model, EarthSpinT6hName, 6.0 * 3600.0));
+
             // フレアの遮蔽の遷移 (Step 9-3a)。
             // 遷移幅は太陽の角直径ぶん (約 0.53 度) しかなく、静止画 1 枚では
             // 「強くなる」が見えない。3 点に分けて F2/F3 で連続して見る。
@@ -89,6 +94,9 @@ namespace SolarSystem.Core
 
             return -1;
         }
+
+        public const string EarthSpinT0Name = "earth-spin-t0";
+        public const string EarthSpinT6hName = "earth-spin-t6h";
 
         public const string SunHiddenName = "sun-hidden";
         public const string SunEmergeName = "sun-emerge";
@@ -191,6 +199,49 @@ namespace SolarSystem.Core
 
             return new Scenario(name, $"地球へ {EarthCloseRadii} 半径まで寄る ({side})",
                                 start, checkPoints);
+        }
+
+        /// <summary>
+        /// 自転を目で確認するための 1 対 (Step 8-4)。
+        ///
+        /// **等倍 (SpeedMultiplier = 1.0) では動きとして見えない。**
+        /// earth-close (円盤 356 px) で 5 分に 7.8 px、1 秒に 0.026 px しか動かない。
+        /// 誇張すると ETA と矛盾するので、代わりに時刻を進めた静止画を並べる。
+        /// 6 時間で地表は 90.3 度、雲は 108 度回る。
+        /// </summary>
+        static Scenario CreateEarthSpin(SolarSystemModel model, string name, double elapsedSeconds)
+        {
+            // 昼側正面。模様の動きが最も見やすい。
+            var offset = new Vec3d(1.0, 0.0, 0.0);
+            Vec3d position = model.Earth.AbsolutePosition
+                             + offset * (SolarSystemModel.EarthRadiusKm * EarthCloseRadii);
+
+            double hours = elapsedSeconds / 3600.0;
+            double surface = BodyRotation.AngleDegrees(elapsedSeconds, model.Earth.RotationPeriodHours);
+            double cloud = BodyRotation.AngleDegrees(elapsedSeconds, BodyRotation.EarthCloudPeriodHours);
+
+            var start = new ScenarioStart
+            {
+                Position = position,
+                LookAt = model.Earth.AbsolutePosition,
+                Up = new Vec3d(0.0, 1.0, 0.0),
+                TargetStationIndex = 0,
+                ElapsedSeconds = elapsedSeconds,
+                VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                DebugHudVisible = false,
+                SunDirectionOverride = offset * -1.0, // 昼側
+            };
+
+            return new Scenario(
+                name,
+                $"自転の確認用 (t = {hours:F0} 時間)",
+                start,
+                new[]
+                {
+                    $"地表が {surface:F1} 度 回っている",
+                    $"雲が {cloud:F1} 度 回っている (地表より速い)",
+                    "F2/F3 で 2 枚を行き来して模様の位置を比べる",
+                });
         }
 
         /// <summary>

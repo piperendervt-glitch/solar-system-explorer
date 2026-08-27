@@ -226,7 +226,8 @@ namespace SolarSystem.Unity
             // 天体はプロキシ殻の上に置き直す。太陽光の向きは絶対座標の差分から。
             if (_solarSystemView != null)
             {
-                _solarSystemView.Apply(Ship.Position, RadiansPerPixel);
+                _solarSystemView.Apply(Ship.Position, RadiansPerPixel,
+                                       Clock != null ? Clock.ElapsedSeconds : 0.0);
             }
 
             if (_stations != null)
