@@ -41,6 +41,19 @@ public static class SolarSetup
     }
 
     /// <summary>
+    /// 惑星の追加マップ (雲 / 夜景 / 法線 / 鏡面) を 4k に縮小して取り込む (Step 8-1)。
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.ImportPlanetTextures
+    ///
+    /// アセットのインポートを跨ぐので別 Run にする。
+    /// </summary>
+    public static void ImportPlanetTextures()
+    {
+        SolarSystem.Editor.PlanetTextureSetup.Import();
+        Debug.Log("[SolarSetup] ImportPlanetTextures OK");
+    }
+
+    /// <summary>
     /// シナリオの初期状態を撮る (Step 8-0)。
     ///
     ///   run_unity.ps1 -Method SolarSetup.CaptureScenario
@@ -66,15 +79,4 @@ public static class SolarSetup
         Debug.Log("[SolarSetup] Build OK");
     }
 
-    /// <summary>
-    /// スクショ検証。シーン生成とは別 Run にする
-    /// (CLAUDE.md §5「コンパイルやドメインリロードを跨ぐ処理は Run を分ける」)。
-    ///
-    ///   run_unity.ps1 -Method SolarSetup.ImportTmp
-    /// </summary>
-    public static void Capture()
-    {
-        SolarSystem.Editor.VerifyCapture.Run();
-        Debug.Log("[SolarSetup] Capture OK");
-    }
 }

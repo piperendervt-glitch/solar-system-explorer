@@ -119,6 +119,7 @@ namespace SolarSystem.Editor
                 if (HasArg(DiagArg))
                 {
                     LogVisibleRenderers(stack);
+                    EliminateOneByOne(stack, directory, name);
                     CaptureTierDiagnostics(stack, directory, name);
                 }
             }
@@ -126,11 +127,61 @@ namespace SolarSystem.Editor
             Debug.Log($"[ScenarioCapture] OK: {directory} ({names.Length} 件 / hero={hero})");
         }
 
-        /// <summary>Cockpit / Nearfield 段が描く物を、画面上の占有矩形つきで出す。</summary>
+        /// <summary>
+        /// Near 段の描画対象を 1 つずつ無効化して撮る。
+        /// **どれを消したときに消えるか**を実測で突き止めるため。推測で決めない。
+        /// あわせて Light の SRP Lens Flare も単独で切る (Renderer ではないので
+        /// 描画対象の列挙には出てこない)。
+        /// </summary>
+        static void EliminateOneByOne(CameraStackController stack, string directory, string name)
+        {
+            var targets = new System.Collections.Generic.List<Renderer>();
+            foreach (Renderer r in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+            {
+                if (r == null || !r.enabled || !r.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                if ((stack.Near.cullingMask & (1 << r.gameObject.layer)) != 0)
+                {
+                    targets.Add(r);
+                }
+            }
+
+            int index = 0;
+            foreach (Renderer r in targets)
+            {
+                index++;
+                string label = r.transform.parent != null
+                    ? r.transform.parent.name + "-" + r.gameObject.name
+                    : r.gameObject.name;
+
+                r.enabled = false;
+                Capture(stack, directory, name + "_off" + index + "-" + label, false);
+                r.enabled = true;
+            }
+
+            // Renderer ではない描画物: Directional Light の SRP Lens Flare (Step 6)。
+            foreach (var flare in Object.FindObjectsByType<UnityEngine.Rendering.LensFlareComponentSRP>(
+                         FindObjectsSortMode.None))
+            {
+                if (!flare.enabled)
+                {
+                    continue;
+                }
+
+                flare.enabled = false;
+                Capture(stack, directory, name + "_noflare", false);
+                flare.enabled = true;
+            }
+        }
+
+        /// <summary>各段が描く物を、画面上の占有矩形つきで出す。</summary>
         static void LogVisibleRenderers(CameraStackController stack)
         {
             foreach ((string tier, Camera cam) in new[]
-                     { ("Cockpit", stack.Cockpit), ("Nearfield", stack.Nearfield) })
+                     { ("Deep", stack.Deep), ("Near", stack.Near), ("Nearfield", stack.Nearfield), ("Cockpit", stack.Cockpit) })
             {
                 foreach (Renderer r in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
                 {
@@ -265,6 +316,8 @@ namespace SolarSystem.Editor
                 shot.ReadPixels(new Rect(0, 0, w, h), 0, 0);
                 shot.Apply();
 
+                LogStats(name, shot);
+
                 string path = Path.Combine(directory, hero ? name + ".jpg" : name + ".png");
                 byte[] bytes = hero ? shot.EncodeToJPG(HeroJpegQuality) : shot.EncodeToPNG();
                 File.WriteAllBytes(path, bytes);
@@ -279,6 +332,56 @@ namespace SolarSystem.Editor
                 rt.Release();
                 Object.DestroyImmediate(rt);
             }
+        }
+
+        /// <summary>
+        /// 撮った絵の診断値を出す (旧 VerifyCapture から移設)。
+        /// Step 2 の LOD 判定と Step 3b の引き渡し検証はこの数値に依っていた。
+        /// </summary>
+        static void LogStats(string name, Texture2D image)
+        {
+            Color32[] pixels = image.GetPixels32();
+            int lit = 0;
+            int brightest = 0;
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                int v = Mathf.Max(pixels[i].r, Mathf.Max(pixels[i].g, pixels[i].b));
+                if (v > 8)
+                {
+                    lit++;
+                }
+
+                if (v > brightest)
+                {
+                    brightest = v;
+                }
+            }
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"[ScenarioCapture] {name} — 非黒画素 {lit} / {pixels.Length} " +
+                          $"({100.0 * lit / pixels.Length:F4}%) / 最大輝度 {brightest}");
+
+            var root = Object.FindAnyObjectByType<UniverseRoot>();
+            if (root != null && root.SolarSystem != null)
+            {
+                foreach (CelestialBodyView view in root.SolarSystem.Views)
+                {
+                    sb.AppendLine(
+                        $"[ScenarioCapture]   {view.Body.Name,-6} 距離 {view.LastDistance:E4} units / " +
+                        $"角直径 {view.LastAngularPixels:F3} px / blend {view.Lod.Blend:F3} / " +
+                        $"point {(view.Lod.PointActive ? "ON " : "off")} / " +
+                        $"mesh {(view.Lod.MeshActive ? "ON " : "off")} / " +
+                        $"real {view.RealScaleBlend:F3}");
+                }
+            }
+
+            if (root != null && root.SunLight != null)
+            {
+                sb.Append($"[ScenarioCapture]   太陽光の向き {root.SunLight.LastDirection} / " +
+                          $"相対日射 {root.SunLight.LastRelativeIrradiance:F4}");
+            }
+
+            Debug.Log(sb.ToString());
         }
 
         static bool HasArg(string name)

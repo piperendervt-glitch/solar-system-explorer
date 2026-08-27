@@ -41,13 +41,101 @@ namespace SolarSystem.Editor
                     albedo: albedo);
             }
 
-            return GetOrCreate(
+            // 惑星は手書きの PlanetSurface (Step 8-2)。
+            Material material = GetOrCreate(
                 $"{body.Name}_Mesh",
-                "Universal Render Pipeline/Lit",
+                PlanetShaderName,
                 ToColor(body.Color),
                 transparent: true,
                 emissive: false,
                 albedo: albedo);
+
+            ApplyPlanetProperties(material, body);
+            return material;
+        }
+
+        /// <summary>惑星シェーダの名前 (Step 8-2)。</summary>
+        public const string PlanetShaderName = "SolarSystem/PlanetSurface";
+
+        /// <summary>大気の縁の仕様 (docs/02-demo2-plan.md 8-2)。</summary>
+        public struct PlanetLook
+        {
+            public Color AtmosphereColor;
+            public float AtmospherePower;
+            public float AtmosphereStrength;
+            public bool UsesEarthMaps;
+        }
+
+        /// <summary>天体ごとの見た目。テストはここを仕様表として読む。</summary>
+        public static PlanetLook LookFor(CelestialBody body)
+        {
+            if (body != null && body.Name == "Mars")
+            {
+                return new PlanetLook
+                {
+                    AtmosphereColor = new Color(1.0f, 0.6f, 0.35f, 1f),
+                    AtmospherePower = 5.0f,
+                    AtmosphereStrength = EarthAtmosphereStrength * 0.25f, // 地球の 1/4 (薄い大気)
+                    UsesEarthMaps = false,
+                };
+            }
+
+            return new PlanetLook
+            {
+                AtmosphereColor = new Color(0.35f, 0.55f, 1.0f, 1f),
+                AtmospherePower = 3.5f,
+                AtmosphereStrength = EarthAtmosphereStrength,
+                UsesEarthMaps = true,
+            };
+        }
+
+        /// <summary>
+        /// 地球の大気の強さ。**暫定値。目視待ち。**
+        /// 縁が「中心より青い」と画素で言える最小限まで上げただけで、
+        /// 見た目としての妥当性は未確認 (人間が earth-close-day を見て決める)。
+        /// 1.0 では縁の絶対的な青成分が中心 (明るい海) を下回った
+        /// (実測: 縁 B=88.4 / 中心 B=117.2)。
+        /// </summary>
+        public const float EarthAtmosphereStrength = 5.0f;
+
+        public const float SmoothnessLand = 0.1f;
+        public const float SmoothnessOcean = 0.85f;
+        public const float NightIntensity = 1.0f;
+
+        static void ApplyPlanetProperties(Material material, CelestialBody body)
+        {
+            PlanetLook look = LookFor(body);
+
+            material.SetColor("_AtmosphereColor", look.AtmosphereColor);
+            material.SetFloat("_AtmospherePower", look.AtmospherePower);
+            material.SetFloat("_AtmosphereStrength", look.AtmosphereStrength);
+            material.SetFloat("_SmoothnessLand", SmoothnessLand);
+            material.SetFloat("_SmoothnessOcean", SmoothnessOcean);
+            material.SetFloat("_NightIntensity", NightIntensity);
+            material.SetFloat("_EmissionIntensity", 1.0f);
+
+            // **地球以外は法線 / 鏡面 / 街灯りを割り当てない。**
+            // シェーダ側の既定 (bump / black / black) に解決される。
+            if (!look.UsesEarthMaps)
+            {
+                return;
+            }
+
+            material.SetTexture("_NormalMap", LoadPlanetMap("4k_earth_normal.png"));
+            material.SetTexture("_SpecularMask", LoadPlanetMap("4k_earth_specular.png"));
+            material.SetTexture("_NightMap", LoadPlanetMap("4k_earth_nightmap.jpg"));
+        }
+
+        static Texture2D LoadPlanetMap(string fileName)
+        {
+            var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(
+                PlanetTextureSetup.AssetPath(fileName));
+            if (texture == null)
+            {
+                PlanetTextureSetup.RequireImported();
+            }
+
+            return texture;
         }
 
         /// <summary>不透明な単色マテリアル (コックピットの枠など)。</summary>
