@@ -52,6 +52,10 @@ namespace SolarSystem.Core
             // 太陽の HDR 化 (Step 9-1)。眩しさと縁の立ち方は目で見るしかない。
             list.Add(CreateSunFace(model));
 
+            // ゴースト (Step 9-3b) は太陽から視線をずらさないと出ない。
+            // sun-face では中心に重なって見えない。
+            list.Add(CreateSunOffAxis(model));
+
             // LOD と実スケール引き渡しの確認 (Step 2 / 3b から移設)。
             list.Add(CreateLod(model, "lod-from-earth", 2.0e4, fromEarth: true,
                 "地球近傍 (地球から 2e4 units) から火星方向"));
@@ -125,6 +129,9 @@ namespace SolarSystem.Core
 
         /// <summary>太陽を正面から見る (Step 9-1)。距離は地球近傍。</summary>
         public const string SunFaceName = "sun-face";
+
+        /// <summary>太陽を画面の端寄りに置く (Step 9-3b)。ゴーストの確認用。</summary>
+        public const string SunOffAxisName = "sun-offaxis";
 
         /// <summary>太陽が地球の縁からどれだけ出ているか。</summary>
         public enum SunPhase
@@ -436,6 +443,47 @@ namespace SolarSystem.Core
                 "太陽が眩しい (bloom で白く滲んでいる)",
                 "コロナが円盤の外へ滑らかに広がり、縁で切れていない",
                 "縁が中心よりわずかに暗く、模様が潰れきっていない (周辺減光)",
+            });
+        }
+
+        /// <summary>
+        /// 太陽を画面の端寄りに見る (Step 9-3b)。**ゴーストの確認用。**
+        ///
+        /// 位置は sun-face と同じ。**視線だけを太陽からずらす。**
+        /// 縦 FOV 60 度の 1/3 = 10 度ぶん傾けると、太陽は画面中心から
+        /// 縦方向に H/3 ほど外れた位置に来る。ゴーストはその反対側へ並ぶ。
+        /// </summary>
+        static Scenario CreateSunOffAxis(SolarSystemModel model)
+        {
+            Vec3d earth = model.Earth.AbsolutePosition;
+            Vec3d sun = model.Sun.AbsolutePosition;
+            Vec3d towardSun = (sun - earth).Normalized;
+            Vec3d position = earth + towardSun * 1.0e5;
+
+            // 視線を太陽から 10 度ずらす。LookAt は「太陽の隣」を指す点。
+            double offsetDegrees = UniverseConstants.ReferenceVerticalFovDegrees / 3.0;
+            double distance = Vec3d.Distance(sun, position);
+            Vec3d side = PerpendicularTo(towardSun);
+            Vec3d lookAt = sun + side * (distance * System.Math.Tan(
+                offsetDegrees * System.Math.PI / 180.0));
+
+            var start = new ScenarioStart
+            {
+                Position = position,
+                LookAt = lookAt,
+                Up = new Vec3d(0.0, 1.0, 0.0),
+                TargetStationIndex = 0,
+                ElapsedSeconds = 0.0,
+                VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                DebugHudVisible = false,
+                SunDirectionOverride = null,
+            };
+
+            return new Scenario(SunOffAxisName, "太陽を画面の端寄りに見る (ゴーストの確認)", start, new[]
+            {
+                "太陽が画面の中心から外れた位置にある",
+                "太陽の反対側に小さな円が並ぶ (ゴースト)",
+                "太陽を画面外へ出すとゴーストも消える",
             });
         }
 

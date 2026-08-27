@@ -178,6 +178,12 @@ namespace SolarSystem.Unity
             if (_flare != null)
             {
                 _flare.SetBaseIntensity((float)model.NumberOf(DebugPanelModel.FlareId));
+
+                // 見た目は実行時コピーへ。アセットには書き戻さない。
+                _flare.Look.Apply(
+                    model.NumberOf(DebugPanelModel.SpikeCountId),
+                    model.NumberOf(DebugPanelModel.SpikeLengthId),
+                    model.NumberOf(DebugPanelModel.GhostId));
             }
 
             if (_shake != null)

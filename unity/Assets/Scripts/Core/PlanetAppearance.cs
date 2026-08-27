@@ -70,5 +70,33 @@ namespace SolarSystem.Core
         /// </summary>
         public const double CoronaRadiusScale = 2.5;
     
+        /// <summary>
+        /// 光条の要素の最大数 (Step 9-3b)。**アセットに作る Image 要素の個数。**
+        /// 筋は中心を通る両側の帯なので、要素 1 個で光条は 2 本に見える。
+        /// 画面上の最大本数は この 2 倍 = 12 本。
+        /// </summary>
+        public const int FlareSpikeElementMax = 6;
+
+        /// <summary>
+        /// 光条の本数 (Step 9-3b)。**画面上で数えられる本数。**
+        /// 目で数える値なので要素数ではなくこちらを項目の意味にした。
+        /// 要素数 = 本数 / 2 なので偶数のみ (パネルの刻みが 2)。
+        ///
+        /// **暫定値。実機で決める。** 既定 6 本 = 3 要素で 60 度おき。
+        /// </summary>
+        public const double FlareSpikeCount = 6.0;
+
+        /// <summary>
+        /// 光条の長さ (Step 9-3b)。要素の sizeXY.x に入る。
+        /// **暫定値。実機で決める。**
+        /// </summary>
+        public const double FlareSpikeLength = 1.5;
+
+        /// <summary>
+        /// ゴースト (レンズ内反射) の強さ (Step 9-3b)。
+        /// 太陽から視線をずらしたとき反対側に並ぶ小さな円。
+        /// **暫定値。実機で決める。** 確認は sun-offaxis シナリオ。
+        /// </summary>
+        public const double FlareGhostIntensity = 0.4;
     }
 }

@@ -62,42 +62,96 @@ namespace SolarSystem.Editor
         }
     }
 
-    /// <summary>太陽のレンズフレアをコードから作る (Step 6)。外部素材は使わない。</summary>
+    /// <summary>
+    /// 太陽のレンズフレアをコードから作る (Step 6 / 9-3b)。**外部素材は使わない。**
+    ///
+    /// 要素の並びは固定で、実行時に索引で引く (FlareRuntimeData)。
+    /// **順番を変えるときは PlanetAppearance の索引も直すこと。**
+    ///   0            : 中心のグレア
+    ///   1 .. 6       : 光条 (最大 6 要素 = 画面上 12 本)
+    ///   7            : 水平方向の縞
+    ///   8            : ゴースト (5 個をまとめた 1 要素)
+    /// </summary>
     public static class LensFlareBuilder
     {
         const string Path = "Assets/Materials/SunFlare.asset";
 
+        public const int GlareIndex = 0;
+        public const int SpikeFirstIndex = 1;
+        public const int StripeIndex = SpikeFirstIndex + SolarSystem.Core.PlanetAppearance.FlareSpikeElementMax;
+        public const int GhostIndex = StripeIndex + 1;
+        public const int ElementCount = GhostIndex + 1;
+
+        /// <summary>ゴーストの個数。計画書 9-3 の「4〜6 個」。</summary>
+        public const int GhostCount = 5;
+
         public static LensFlareDataSRP GetOrCreate()
         {
             var existing = AssetDatabase.LoadAssetAtPath<LensFlareDataSRP>(Path);
-            if (existing != null)
+            LensFlareDataSRP data = existing != null
+                ? existing
+                : ScriptableObject.CreateInstance<LensFlareDataSRP>();
+
+            // **毎回組み直す。** 早期 return にすると Step 6 の円 3 枚が残る。
+            Texture streak = FlareTextureBuilder.GetOrCreate();
+            var elements = new LensFlareDataElementSRP[ElementCount];
+
+            elements[GlareIndex] = Circle(0.35f, 0f, new Color(1.0f, 0.95f, 0.85f, 1f), 1f);
+
+            // ---- 光条 ----
+            // 筋は中心を通る両側の帯なので、要素 1 個で 2 本に見える。
+            // N 要素を 180/N 度おきに置くと、画面上には 2N 本が等間隔に並ぶ。
+            int max = SolarSystem.Core.PlanetAppearance.FlareSpikeElementMax;
+
+            // **既定の本数に合わせて visible を決める。** 全部 visible で作ると、
+            // パネルを開くまで既定 6 本ではなく最大 12 本で描かれてしまう。
+            int active = FlareRuntimeData.ElementsForSpikeCount(
+                SolarSystem.Core.PlanetAppearance.FlareSpikeCount);
+
+            for (int i = 0; i < max; i++)
             {
-                return existing;
+                LensFlareDataElementSRP spike = Streak(
+                    streak,
+                    length: (float)SolarSystem.Core.PlanetAppearance.FlareSpikeLength,
+                    thickness: 0.10f,
+                    // **有効な本数で角度を割る。** max で割ると、本数を減らしたとき
+                    // 片側へ寄る。FlareRuntimeData.Apply と同じ式にすること。
+                    rotation: active > 0 ? i * 180f / active : 0f,
+                    tint: new Color(1.0f, 0.93f, 0.80f, 1f));
+
+                spike.visible = i < active;
+                elements[SpikeFirstIndex + i] = spike;
             }
 
-            var data = ScriptableObject.CreateInstance<LensFlareDataSRP>();
+            // ---- 水平方向の縞 ----
+            // 同じ筋を 1 個、極端に長く細く。
+            elements[StripeIndex] = Streak(
+                streak, length: 4.0f, thickness: 0.03f, rotation: 0f,
+                tint: new Color(0.75f, 0.88f, 1.0f, 1f));
 
-            // 手続き生成の円 3 枚だけ。テクスチャは使わない。
-            data.elements = new[]
+            // ---- ゴースト (レンズ内反射) ----
+            // 太陽から視線をずらすと反対側へ並ぶ。sun-offaxis で確認する。
+            elements[GhostIndex] = Ghosts(new Color(0.85f, 0.9f, 1.0f, 1f));
+
+            data.elements = elements;
+
+            if (existing == null)
             {
-                Circle(0.35f, 1.0f, new Color(1.0f, 0.95f, 0.85f, 1f)),
-                Circle(0.10f, 0.35f, new Color(0.8f, 0.9f, 1.0f, 1f)),
-                Circle(0.06f, -0.25f, new Color(1.0f, 0.8f, 0.6f, 1f)),
-            };
+                AssetDatabase.CreateAsset(data, Path);
+            }
 
-            AssetDatabase.CreateAsset(data, Path);
             EditorUtility.SetDirty(data);
             AssetDatabase.SaveAssets();
             return data;
         }
 
-        static LensFlareDataElementSRP Circle(float size, float position, Color tint)
+        static LensFlareDataElementSRP Circle(float size, float position, Color tint, float intensity)
         {
             return new LensFlareDataElementSRP
             {
                 visible = true,
                 flareType = SRPLensFlareType.Circle,
-                localIntensity = 1f,
+                localIntensity = intensity,
                 sizeXY = new Vector2(1f, 1f),
                 uniformScale = size,
                 position = position,
@@ -107,6 +161,63 @@ namespace SolarSystem.Editor
                 inverseSDF = false,
                 fallOff = 1f,
                 edgeOffset = 0.1f,
+            };
+        }
+
+        /// <summary>筋 1 本。**preserveAspectRatio を切らないと sizeXY で伸ばせない。**</summary>
+        static LensFlareDataElementSRP Streak(Texture texture, float length, float thickness,
+                                              float rotation, Color tint)
+        {
+            return new LensFlareDataElementSRP
+            {
+                visible = true,
+                flareType = SRPLensFlareType.Image,
+                lensFlareTexture = texture,
+                localIntensity = 1f,
+                uniformScale = 1f,
+                sizeXY = new Vector2(length, thickness),
+                preserveAspectRatio = false,
+                position = 0f,
+                rotation = rotation,
+                autoRotate = false,
+                tint = tint,
+                blendMode = SRPLensFlareBlendMode.Additive,
+                modulateByLightColor = true,
+            };
+        }
+
+        static LensFlareDataElementSRP Ghosts(Color tint)
+        {
+            return new LensFlareDataElementSRP
+            {
+                visible = true,
+                flareType = SRPLensFlareType.Circle,
+                localIntensity = (float)SolarSystem.Core.PlanetAppearance.FlareGhostIntensity,
+                sizeXY = new Vector2(1f, 1f),
+                uniformScale = 0.07f,
+
+                // **内部で 2 倍される。** LensFlareCommonSRP:1465 が
+                //   float position = 2.0f * element.position;
+                // としたうえで screenPos * (1 - position) に描く。つまり
+                //   0.0 = 太陽 / 0.5 = 画面中心 / 1.0 = 太陽の対称点
+                //
+                // 1.7 だと -2.4 倍になり画面外へ飛ぶ。sun-offaxis で
+                // 非黒画素が 412 のまま増えなかったのはこれが理由。
+                //
+                // 0.5 〜 1.0 に散らして、画面中心から対称点までに並べる。
+                position = 0.75f,
+                tint = tint,
+                blendMode = SRPLensFlareBlendMode.Additive,
+                modulateByLightColor = true,
+                inverseSDF = false,
+                fallOff = 1f,
+                edgeOffset = 0.1f,
+
+                // 太陽の反対側へ 5 個を等間隔に並べる。
+                allowMultipleElement = true,
+                count = GhostCount,
+                distribution = SRPLensFlareDistribution.Uniform,
+                lengthSpread = 0.5f, // 0.5 〜 1.0 (画面中心 〜 対称点)
             };
         }
     }

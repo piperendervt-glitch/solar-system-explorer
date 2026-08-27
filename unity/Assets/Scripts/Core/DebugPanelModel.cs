@@ -195,6 +195,17 @@ namespace SolarSystem.Core
         /// <summary>コロナの半径倍率 (Step 9-2)。太陽本体の何倍か。</summary>
         public const string CoronaSizeId = "num.coronaSize";
 
+        /// <summary>光条の長さ (本体比) (Step 9-3b)。</summary>
+        public const string SpikeLengthId = "num.spikeLength";
+
+        /// <summary>
+        /// **画面上の**光条の本数 (Step 9-3b)。要素数はこの半分。
+        /// 目で数える値なので要素数ではなくこちらを項目の意味にした。
+        /// </summary>
+        public const string SpikeCountId = "num.spikeCount";
+
+        /// <summary>ゴーストの強さ (Step 9-3b)。</summary>
+        public const string GhostId = "num.ghost";
 
         readonly List<DebugItem> _items = new List<DebugItem>();
 
@@ -218,7 +229,10 @@ namespace SolarSystem.Core
             double flareIntensity,
             double shakeAmplitude,
             double sunEmission,
-            double coronaSize)
+            double coronaSize,
+            double spikeLength,
+            double spikeCount,
+            double ghostIntensity)
         {
             var m = new DebugPanelModel();
 
@@ -255,6 +269,14 @@ namespace SolarSystem.Core
                 sunEmission, 0.0, 16.0, 0.25, "F2"));
             m._items.Add(DebugItem.MakeNumber(CoronaSizeId, "コロナの大きさ (本体比)",
                 coronaSize, 1.0, 6.0, 0.25, "F2"));
+            m._items.Add(DebugItem.MakeNumber(SpikeLengthId, "光条の長さ (本体比)",
+                spikeLength, 0.0, 6.0, 0.25, "F2"));
+
+            // **画面上の本数。** 要素 1 個で 2 本見えるので刻みは 2 (偶数のみ)。
+            m._items.Add(DebugItem.MakeNumber(SpikeCountId, "光条の本数 (画面上)",
+                spikeCount, 0.0, 12.0, 2.0, "F0"));
+            m._items.Add(DebugItem.MakeNumber(GhostId, "ゴーストの強さ",
+                ghostIntensity, 0.0, 2.0, 0.05, "F2"));
             m._items.Add(DebugItem.MakeNumber(ShakeId, "微振動の振幅 [rad]",
                 shakeAmplitude, 0.0, 5.0e-3, 2.5e-4, "E3"));
 

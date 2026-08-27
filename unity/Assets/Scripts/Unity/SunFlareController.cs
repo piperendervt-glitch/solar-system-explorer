@@ -35,6 +35,20 @@ namespace SolarSystem.Unity
 
         public LensFlareComponentSRP Flare => _flare;
 
+        FlareRuntimeData _look;
+
+        /// <summary>
+        /// 見た目を触るための実行時コピー (Step 9-3b)。
+        /// **アセットには書き戻さない。** 中身は FlareRuntimeData を参照。
+        /// </summary>
+        public FlareRuntimeData Look => _look ??= new FlareRuntimeData(_flare);
+
+        /// <summary>
+        /// **実行時コピーを捨てる。** ScriptableObject はシーンを切り替えても
+        /// 消えないので、ここで破棄しないと溜まる (Editor 実行で特に)。
+        /// </summary>
+        void OnDestroy() => _look?.Dispose();
+
         /// <summary>デバッグパネルから基準強度を差し替える (Step 8-0b)。</summary>
         public void SetBaseIntensity(float value) => _baseIntensity = value;
 

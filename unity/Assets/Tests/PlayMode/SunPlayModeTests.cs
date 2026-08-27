@@ -368,7 +368,179 @@ namespace SolarSystem.Tests.PlayMode
 
             return peak;
         }
+            /// <summary>
+        /// フレアだけを残す。**ポストプロセスは切らない。**
+        /// SRP Lens Flare はポストプロセス経路で描かれるので、
+        /// renderPostProcessing = false にすると光条ごと消えて測れない。
+        /// </summary>
+        void IsolateFlare()
+        {
+            if (_stack.Cockpit != null) { _stack.Cockpit.enabled = false; }
+            if (_stack.Nearfield != null) { _stack.Nearfield.enabled = false; }
+            _stack.Deep.clearFlags = CameraClearFlags.SolidColor;
+            _stack.Deep.backgroundColor = Color.black;
+
+            foreach (CelestialBodyView v in _root.SolarSystem.Views)
+            {
+                foreach (Renderer r in v.GetComponentsInChildren<Renderer>(true))
+                {
+                    r.enabled = false;
+                }
+            }
+
+            foreach (StationView st in Object.FindObjectsByType<StationView>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                foreach (Renderer r in st.GetComponentsInChildren<Renderer>(true))
+                {
+                    r.enabled = false;
+                }
+            }
         }
+
+        /// <summary>非黒の画素数。トーンマップ後の LDR で数える。</summary>
+        int LitPixels()
+        {
+            const int W = 512;
+            const int H = 512;
+            var rt = new RenderTexture(W, H, 24, RenderTextureFormat.ARGB32);
+            rt.Create();
+            RenderTexture prevTarget = _stack.Deep.targetTexture;
+            RenderTexture prevActive = RenderTexture.active;
+            int lit = 0;
+
+            try
+            {
+                _stack.Deep.targetTexture = rt;
+                _stack.Deep.Render();
+                RenderTexture.active = rt;
+
+                var shot = new Texture2D(W, H, TextureFormat.RGB24, false);
+                shot.ReadPixels(new Rect(0, 0, W, H), 0, 0);
+                shot.Apply();
+                foreach (Color32 c in shot.GetPixels32())
+                {
+                    if (c.r > 8 || c.g > 8 || c.b > 8) { lit++; }
+                }
+
+                Object.DestroyImmediate(shot);
+            }
+            finally
+            {
+                _stack.Deep.targetTexture = prevTarget;
+                RenderTexture.active = prevActive;
+                rt.Release();
+                Object.DestroyImmediate(rt);
+            }
+
+            return lit;
+        }
+
+        [UnityTest]
+        public IEnumerator 光条をONにすると円盤の外側の画素が増える()
+        {
+            ApplyScenario(ScenarioLibrary.SunFaceName);
+            yield return null;
+            IsolateFlare();
+            yield return null;
+
+            var flare = Object.FindAnyObjectByType<SunFlareController>();
+            Assert.That(flare, Is.Not.Null);
+
+            // 長く多くして差を出す。
+            flare.Look.Apply(spikeCount: 12, spikeLength: 6.0, ghostIntensity: 0.0);
+            yield return null;
+            int on = LitPixels();
+
+            flare.Look.Apply(spikeCount: 0, spikeLength: 6.0, ghostIntensity: 0.0);
+            yield return null;
+            int off = LitPixels();
+
+            Debug.Log(string.Format("  [Step9-3b] 光条 12 本 {0} 画素 / 0 本 {1} 画素 / 差 {2}",
+                on, off, on - off));
+
+            Assert.That(on, Is.GreaterThan(off), "光条を出しても画素が増えていない");
+            Assert.That(on - off, Is.GreaterThan(500), $"差が小さすぎる ({on - off} 画素)");
+        }
+
+        [UnityTest]
+        public IEnumerator 遮蔽率1のとき光条も消える()
+        {
+            ApplyScenario(ScenarioLibrary.SunHiddenName);
+            yield return null;
+            IsolateFlare();
+            yield return null;
+
+            var flare = Object.FindAnyObjectByType<SunFlareController>();
+            Assert.That(flare, Is.Not.Null);
+
+            flare.Look.Apply(spikeCount: 12, spikeLength: 6.0, ghostIntensity: 1.0);
+            for (int i = 0; i < 5; i++)
+            {
+                _root.Tick(Dt);
+            }
+
+            yield return null;
+            int lit = LitPixels();
+
+            Debug.Log(string.Format(
+                "  [Step9-3b] sun-hidden 遮蔽率 {0:F3} / 強度 {1:F3} / 非黒 {2} 画素",
+                flare.LastOcclusion, flare.LastIntensity, lit));
+
+            Assert.That(flare.LastOcclusion, Is.EqualTo(1.0).Within(1e-3),
+                        "9-3a の遮蔽判定が効いていない");
+            Assert.That(flare.LastIntensity, Is.EqualTo(0f).Within(1e-4f));
+            Assert.That(lit, Is.EqualTo(0), "隠れているのに光条が残っている");
+        }
+
+        [UnityTest]
+        public IEnumerator 実行時コピーはアセットを汚さない()
+        {
+            ApplyScenario(ScenarioLibrary.SunFaceName);
+            yield return null;
+
+            var flare = Object.FindAnyObjectByType<SunFlareController>();
+            Assert.That(flare, Is.Not.Null);
+            Assert.That(flare.Look.HasCopy, Is.False, "触る前からコピーがある");
+
+            UnityEngine.Rendering.LensFlareDataSRP before = flare.Flare.lensFlareData;
+            flare.Look.Apply(spikeCount: 2, spikeLength: 1.0, ghostIntensity: 0.1);
+
+            Assert.That(flare.Look.HasCopy, Is.True, "コピーが作られていない");
+            Assert.That(flare.Flare.lensFlareData, Is.Not.SameAs(before),
+                        "アセットを直接書き換えている");
+            Assert.That(flare.Flare.lensFlareData.name, Does.Contain("runtime"));
+        }
+
+            [UnityTest]
+        public IEnumerator ゴーストは太陽の反対側に出る()
+        {
+            // **太陽の反対側に出る。** position は内部で 2 倍されるので
+            // 0.5 = 画面中心 / 1.0 = 対称点 (LensFlareCommonSRP:1465)。
+            ApplyScenario(ScenarioLibrary.SunOffAxisName);
+            yield return null;
+            IsolateFlare();
+            yield return null;
+
+            var flare = Object.FindAnyObjectByType<SunFlareController>();
+            Assert.That(flare, Is.Not.Null);
+
+            // **光条を消してゴーストだけを見る。** 光条が残ると差が埋もれる。
+            flare.Look.Apply(spikeCount: 0, spikeLength: 1.0, ghostIntensity: 2.0);
+            yield return null;
+            int on = LitPixels();
+
+            flare.Look.Apply(spikeCount: 0, spikeLength: 1.0, ghostIntensity: 0.0);
+            yield return null;
+            int off = LitPixels();
+
+            Debug.Log(string.Format("  [Step9-3b] ゴースト 強 {0} 画素 / 無 {1} 画素 / 差 {2}",
+                on, off, on - off));
+
+            Assert.That(on, Is.GreaterThan(off), "ゴーストを出しても画素が増えていない");
+        }
+
+    }
 
     static class MaterialLibraryNames
     {

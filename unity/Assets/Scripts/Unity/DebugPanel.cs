@@ -76,7 +76,10 @@ namespace SolarSystem.Unity
                 SunFlareController.BaseIntensity,
                 CockpitShake.MaxAmplitudeRadians,
                 PlanetAppearance.SunEmissionIntensity,
-                PlanetAppearance.CoronaRadiusScale);
+                PlanetAppearance.CoronaRadiusScale,
+                PlanetAppearance.FlareSpikeLength,
+                PlanetAppearance.FlareSpikeCount,
+                PlanetAppearance.FlareGhostIntensity);
 
             if (HasDebugPanelArg())
             {
