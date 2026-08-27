@@ -143,6 +143,43 @@ namespace SolarSystem.Tests.EditMode
             }
         }
 
+        // ---- Assets/ 直下のホワイトリスト (Step 11-1a) ----
+
+        /// <summary>
+        /// **Assets/ 直下に現れてよいフォルダ。**
+        ///
+        /// 第三者アセットは `ThirdParty/` の下だけに来なければならない。
+        /// `.unitypackage` は取り込み先を自分で持っており
+        /// (`Assets/HiRezSpaceshipsCreatorFree/…`)、`ImportPackageImmediately` は
+        /// **宛先の引数を持たない。** 素のまま取り込むと `.gitignore` の外へ展開される。
+        ///
+        /// CockpitImporter は pathname を書き換えてから取り込むが、**その仕掛けが
+        /// 壊れた場合も、将来別のアセットを取り込んだ場合も、ここで必ず気づける。**
+        /// 増やすときは意図的に足すこと。
+        /// </summary>
+        static readonly string[] AllowedTopLevelFolders =
+        {
+            "Audio", "Editor", "Input", "Materials", "Scenes", "Scripts",
+            "Settings", "Shaders", "Tests", "TextMesh Pro", "Textures",
+            "TutorialInfo", "ThirdParty",
+        };
+
+        [Test]
+        public void Assets直下に想定外のフォルダが無い()
+        {
+            string[] actual = Directory.GetDirectories(Application.dataPath)
+                .Select(Path.GetFileName)
+                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            string[] unexpected = actual.Except(AllowedTopLevelFolders).ToArray();
+
+            Assert.That(unexpected, Is.Empty,
+                        "**Assets/ 直下に想定外のフォルダがある。** "
+                        + "第三者アセットが ThirdParty の外へ展開された可能性: "
+                        + string.Join(", ", unexpected));
+        }
+
         // ---- フォールバック (11-0c) ----
 
         [Test]

@@ -97,20 +97,27 @@ D:\Users\pipe_render\Downloads\solar-system-explorer\sound\
 
 ---
 
-## 4. コックピットモデル（Demo 3 / Step 11-0） — **未取得**
-
-**まだ 1 ファイルも手元に無い。器だけ先に作ってある。**
-取得したらこの表を埋めること。
+## 4. コックピットモデル（Demo 3 / Step 11-1a） — **取得済み**
 
 | | |
 | --- | --- |
-| アセット名 | 未取得（第 1 候補: Hi-Rez Spaceships Creator Free Sample） |
-| 提供元 | 未取得（同: Ebal Studios） |
-| バージョン | 未取得 |
-| 入手日 | 未取得 |
+| アセット名 | Hi-Rez Spaceships Creator Free Sample |
+| 提供元 | Ebal Studios |
+| Asset Store ID | 153363 |
+| バージョン | 1.31（アセットが作られた Unity: 2022.3.62f3） |
+| カテゴリ | 3D Models/Vehicles/Space |
+| 入手日 | 2026-08-27 |
 | ライセンス | **Standard Unity Asset Store EULA**。ゲームに組み込んでの配布は可、**アセット自体の再配布は不可** |
-| 取り込み先 | `unity/Assets/ThirdParty/<Publisher>/`（**追跡除外**） |
-| プレハブ GUID | 未取得（`CockpitCatalog.Requested` に入れる） |
+| ダウンロード物 | `Hi-Rez Spaceships Creator Free Sample.unitypackage`（189,205 KB / 178 エントリ） |
+| 取り込み先 | `unity/Assets/ThirdParty/EbalStudios/HiRezSpaceshipsCreatorFree/`（**追跡除外**） |
+| プレハブ GUID | `54e1b562c3fea284f8a0ec8cdc70057c`（内装付きコックピット。`CockpitDefinition.HiRezSample`） |
+
+**アセット名・提供元・ID・バージョンは推測ではなく、`.unitypackage` の gzip FEXTRA に
+埋まっている Asset Store のメタ情報から読み出した値。** 同じ値を
+`unity/Assets/Editor/CockpitPackage.cs` が定数として持つ（記録はこの 2 か所）。
+
+取り込んだ中身の一覧は `verify/hirez-package-contents.txt`（ファイル名のみ。
+アセット本体は含まない）。
 
 > **このリポジトリは PUBLIC。** EULA が再配布を禁じるので、
 > `unity/Assets/ThirdParty/` 配下は 1 ファイルも追跡しない。
@@ -132,11 +139,24 @@ D:\Users\pipe_render\Downloads\solar-system-explorer\sound\
 3. **取り込み先のフォルダを作る。**
    `unity/Assets/ThirdParty/` は `.gitignore` の内側なので、**clone 直後には存在しない。**
    取り込みスクリプトはフォルダの作成から始めること
-4. `AssetDatabase.ImportPackageImmediately` で取り込む（Step 11-1a の
-   `CockpitImporter.Import`）。TMP と同じ経路で batchmode に閉じる
-5. 不要物（デモシーン・Built-in 専用のポストプロセス・サンプルスクリプト）を
-   削除リストに従って消す
+4. `run_unity.ps1 -Method SolarSetup.ImportCockpit` で取り込む（`CockpitImporter`）。
+   別の場所に置いたときは `-ExtraArgs '-package','<path>'` で渡す。
+   **取り込みは素のままでは行わない。** `ImportPackageImmediately` は宛先の引数を
+   持たず、パッケージが記録している `Assets/HiRezSpaceshipsCreatorFree/…` へ
+   そのまま展開してしまう。そこは `.gitignore` の外なので、**取り込んだ瞬間に
+   追跡対象になる。** `CockpitImporter` は各エントリの `pathname` を取り込み先へ
+   書き換えた一時パッケージ（`%TEMP%`。リポジトリの外）を作り、
+   **全エントリが取り込み先の下に来ていることを検査してから**取り込む
+5. 不要物（デモシーン・Built-in 専用のパッケージ・例示プレハブ）を削除リストに
+   従って消す。**テクスチャは消さない**（参照されないアセットはビルドに含まれない
+   ので、消しても exe は軽くならない）
 6. URP 変換（Step 11-1b）→ `run_tests.ps1` で全緑を確認
+
+**`.unitypackage` は gzip ヘッダに FEXTRA（Asset Store のメタ情報）が入っていて、
+Python の `tarfile` では開けない**（`ReadError: invalid compressed data`）。
+`gzip.GzipFile` 経由で読むか、`UnityPackageReader` のようにヘッダを自前で
+読み飛ばして deflate 本体を渡す。各エントリのフォルダ名が GUID そのものなので、
+**取り込む前にプレハブの GUID が読める。**
 
 **アセットが無いままでも Editor・テスト・ビルドは通る。** 箱コックピットへ
 フォールバックする（`CockpitCatalog.Resolve`）。判定はフォルダの有無ではなく

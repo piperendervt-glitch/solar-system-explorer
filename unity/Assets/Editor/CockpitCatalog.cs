@@ -26,8 +26,15 @@ namespace SolarSystem.Editor
 
         /// <summary>
         /// 既定で組もうとする定義。
-        /// **Step 11-1 で Hi-Rez を取り込むまでは箱のまま。**
-        /// 取り込んだら、ここを `HiRezSample`（GUID 入り）に差し替える。
+        /// **取り込まれていなければ箱へ落ちる**（Resolve が面倒を見る）ので、
+        /// アセットが無いクローンでもシーン生成は通る。
+        ///
+        /// ■ **11-1a では箱のまま。**
+        /// 11-1a でやったのは取り込みだけで、`CockpitBuilder` はまだプレハブを
+        /// 置いていない（配置・スケール・視点は 11-2a）。ここを `HiRezSample` に
+        /// すると、**箱の枠を組んだのに `CockpitIdentity` が hirez-sample と
+        /// 記録する。** シーンと HUD に嘘が残るので、切り替えるのは
+        /// SceneBuilder が実際にプレハブを置くようになってから。
         /// </summary>
         public static CockpitDefinition Requested => CockpitDefinition.Box;
 

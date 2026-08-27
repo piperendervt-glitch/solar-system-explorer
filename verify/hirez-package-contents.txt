@@ -1,0 +1,207 @@
+Hi-Rez Spaceships Creator Free Sample — .unitypackage の中身
+（Unity を起動せず、gzip+tar として読み出したもの。Assets/ へは未取り込み）
+
+パッケージのメタ情報（gzip の FEXTRA に埋まっていた）:
+  id 153363 / version 1.31 / upload_id 934718 / version_id 1385314
+  unity_version 2022.3.62f3 / pubdate 15 Jun 2026
+  publisher Ebal Studios (id 24304) / category 3D Models/Vehicles/Space (id 48)
+
+エントリ 178（実体あり 129 / フォルダのみ 49）/ 実体の合計 194.1 MB
+
+==============================================================================
+拡張子別
+==============================================================================
+  .png               75 件    138.69 MB
+  .unitypackage       2 件     53.61 MB
+  .prefab            24 件      0.84 MB
+  .fbx                1 件      0.74 MB
+  .mat               23 件      0.09 MB
+  .unity              2 件      0.08 MB
+  .lighting           1 件      0.00 MB
+  .txt                1 件      0.00 MB
+
+==============================================================================
+全ファイル（パス / サイズ / 画像は寸法）
+==============================================================================
+    0.414 MB  Assets/HiRezSpaceshipsCreatorFree/Legacy/Built-In.unitypackage
+   53.198 MB  Assets/HiRezSpaceshipsCreatorFree/Legacy/HDRP.unitypackage
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/Cockpits/CockpitEquipments/CockpitEquipments_Screens.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/Cockpits/CockpitEquipments/CockpitEquipments_TargetScreens.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/Cockpits/CockpitEquipments/CockpitsEquipments.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/Cockpits/Grey/Cockpit3Grey.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/Cockpits/Grey/Cockpit3Grey_Glass.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/Cockpits/Grey/Cockpit3Grey_interior.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/Cockpits/Red/Cockpit3Red.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/Cockpits/Red/Cockpit3Red_Glass.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/Cockpits/Red/Cockpit3Red_interior.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/Engines/Grey/Engine1.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/Engines/Red/Engine1.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/Engines/Thrusters/Thrusters1.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/MainBodies/Grey/MainBody13.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/MainBodies/Grey/MainBody2.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/MainBodies/Red/MainBody13.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/MainBodies/Red/MainBody2.mat
+    0.002 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/SpaceBG.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/Weapons/BigLauncher.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/Weapons/Blaster.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/Wings/Grey/Wing2.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/Wings/Grey/Wing6.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/Wings/Red/Wing2.mat
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Materials/Wings/Red/Wing6.mat
+    0.739 MB  Assets/HiRezSpaceshipsCreatorFree/Meshes/FreeExampleModules.FBX
+    0.053 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/Examples/Example1_Grey.prefab
+    0.056 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/Examples/Example1_Red.prefab
+    0.056 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/Examples/Example2_Grey.prefab
+    0.040 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/Examples/Example3_Red.prefab
+    0.053 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/Examples/Example4_Grey.prefab
+    0.060 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/Examples/Example5_Grey.prefab
+    0.053 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/ExamplesNoInterior/Example1NoInterior_Grey.prefab
+    0.057 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/ExamplesNoInterior/Example1NoInterior_Red.prefab
+    0.065 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/ExamplesNoInterior/Example2NoInterior_Grey.prefab
+    0.043 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/ExamplesNoInterior/Example3NoInterior_Red.prefab
+    0.061 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/ExamplesNoInterior/Example4NoInterior_Grey.prefab
+    0.060 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/ExamplesNoInterior/Example5_NoInteriorGrey.prefab
+    0.005 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/Modules/Big_Launcher.prefab
+    0.005 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/Modules/Blaster.prefab
+    0.129 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/Modules/Cockpit3_WithInterior.prefab
+    0.006 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/Modules/Cockpit3_WithoutInterior.prefab
+    0.007 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/Modules/Engine1.prefab
+    0.006 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/Modules/MainBody13.prefab
+    0.006 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/Modules/MainBody13_Mirrored.prefab
+    0.004 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/Modules/MainBody2.prefab
+    0.005 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/Modules/Wing2.prefab
+    0.005 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/Modules/Wing2_Mirrored.prefab
+    0.005 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/Modules/Wing6.prefab
+    0.005 MB  Assets/HiRezSpaceshipsCreatorFree/Prefabs/Modules/Wing6_Mirrored.prefab
+    0.001 MB  Assets/HiRezSpaceshipsCreatorFree/Readme.txt
+    0.042 MB  Assets/HiRezSpaceshipsCreatorFree/Scenes/Examples.unity
+    0.002 MB  Assets/HiRezSpaceshipsCreatorFree/Scenes/LightingSettings.lighting
+    0.033 MB  Assets/HiRezSpaceshipsCreatorFree/Scenes/Modules.unity
+    1.808 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/Cockpit3/Cockpit3(interior)_Grey.png 2048x2048
+    4.217 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/Cockpit3/Cockpit3(interior)_MetallicSmoothness.png 2048x2048
+    2.061 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/Cockpit3/Cockpit3(interior)_Normal.png 2048x2048
+    2.043 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/Cockpit3/Cockpit3(interior)_Red.png 2048x2048
+    0.030 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/Cockpit3/Cockpit3_Emission.png 2048x2048
+    1.128 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/Cockpit3/Cockpit3_Grey.png 2048x2048
+    3.919 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/Cockpit3/Cockpit3_MetallicSmoothness.png 2048x2048
+    2.511 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/Cockpit3/Cockpit3_Normal.png 2048x2048
+    2.117 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/Cockpit3/Cockpit3_Red.png 2048x2048
+    0.752 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/Cockpit3/Masks/Cockpit3(interior)_Mask1.png 2048x2048
+    0.824 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/Cockpit3/Masks/Cockpit3(interior)_Mask2.png 2048x2048
+    1.327 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/Cockpit3/Masks/Cockpit3(interior)_Neutral.png 2048x2048
+    1.379 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/Cockpit3/Masks/Cockpit3_Mask1.png 2048x2048
+    0.847 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/Cockpit3/Masks/Cockpit3_Mask2.png 2048x2048
+    1.219 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/Cockpit3/Masks/Cockpit3_Neutral.png 2048x2048
+    0.925 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/CockpitsEquipments/CockpitEquipments-Screens.png 2048x2048
+    1.925 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/CockpitsEquipments/CockpitsEquipments_Albedo.png 2048x2048
+    4.543 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/CockpitsEquipments/CockpitsEquipments_MetallicSmoothness.png 2048x2048
+    3.581 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/CockpitsEquipments/CockpitsEquipmentsl_Normal.png 2048x2048
+    1.138 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/CockpitsEquipments/Masks/CockpitsEquipments_Mask1.png 2048x2048
+    1.128 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/CockpitsEquipments/Masks/CockpitsEquipments_Mask2.png 2048x2048
+    0.879 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/CockpitsEquipments/Masks/CockpitsEquipments_Mask3.png 2048x2048
+    1.708 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/CockpitsEquipments/Masks/CockpitsEquipments_Neutral.png 2048x2048
+    1.276 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Engines/Engine1/Engine1_Grey.png 2048x2048
+    4.350 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Engines/Engine1/Engine1_MetallicSmoothness.png 2048x2048
+    1.077 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Engines/Engine1/Engine1_Normal.png 2048x2048
+    1.465 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Engines/Engine1/Engine1_Red.png 2048x2048
+    0.603 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Engines/Engine1/Masks/Engine1_Mask1.png 2048x2048
+    0.760 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Engines/Engine1/Masks/Engine1_Mask2.png 2048x2048
+    1.451 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Engines/Engine1/Masks/Engine1_Neutral.png 2048x2048
+    0.074 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Engines/Thrusters/Thrusters_Albedo.png 2048x2048
+    0.581 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Engines/Thrusters/Thrusters_Emission1.png 2048x2048
+    1.477 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Engines/Thrusters/Thrusters_MetallicSmoothness.png 2048x2048
+    0.592 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Engines/Thrusters/Thrusters_Normal.png 2048x2048
+    1.926 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/MainBodies/MainBody13/MainBody13_Grey.png 2048x2048
+    4.669 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/MainBodies/MainBody13/MainBody13_MetallicSmoothness.png 2048x2048
+    2.912 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/MainBodies/MainBody13/MainBody13_Normal.png 2048x2048
+    2.812 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/MainBodies/MainBody13/MainBody13_Red.png 2048x2048
+    1.619 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/MainBodies/MainBody13/Masks/MainBody13_Mask1.png 2048x2048
+    1.541 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/MainBodies/MainBody13/Masks/MainBody13_Mask2.png 2048x2048
+    1.964 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/MainBodies/MainBody13/Masks/MainBody13_Neutral.png 2048x2048
+    1.131 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/MainBodies/MainBody2/MainBody2_Grey.png 2048x2048
+    3.174 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/MainBodies/MainBody2/MainBody2_MetallicSmoothness.png 2048x2048
+    2.042 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/MainBodies/MainBody2/MainBody2_Normal.png 2048x2048
+    2.368 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/MainBodies/MainBody2/MainBody2_Red.png 2048x2048
+    1.476 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/MainBodies/MainBody2/Masks/MainBody2_Mask1.png 2048x2048
+    1.112 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/MainBodies/MainBody2/Masks/MainBody2_Mask2.png 2048x2048
+    1.213 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/MainBodies/MainBody2/Masks/MainBody2_Neutral.png 2048x2048
+    1.217 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/SpaceBackground.png 4096x2048
+    1.217 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Weapons/BigLauncher/BigLauncher_Albedo.png 2048x2048
+    4.906 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Weapons/BigLauncher/BigLauncher_MetallicSmoothness.png 2048x2048
+    1.040 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Weapons/BigLauncher/BigLauncher_Normal.png 2048x2048
+    0.266 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Weapons/BigLauncher/Masks/BigLauncher_Mask1.png 2048x2048
+    0.375 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Weapons/BigLauncher/Masks/BigLauncher_Mask2.png 2048x2048
+    1.702 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Weapons/BigLauncher/Masks/BigLauncher_Neutral.png 2048x2048
+    1.997 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Weapons/Blaster/Blaster_Albedo.png 2048x2048
+    3.881 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Weapons/Blaster/Blaster_MetallicSmoothness.png 2048x2048
+    2.388 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Weapons/Blaster/Blaster_Normal.png 2048x2048
+    1.114 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Weapons/Blaster/Masks/Blaster_Mask1.png 2048x2048
+    1.493 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Weapons/Blaster/Masks/Blaster_Mask2.png 2048x2048
+    1.953 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Weapons/Blaster/Masks/Blaster_Neutral.png 2048x2048
+    1.245 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Wings/Wing2/Masks/Wing2_Mask1.png 2048x2048
+    0.795 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Wings/Wing2/Masks/Wing2_Mask2.png 2048x2048
+    1.702 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Wings/Wing2/Masks/Wing2_Neutral.png 2048x2048
+    1.581 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Wings/Wing2/Wing2_Grey.png 2048x2048
+    3.877 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Wings/Wing2/Wing2_MetallicSmoothness.png 2048x2048
+    1.858 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Wings/Wing2/Wing2_Normal.png 2048x2048
+    2.395 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Wings/Wing2/Wing2_Red.png 2048x2048
+    1.432 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Wings/Wing6/Masks/Wing6_Mask1.png 2048x2048
+    1.194 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Wings/Wing6/Masks/Wing6_Mask2.png 2048x2048
+    1.993 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Wings/Wing6/Masks/Wing6_Neutral.png 2048x2048
+    1.887 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Wings/Wing6/Wing6_Grey.png 2048x2048
+    4.283 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Wings/Wing6/Wing6_MetallicSmoothness.png 2048x2048
+    2.448 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Wings/Wing6/Wing6_Normal.png 2048x2048
+    2.782 MB  Assets/HiRezSpaceshipsCreatorFree/Textures/Wings/Wing6/Wing6_Red.png 2048x2048
+
+==============================================================================
+フォルダのみのエントリ
+==============================================================================
+           Assets/HiRezSpaceshipsCreatorFree
+           Assets/HiRezSpaceshipsCreatorFree/Legacy
+           Assets/HiRezSpaceshipsCreatorFree/Materials
+           Assets/HiRezSpaceshipsCreatorFree/Materials/Cockpits
+           Assets/HiRezSpaceshipsCreatorFree/Materials/Cockpits/CockpitEquipments
+           Assets/HiRezSpaceshipsCreatorFree/Materials/Cockpits/Grey
+           Assets/HiRezSpaceshipsCreatorFree/Materials/Cockpits/Red
+           Assets/HiRezSpaceshipsCreatorFree/Materials/Engines
+           Assets/HiRezSpaceshipsCreatorFree/Materials/Engines/Grey
+           Assets/HiRezSpaceshipsCreatorFree/Materials/Engines/Red
+           Assets/HiRezSpaceshipsCreatorFree/Materials/Engines/Thrusters
+           Assets/HiRezSpaceshipsCreatorFree/Materials/MainBodies
+           Assets/HiRezSpaceshipsCreatorFree/Materials/MainBodies/Grey
+           Assets/HiRezSpaceshipsCreatorFree/Materials/MainBodies/Red
+           Assets/HiRezSpaceshipsCreatorFree/Materials/Weapons
+           Assets/HiRezSpaceshipsCreatorFree/Materials/Wings
+           Assets/HiRezSpaceshipsCreatorFree/Materials/Wings/Grey
+           Assets/HiRezSpaceshipsCreatorFree/Materials/Wings/Red
+           Assets/HiRezSpaceshipsCreatorFree/Meshes
+           Assets/HiRezSpaceshipsCreatorFree/Prefabs
+           Assets/HiRezSpaceshipsCreatorFree/Prefabs/Examples
+           Assets/HiRezSpaceshipsCreatorFree/Prefabs/ExamplesNoInterior
+           Assets/HiRezSpaceshipsCreatorFree/Prefabs/Modules
+           Assets/HiRezSpaceshipsCreatorFree/Scenes
+           Assets/HiRezSpaceshipsCreatorFree/Textures
+           Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits
+           Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/Cockpit3
+           Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/Cockpit3/Masks
+           Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/CockpitsEquipments
+           Assets/HiRezSpaceshipsCreatorFree/Textures/Cockpits/CockpitsEquipments/Masks
+           Assets/HiRezSpaceshipsCreatorFree/Textures/Engines
+           Assets/HiRezSpaceshipsCreatorFree/Textures/Engines/Engine1
+           Assets/HiRezSpaceshipsCreatorFree/Textures/Engines/Engine1/Masks
+           Assets/HiRezSpaceshipsCreatorFree/Textures/Engines/Thrusters
+           Assets/HiRezSpaceshipsCreatorFree/Textures/MainBodies
+           Assets/HiRezSpaceshipsCreatorFree/Textures/MainBodies/MainBody13
+           Assets/HiRezSpaceshipsCreatorFree/Textures/MainBodies/MainBody13/Masks
+           Assets/HiRezSpaceshipsCreatorFree/Textures/MainBodies/MainBody2
+           Assets/HiRezSpaceshipsCreatorFree/Textures/MainBodies/MainBody2/Masks
+           Assets/HiRezSpaceshipsCreatorFree/Textures/Weapons
+           Assets/HiRezSpaceshipsCreatorFree/Textures/Weapons/BigLauncher
+           Assets/HiRezSpaceshipsCreatorFree/Textures/Weapons/BigLauncher/Masks
+           Assets/HiRezSpaceshipsCreatorFree/Textures/Weapons/Blaster
+           Assets/HiRezSpaceshipsCreatorFree/Textures/Weapons/Blaster/Masks
+           Assets/HiRezSpaceshipsCreatorFree/Textures/Wings
+           Assets/HiRezSpaceshipsCreatorFree/Textures/Wings/Wing2
+           Assets/HiRezSpaceshipsCreatorFree/Textures/Wings/Wing2/Masks
+           Assets/HiRezSpaceshipsCreatorFree/Textures/Wings/Wing6
+           Assets/HiRezSpaceshipsCreatorFree/Textures/Wings/Wing6/Masks

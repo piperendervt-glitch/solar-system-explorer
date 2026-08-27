@@ -53,6 +53,19 @@ namespace SolarSystem.Core
         public static CockpitDefinition Box { get; } =
             new CockpitDefinition(BoxId, prefabGuid: null, fallbackId: null);
 
+        /// <summary>
+        /// Hi-Rez の無料サンプル（内装付きコックピット）。
+        ///
+        /// **GUID は .unitypackage のフォルダ名から読んだ実測値。**
+        /// .unitypackage は各エントリのフォルダ名が GUID そのものなので、
+        /// 取り込む前に確定する。取り込み後に解決できることは
+        /// EditMode テストが縛る（定数と実態の一致）。
+        ///
+        /// 取り込まれていなければ箱へ落ちる（CockpitCatalog.Resolve）。
+        /// </summary>
+        public static CockpitDefinition HiRezSample { get; } = new CockpitDefinition(
+            HiRezSampleId, "54e1b562c3fea284f8a0ec8cdc70057c", BoxId);
+
         public override string ToString() => Id;
     }
 }

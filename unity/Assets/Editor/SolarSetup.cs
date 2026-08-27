@@ -79,4 +79,19 @@ public static class SolarSetup
         Debug.Log("[SolarSetup] Build OK");
     }
 
+    /// <summary>
+    /// コックピットの .unitypackage を取り込む (Step 11-1a)。
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.ImportCockpit
+    ///   run_unity.ps1 -Method SolarSetup.ImportCockpit -ExtraArgs "-package","&lt;path&gt;"
+    ///
+    /// **取り込み先を書き換えてから取り込む。** ImportPackageImmediately は
+    /// 宛先の引数を持たず、素のままだと .gitignore の外へ展開されるため。
+    /// </summary>
+    public static void ImportCockpit()
+    {
+        SolarSystem.Editor.CockpitImporter.Run();
+        Debug.Log("[SolarSetup] ImportCockpit OK");
+    }
+
 }

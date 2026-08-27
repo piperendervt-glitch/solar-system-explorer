@@ -54,13 +54,18 @@ namespace SolarSystem.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator アセットが無いので箱で組まれている()
+        public IEnumerator 配置はまだなので箱で組まれている()
         {
             yield return null;
 
-            // **11-1 で Hi-Rez を取り込んだらこのテストを更新する。**
-            // いまは取り込みが無いので箱が正しい。
+            // **11-1a で取り込みは済んだが、`CockpitBuilder` はまだプレハブを
+            // 置いていない**（配置・スケール・視点は 11-2a）。だから要求そのものが
+            // 箱のままで、フォールバックでもない（`CockpitCatalog.Requested`）。
+            // **組んだものと記録が食い違わないようにするための状態。**
+            // 11-2a でプレハブを置くようになったらこのテストを更新する。
             Assert.That(_identity.DefinitionId, Is.EqualTo(CockpitDefinition.BoxId));
+            Assert.That(_identity.FellBackToBox, Is.False,
+                        "箱を要求しているのにフォールバック扱いになっている");
         }
 
         [UnityTest]
