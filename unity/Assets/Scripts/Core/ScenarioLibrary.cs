@@ -32,6 +32,11 @@ namespace SolarSystem.Core
             list.Add(CreateEarthClose(model, EarthTerminatorName, SunSide.Terminator));
             list.Add(CreateEarthClose(model, EarthNightName, SunSide.Night));
 
+            // 引き渡し帯の整合 (Step 8-5)。帯 (5e4 -> 3e4) を挟んだ 3 距離。
+            list.Add(CreateHandover(model, HandoverOutName, 5.2e4));
+            list.Add(CreateHandover(model, HandoverMidName, 4.0e4));
+            list.Add(CreateHandover(model, HandoverInName, 2.8e4));
+
             // 自転 (Step 8-4)。等倍なので動きとしては見えない。
             // **時刻を進めた静止画を 2 枚並べて確認する。** F2/F3 で行き来する。
             list.Add(CreateEarthSpin(model, EarthSpinT0Name, 0.0));
@@ -94,6 +99,10 @@ namespace SolarSystem.Core
 
             return -1;
         }
+
+        public const string HandoverOutName = "earth-handover-5e4";
+        public const string HandoverMidName = "earth-handover-4e4";
+        public const string HandoverInName = "earth-handover-3e4";
 
         public const string EarthSpinT0Name = "earth-spin-t0";
         public const string EarthSpinT6hName = "earth-spin-t6h";
@@ -199,6 +208,56 @@ namespace SolarSystem.Core
 
             return new Scenario(name, $"地球へ {EarthCloseRadii} 半径まで寄る ({side})",
                                 start, checkPoints);
+        }
+
+        /// <summary>
+        /// 引き渡し帯を挟んだ 3 距離 (Step 8-5)。
+        ///
+        /// 帯の中央では殻と実スケールが半分ずつ描かれる。**両者の見た目が
+        /// 一致していないと、ここで模様が二重像になる。**
+        /// </summary>
+        static Scenario CreateHandover(SolarSystemModel model, string name, double distance)
+        {
+            var offset = new Vec3d(1.0, 0.0, 0.0);
+            Vec3d position = model.Earth.AbsolutePosition + offset * distance;
+            double blend = RealScaleHandoff.Blend(distance);
+
+            string where;
+            if (blend <= 0.0)
+            {
+                where = "帯の外側 (殻だけが描かれる)";
+            }
+            else if (blend >= 1.0)
+            {
+                where = "帯の内側 (実スケールだけが描かれる)";
+            }
+            else
+            {
+                where = "帯の中央 (殻と実スケールが半分ずつ)";
+            }
+
+            var start = new ScenarioStart
+            {
+                Position = position,
+                LookAt = model.Earth.AbsolutePosition,
+                Up = new Vec3d(0.0, 1.0, 0.0),
+                TargetStationIndex = 0,
+                ElapsedSeconds = 0.0,
+                VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                DebugHudVisible = false,
+                SunDirectionOverride = offset * -1.0, // 昼側。模様の一致が見やすい
+            };
+
+            return new Scenario(
+                name,
+                $"引き渡し帯 {distance:E1} units — {where}",
+                start,
+                new[]
+                {
+                    $"引き渡し率が {blend:F3} になっている",
+                    "地表の模様が二重像になっていない",
+                    "雲の位置と濃さが飛んでいない",
+                });
         }
 
         /// <summary>

@@ -184,10 +184,23 @@ namespace SolarSystem.Unity
             var spinRotation = Quaternion.Euler(0f, (float)spin, 0f);
             var cloudRotation = Quaternion.Euler(0f, (float)cloudSpin, 0f);
 
-            if (_spin != null) { _spin.localRotation = spinRotation; }
-            if (_realSpin != null) { _realSpin.localRotation = spinRotation; }
-            if (_cloudSpin != null) { _cloudSpin.localRotation = cloudRotation; }
-            if (_realCloudSpin != null) { _realCloudSpin.localRotation = cloudRotation; }
+            // **world 指定で入れる (Step 8-5)。**
+            // 殻側の Spin / CloudSpin は root の子で、root には光点のビルボード用の
+            // LookRotation(dir) が乗っている。localRotation で入れると親の回転が混ざり、
+            // 実スケール側 (親が恒等) と世界回転が食い違う。
+            // 実測: 引き渡し帯の中央で地表・雲とも 90.00 度ずれていた。
+            //
+            // **RealAnchor の恒等化を先に済ませる。** world 指定は代入時点の親の
+            // 回転から localRotation を逆算するので、あとから親を回すと崩れる。
+            if (_realAnchor != null)
+            {
+                _realAnchor.rotation = Quaternion.identity;
+            }
+
+            if (_spin != null) { _spin.rotation = spinRotation; }
+            if (_realSpin != null) { _realSpin.rotation = spinRotation; }
+            if (_cloudSpin != null) { _cloudSpin.rotation = cloudRotation; }
+            if (_realCloudSpin != null) { _realCloudSpin.rotation = cloudRotation; }
 
             // ---- メッシュ: 真の角直径に一致するスケール ----
             // Unity の Sphere プリミティブは直径 1。半径 r の球にするには localScale = 2r。
@@ -222,12 +235,15 @@ namespace SolarSystem.Unity
             if (_realMesh != null)
             {
                 bool active = RealScaleBlend > 0.0;
-                _realMesh.gameObject.SetActive(active);
-                if (_realCloudMesh != null && !active)
+                if (!active)
                 {
-                    _realCloudMesh.gameObject.SetActive(false);
+                    _realMesh.gameObject.SetActive(false);
+                    if (_realCloudMesh != null)
+                    {
+                        _realCloudMesh.gameObject.SetActive(false);
+                    }
                 }
-                if (active)
+                else
                 {
                     // 親 (この Transform) はプロキシ殻の上にいるので、
                     // 実スケール側はワールド座標で直接置く。観測者は常に原点。
@@ -237,16 +253,16 @@ namespace SolarSystem.Unity
                         (float)(dir.X * distance),
                         (float)(dir.Y * distance),
                         (float)(dir.Z * distance));
-                    if (_realAnchor != null)
-                    {
-                        _realAnchor.rotation = Quaternion.identity;
-                    }
-                    else
+                    if (_realAnchor == null)
                     {
                         _realMesh.rotation = Quaternion.identity;
                     }
 
+                    // **スケールを入れてから活性化する。**
+                    // 逆にすると、活性化した最初のフレームだけ前回のスケール
+                    // (初期値 1) で描かれ得る。雲は半径比が 1.006 でなく 1.000 に見える。
                     _realMesh.localScale = Vector3.one * (float)(Body.RadiusKm * 2.0);
+                    _realMesh.gameObject.SetActive(true);
 
                     if (_realCloudMesh != null)
                     {

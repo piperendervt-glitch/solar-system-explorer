@@ -15,7 +15,13 @@ namespace SolarSystem.Tests.PlayMode
         const int Width = 1920;
         const int Height = 1080;
         const double Dt = UniverseConstants.FixedDeltaSeconds;
-        const int PanelTop = 700;
+        /// <summary>
+        /// 計器パネルが占める行数。**GetPixels32 は下から上に並ぶ。**
+        /// パネルは画面下端にあるので、除外するのは y の小さい側。
+        /// (以前は y < Height - PanelTop と書いており、画面下 1/3 だけを
+        ///  走査していた。円盤が小さい距離では標本が 0 個になっていた)
+        /// </summary>
+        const int PanelRows = 380;
 
         UniverseRoot _root;
         ShipRig _rig;
@@ -101,7 +107,7 @@ namespace SolarSystem.Tests.PlayMode
             Color32[] px = shot.GetPixels32();
             double sum = 0;
             int n = 0;
-            for (int y = 0; y < Height - PanelTop; y++)
+            for (int y = PanelRows; y < Height; y++)
             {
                 for (int x = 0; x < Width; x++)
                 {
@@ -128,7 +134,7 @@ namespace SolarSystem.Tests.PlayMode
             Color32[] pb = b.GetPixels32();
             double sum = 0;
             int n = 0;
-            for (int y = 0; y < Height - PanelTop; y++)
+            for (int y = PanelRows; y < Height; y++)
             {
                 for (int x = 0; x < Width; x++)
                 {

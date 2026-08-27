@@ -17,7 +17,13 @@ namespace SolarSystem.Tests.PlayMode
         const double Dt = UniverseConstants.FixedDeltaSeconds;
 
         /// <summary>計器パネルが占める帯。画素検証から外す。</summary>
-        const int PanelTop = 700;
+        /// <summary>
+        /// 計器パネルが占める行数。**GetPixels32 は下から上に並ぶ。**
+        /// パネルは画面下端にあるので、除外するのは y の小さい側。
+        /// (以前は y < Height - PanelTop と書いており、画面下 1/3 だけを
+        ///  走査していた。円盤が小さい距離では標本が 0 個になっていた)
+        /// </summary>
+        const int PanelRows = 380;
 
 
         UniverseRoot _root;
@@ -106,9 +112,12 @@ namespace SolarSystem.Tests.PlayMode
                 float r = DiscRadius();
                 Color32[] px = shot.GetPixels32();
 
-                double rimB = 0, coreB = 0;
+                // **相対成分で判定する。** 絶対値の B で比べると、中心が明るい海の
+                // ときに大気の強さと無関係に中心が勝ちうる。見たいのは「青みが強いか」
+                // なので B / (R + G + B) を使う。
+                double rimRatio = 0, coreRatio = 0;
                 int rimN = 0, coreN = 0;
-                for (int y = 0; y < Height - PanelTop; y++)
+                for (int y = PanelRows; y < Height; y++)
                 {
                     for (int x = 0; x < Width; x++)
                     {
@@ -117,25 +126,33 @@ namespace SolarSystem.Tests.PlayMode
                         float d = Mathf.Sqrt(dx * dx + dy * dy);
                         Color32 c = px[y * Width + x];
 
+                        int total = c.r + c.g + c.b;
+                        if (total < 8)
+                        {
+                            continue; // 真っ黒な画素は比が定義できない
+                        }
+
+                        double ratio = (double)c.b / total;
+
                         if (d >= r - 3f && d <= r)
                         {
-                            rimB += c.b;
+                            rimRatio += ratio;
                             rimN++;
                         }
                         else if (d <= r * 0.25f)
                         {
-                            coreB += c.b;
+                            coreRatio += ratio;
                             coreN++;
                         }
                     }
                 }
 
-                rimB /= Mathf.Max(1, rimN);
-                coreB /= Mathf.Max(1, coreN);
-                Debug.Log($"[Step8-2] 昼側 縁3px の青 {rimB:F1} (n={rimN}) / 中心の青 {coreB:F1} (n={coreN}) / 差 {rimB - coreB:+0.0;-0.0}");
-
+                rimRatio /= Mathf.Max(1, rimN);
+                coreRatio /= Mathf.Max(1, coreN);
+                Debug.Log($"[Step8-2] 昼側 縁3px の青の比 {rimRatio:F4} (n={rimN}) / " +
+                          $"中心の青の比 {coreRatio:F4} (n={coreN}) / 差 {rimRatio - coreRatio:+0.0000;-0.0000}");
                 Assert.That(rimN, Is.GreaterThan(1000), "縁の画素が取れていない");
-                Assert.That(rimB, Is.GreaterThan(coreB), "大気の縁が中心より青くない");
+                Assert.That(rimRatio, Is.GreaterThan(coreRatio), "大気の縁が中心より青くない");
             }
             finally
             {
@@ -155,7 +172,7 @@ namespace SolarSystem.Tests.PlayMode
 
                 int inside = 0;
                 int lit = 0;
-                for (int y = 0; y < Height - PanelTop; y++)
+                for (int y = PanelRows; y < Height; y++)
                 {
                     for (int x = 0; x < Width; x++)
                     {
