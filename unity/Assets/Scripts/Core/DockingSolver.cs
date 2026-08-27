@@ -53,6 +53,16 @@ namespace SolarSystem.Core
         public string LastRejection { get; private set; } = string.Empty;
 
         /// <summary>
+        /// **直近の Step で、要求が押されたのに受理されなかったか (Step 10-4)。**
+        ///
+        /// LastRejection は「何が足りないか」を毎フレーム更新する文字列で、
+        /// **押していなくても中身が入っている。** これで音を鳴らすと連続発火する。
+        /// こちらは「押したのに進めなかった」フレームだけ真になる。
+        /// 状態は増やさない。
+        /// </summary>
+        public bool LastRequestRejected { get; private set; }
+
+        /// <summary>
         /// ドッキング要求が今この場で通るかを判定し、通らないなら理由を返す。
         /// 距離 -> 速度 -> 角度 の順に見る (遠ければ速度も角度も意味がないため)。
         /// </summary>
@@ -89,6 +99,8 @@ namespace SolarSystem.Core
                          bool requestPressed, bool undockPressed, double deltaSeconds)
         {
             LastDistance = distanceToStation;
+            DockingState before = State;
+            LastRequestRejected = false;
 
             // ドッキングに至っていない間は、何が足りないのかを常に持っておく。
             // Enter を押した瞬間だけだと、姿勢を直している最中に表示が消えてしまう。
@@ -169,6 +181,14 @@ namespace SolarSystem.Core
                     }
 
                     break;
+            }
+
+            // **押したのに進めなかったフレームだけ真。**
+            // Free で押した / Approaching で押したが距離・速度・姿勢が条件外、の 2 つ。
+            if (requestPressed && State == before && State != DockingState.DockRequested
+                && State != DockingState.Docking && State != DockingState.Docked)
+            {
+                LastRequestRejected = true;
             }
         }
 

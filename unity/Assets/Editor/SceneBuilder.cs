@@ -193,6 +193,12 @@ namespace SolarSystem.Editor
             var audioRouting = audioGo.AddComponent<AudioRouting>();
             audioRouting.Bind(engineSource, cockpitSource, sfxSource, lowPass);
 
+            // 単発 5 本 (Step 10-4)。
+            audioRouting.BindClips(
+                LoadClip("dock_impact.ogg"), LoadClip("undock.ogg"),
+                LoadClip("ui_select.ogg"), LoadClip("ui_confirm.ogg"),
+                LoadClip("warning.ogg"));
+
             // ---- デバッグパネル (Step 8-0b) ----
             // F1 の情報表示とは別。F4 で開く操作盤。
             var panelGo = new GameObject("DebugPanel");
@@ -329,6 +335,18 @@ namespace SolarSystem.Editor
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             return go.AddComponent<Camera>();
+        }
+
+        static AudioClip LoadClip(string fileName)
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(AudioImportSetup.AssetPath(fileName));
+            if (clip == null)
+            {
+                throw new System.InvalidOperationException(
+                    "音が取り込めていない: " + AudioImportSetup.AssetPath(fileName));
+            }
+
+            return clip;
         }
 
         /// <summary>

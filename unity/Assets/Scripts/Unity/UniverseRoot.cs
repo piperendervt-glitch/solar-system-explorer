@@ -30,6 +30,9 @@ namespace SolarSystem.Unity
         [SerializeField] StationViewSet _stations;
         [SerializeField] PostProcessPreset _post;
         [SerializeField] AudioRouting _audio;
+
+        /// <summary>前フレームのドッキング状態。**イベント音のエッジ判定に使う。**</summary>
+        DockingState _previousDocking = DockingState.Free;
         [SerializeField] DebugOverlay _overlay;
         [SerializeField] ScenarioRunner _scenario;
         [SerializeField] CockpitShake _shake;
@@ -223,6 +226,21 @@ namespace SolarSystem.Unity
                                  && _shipRig.Autopilot.State == AutopilotState.Brake;
                 bool docked = _shipRig != null && _shipRig.Docking != null && _shipRig.Docking.IsDocked;
                 _audio.Tick(docked, realDeltaSeconds);
+
+                // **イベント音は状態遷移のエッジで鳴らす (Step 10-4)。**
+                // 「今この状態か」で鳴らすと Docking の 5 秒間で連続発火する。
+                if (_shipRig != null && _shipRig.Docking != null)
+                {
+                    DockingState now = _shipRig.Docking.State;
+                    _audio.PlaySound(AudioEvents.OnTransition(_previousDocking, now));
+                    _previousDocking = now;
+
+                    // 拒否は状態遷移では出ない（状態が変わらないのが拒否なので）。
+                    if (_shipRig.Docking.LastRequestRejected)
+                    {
+                        _audio.PlaySound(SoundId.Warning);
+                    }
+                }
             }
 
             for (int i = 0; i < steps; i++)

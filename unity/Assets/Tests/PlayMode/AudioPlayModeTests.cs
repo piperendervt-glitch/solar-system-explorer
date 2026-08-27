@@ -267,5 +267,124 @@ namespace SolarSystem.Tests.PlayMode
             Assert.That(_audio.LastCutoffHz, Is.EqualTo(idle).Within(1e-3f),
                         "スラストでカットオフが動いている");
         }
+
+        // ---- イベント音 (Step 10-4) ----
+
+        [UnityTest]
+        public IEnumerator 単発5本が配線されている()
+        {
+            yield return null;
+
+            foreach (SoundId sound in new[]
+                     { SoundId.DockImpact, SoundId.Undock, SoundId.UiSelect,
+                       SoundId.UiConfirm, SoundId.Warning })
+            {
+                Assert.That(_audio.ClipOf(sound), Is.Not.Null, sound + " にクリップが無い");
+            }
+
+            Assert.That(_audio.ClipOf(SoundId.None), Is.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator 鳴らすと回数と直近が記録される()
+        {
+            yield return null;
+
+            int before = _audio.PlayCount(SoundId.UiSelect);
+            Assert.That(_audio.PlaySound(SoundId.UiSelect), Is.True);
+
+            Assert.That(_audio.PlayCount(SoundId.UiSelect), Is.EqualTo(before + 1));
+            Assert.That(_audio.LastSound, Is.EqualTo(SoundId.UiSelect));
+
+            double expected = AudioMix.MasterVolume * AudioMix.SfxVolume;
+            Debug.Log(string.Format(
+                "  [Step10-4] {0} を鳴らした / vol {1:F4} (期待 {2:F4}) / 計 {3} 回",
+                _audio.LastSound, _audio.LastSoundVolume, expected, _audio.TotalPlayCount));
+
+            // **単発も同じ音量チェーンを通る。**
+            Assert.That(_audio.LastSoundVolume, Is.EqualTo((float)expected).Within(1e-3f));
+        }
+
+        [UnityTest]
+        public IEnumerator Noneは鳴らない()
+        {
+            yield return null;
+
+            int before = _audio.TotalPlayCount;
+            Assert.That(_audio.PlaySound(SoundId.None), Is.False);
+            Assert.That(_audio.TotalPlayCount, Is.EqualTo(before), "None で回数が増えた");
+        }
+
+        [UnityTest]
+        public IEnumerator UI選択は重ねられる()
+        {
+            yield return null;
+
+            int before = _audio.PlayCount(SoundId.UiSelect);
+            for (int i = 0; i < 5; i++)
+            {
+                Assert.That(_audio.PlaySound(SoundId.UiSelect), Is.True, $"{i} 回目が捨てられた");
+            }
+
+            Assert.That(_audio.PlayCount(SoundId.UiSelect), Is.EqualTo(before + 5));
+        }
+
+        [UnityTest]
+        public IEnumerator 警告は最小間隔で間引かれる()
+        {
+            yield return null;
+
+            int before = _audio.PlayCount(SoundId.Warning);
+
+            // 連打しても 1 回しか鳴らない。
+            for (int i = 0; i < 5; i++)
+            {
+                _audio.PlaySound(SoundId.Warning);
+            }
+
+            Assert.That(_audio.PlayCount(SoundId.Warning), Is.EqualTo(before + 1),
+                        "最小間隔が効いていない");
+
+            // 時間を進めればまた鳴る。
+            _audio.Tick(docked: false, deltaSeconds: AudioEvents.WarningMinIntervalSeconds + 0.01);
+            Assert.That(_audio.PlaySound(SoundId.Warning), Is.True, "間隔を空けても鳴らない");
+            Assert.That(_audio.PlayCount(SoundId.Warning), Is.EqualTo(before + 2));
+        }
+
+        [UnityTest]
+        public IEnumerator 遷移で鳴る音は1回だけ()
+        {
+            yield return null;
+
+            // Docking は 5 秒間毎フレーム真になる。**遷移で見るので 1 回。**
+            int before = _audio.PlayCount(SoundId.DockImpact);
+
+            _audio.PlaySound(AudioEvents.OnTransition(DockingState.Docking, DockingState.Docked));
+            for (int i = 0; i < 10; i++)
+            {
+                _audio.PlaySound(AudioEvents.OnTransition(DockingState.Docked, DockingState.Docked));
+            }
+
+            Assert.That(_audio.PlayCount(SoundId.DockImpact), Is.EqualTo(before + 1),
+                        "同じ状態が続く間に鳴っている");
+        }
+
+        [UnityTest]
+        public IEnumerator 発音の記録がデバッグHUDに出る()
+        {
+            yield return null;
+
+            var overlay = Object.FindAnyObjectByType<SolarSystem.Unity.DebugOverlay>();
+            Assert.That(overlay, Is.Not.Null);
+            overlay.Visible = true;
+
+            _audio.PlaySound(SoundId.UiConfirm);
+            string text = overlay.BuildText();
+
+            // **音は目で確かめられないので、画面で裏を取れるようにしてある。**
+            Assert.That(text, Does.Contain("音"), "HUD に音の行が無い");
+            Assert.That(text, Does.Contain(SoundId.UiConfirm.ToString()),
+                        "直近に鳴った音が HUD に出ていない");
+        }
     }
 }

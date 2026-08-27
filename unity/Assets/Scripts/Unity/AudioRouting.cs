@@ -39,6 +39,21 @@ namespace SolarSystem.Unity
         /// <summary>**唯一のローパス。** エンジンにだけ掛かる。</summary>
         [SerializeField] AudioLowPassFilter _engineLowPass;
 
+        // ---- 単発クリップ (Step 10-4) ----
+        [SerializeField] AudioClip _dockImpact;
+        [SerializeField] AudioClip _undock;
+        [SerializeField] AudioClip _uiSelect;
+        [SerializeField] AudioClip _uiConfirm;
+        [SerializeField] AudioClip _warning;
+
+        /// <summary>音ごとの発音回数。**診断表示 (F1) とテストが見る。**</summary>
+        readonly int[] _playCounts = new int[System.Enum.GetValues(typeof(SoundId)).Length];
+
+        /// <summary>音ごとの最後に鳴らした時刻 [秒]。最小間隔の判定に使う。</summary>
+        readonly double[] _lastPlayedAt = new double[System.Enum.GetValues(typeof(SoundId)).Length];
+
+        double _now;
+
         double _master = AudioMix.MasterVolume;
         double _engineVolume = AudioMix.EngineVolume;
         double _cockpitVolume = AudioMix.CockpitVolume;
@@ -70,6 +85,33 @@ namespace SolarSystem.Unity
         public float LastCutoffHz { get; private set; }
         public float LastEnginePitch { get; private set; }
 
+        // ---- 発音の記録 (Step 10-4) ----
+        //
+        // **診断表示として持つ。** 音は絵と違って「鳴ったかどうか」を目で
+        // 確かめられないので、F1 の HUD に出して画面で裏を取れるようにする。
+        // 診断表示として存在するので、テストがこれを見るのは自然。
+        // テストのためだけの状態を本番コードに持たせる形を避けられる。
+
+        /// <summary>直近に鳴らした音。まだ何も鳴っていなければ None。</summary>
+        public SoundId LastSound { get; private set; } = SoundId.None;
+
+        /// <summary>直近に鳴らした音の音量。</summary>
+        public float LastSoundVolume { get; private set; }
+
+        /// <summary>音ごとの発音回数。</summary>
+        public int PlayCount(SoundId sound) => _playCounts[(int)sound];
+
+        /// <summary>全ての発音回数の合計。</summary>
+        public int TotalPlayCount
+        {
+            get
+            {
+                int sum = 0;
+                for (int i = 0; i < _playCounts.Length; i++) { sum += _playCounts[i]; }
+                return sum;
+            }
+        }
+
         public void Bind(AudioSource engine, AudioSource cockpit, AudioSource sfx,
                          AudioLowPassFilter engineLowPass)
         {
@@ -77,6 +119,66 @@ namespace SolarSystem.Unity
             _cockpit = cockpit;
             _sfx = sfx;
             _engineLowPass = engineLowPass;
+        }
+
+        /// <summary>単発クリップを渡す (Step 10-4)。</summary>
+        public void BindClips(AudioClip dockImpact, AudioClip undock,
+                              AudioClip uiSelect, AudioClip uiConfirm, AudioClip warning)
+        {
+            _dockImpact = dockImpact;
+            _undock = undock;
+            _uiSelect = uiSelect;
+            _uiConfirm = uiConfirm;
+            _warning = warning;
+        }
+
+        public AudioClip ClipOf(SoundId sound)
+        {
+            switch (sound)
+            {
+                case SoundId.DockImpact: return _dockImpact;
+                case SoundId.Undock: return _undock;
+                case SoundId.UiSelect: return _uiSelect;
+                case SoundId.UiConfirm: return _uiConfirm;
+                case SoundId.Warning: return _warning;
+                default: return null;
+            }
+        }
+
+        /// <summary>
+        /// 単発を鳴らす (Step 10-4)。
+        ///
+        /// **最小間隔を守れないものは捨てる**（警告のみ。AudioEvents.CanPlay）。
+        /// 他は重ねてよい。select_001 は 0.043 秒しかなく実質重ならない。
+        /// </summary>
+        public bool PlaySound(SoundId sound)
+        {
+            if (sound == SoundId.None)
+            {
+                return false;
+            }
+
+            var index = (int)sound;
+            double since = _playCounts[index] == 0 ? -1.0 : _now - _lastPlayedAt[index];
+            if (!AudioEvents.CanPlay(sound, since))
+            {
+                return false;
+            }
+
+            AudioClip clip = ClipOf(sound);
+            if (clip == null || _sfx == null)
+            {
+                return false;
+            }
+
+            var volume = (float)(_master * _sfxVolume);
+            _sfx.PlayOneShot(clip, volume);
+
+            _playCounts[index]++;
+            _lastPlayedAt[index] = _now;
+            LastSound = sound;
+            LastSoundVolume = volume;
+            return true;
         }
 
         public double VolumeOf(AudioGroup group)
@@ -116,6 +218,7 @@ namespace SolarSystem.Unity
         /// <summary>1 フレームぶん。UniverseRoot.Tick から呼ばれる。</summary>
         public void Tick(bool docked, double deltaSeconds)
         {
+            _now += deltaSeconds;
             Docked01 = AudioMix.AdvanceDocked(Docked01, docked, deltaSeconds);
             EngineModel.Advance(Thrust01, Braking, deltaSeconds, EngineLagSeconds);
             Apply();

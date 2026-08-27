@@ -320,12 +320,13 @@ namespace SolarSystem.Unity
                 return;
             }
 
-            HandleDial(input);
+            HandleDial(root, input);
             HandleJump(root, input);
 
             if (input.CycleTarget && !_cycleHeld)
             {
                 CycleTarget(root.Model);
+                root.Audio?.PlaySound(SoundId.UiSelect);
             }
 
             _cycleHeld = input.CycleTarget;
@@ -485,11 +486,12 @@ namespace SolarSystem.Unity
             root.Ship.SetVelocity(dir * _autopilot.CommandedSpeedKmPerSec);
         }
 
-        void HandleDial(FlightInput input)
+        void HandleDial(UniverseRoot root, FlightInput input)
         {
             if (input.DialUp && !_dialUpHeld)
             {
                 _dial.Shift(+1);
+                root.Audio?.PlaySound(SoundId.UiSelect);
             }
 
             _dialUpHeld = input.DialUp;
@@ -497,6 +499,7 @@ namespace SolarSystem.Unity
             if (input.DialDown && !_dialDownHeld)
             {
                 _dial.Shift(-1);
+                root.Audio?.PlaySound(SoundId.UiSelect);
             }
 
             _dialDownHeld = input.DialDown;

@@ -155,6 +155,18 @@ namespace SolarSystem.Unity
                               $"(基準 {flare.Base:0.00})");
             }
 
+            // **音は「鳴ったかどうか」を目で確かめられない (CLAUDE.md 0-B)。**
+            // 聴き分けに自信が持てないときに、画面で裏を取れるようにする。
+            AudioRouting audio = _root.Audio;
+            if (audio != null)
+            {
+                sb.AppendLine(
+                    $"音       : eng {audio.LastEngineVolume:0.000} p{audio.LastEnginePitch:0.00}  " +
+                    $"cut {audio.LastCutoffHz:0} Hz  " +
+                    $"直近 {audio.LastSound} vol {audio.LastSoundVolume:0.000} " +
+                    $"(計 {audio.TotalPlayCount} 回)");
+            }
+
             sb.Append($"操作     : W/S/A/D=ピッチ/ヨー  Q/E=ロール  Space=前進  1〜8=ジャンプ  T=AP起動  G=AP解除");
 
             if (clipping)
