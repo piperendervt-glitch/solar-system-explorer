@@ -53,7 +53,7 @@ namespace SolarSystem.Editor
             CockpitDefinition.HiRezSample.PrefabGuid;
 
         /// <summary>
-        /// 取り込み後に消すもの (17 件 / 54.35 MB)。
+        /// 取り込み後に消すもの (18 件)。
         ///
         /// **テクスチャは消さない。** Unity はどのシーンからも参照されないアセットを
         /// ビルドに含めない（Resources/ と Addressables を除く）ので、翼・機体・
@@ -65,6 +65,11 @@ namespace SolarSystem.Editor
             // 入れ子のパッケージ。Unity からは中身不明のバイナリで、URP では不要。
             "Legacy/HDRP.unitypackage",          // 53.20 MB
             "Legacy/Built-In.unitypackage",      //  0.41 MB
+
+            // デモシーンの背景板。**組み込みシェーダ (fileID 103) を使う唯一のマテリアル**で、
+            // 残るプレハブのどれからも参照されていない（参照していたデモシーンは下で削除する）。
+            // これを残すと「ThirdParty の全マテリアルが URP」を文字どおり通せない (Step 11-1b)。
+            "Materials/SpaceBG.mat",
 
             // デモシーン。
             "Scenes/Examples.unity",

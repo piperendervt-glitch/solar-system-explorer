@@ -18,7 +18,8 @@ namespace SolarSystem.Editor
     ///   3. **自己検査。** 全エントリが取り込み先の下に来ているかを確かめ、
     ///      1 件でも外れていたら **取り込みを呼ばずに例外で止める**
     ///   4. 取り込み → ファイル一覧をログ → 削除リスト適用 → 容量ログ
-    ///   5. 一時パッケージを消す
+    ///   5. URP 変換 (11-1b) と棚卸し (11-1c)。**再現手順を 1 コマンドに保つため**
+    ///   6. 一時パッケージを消す
     ///
     /// **一時パッケージは %TEMP%（リポジトリの外）に置く。**
     /// `verify/` は `shots/` 以外が追跡対象なので、落ちて残ると 190MB が
@@ -118,10 +119,16 @@ namespace SolarSystem.Editor
                     before / 1e6, after / 1e6, (before - after) / 1e6));
 
                 VerifyPrefab();
+
+                // ---- 5. URP 変換と棚卸し (11-1b / 11-1c) ----
+                // **再現手順を 1 コマンドに保つため、続けて呼ぶ。**
+                // 変換だけ・棚卸しだけをやり直す入口も SolarSetup にある。
+                UrpConversion.Run();
+                CockpitInventory.Log();
             }
             finally
             {
-                // ---- 5. 一時パッケージを消す ----
+                // ---- 6. 一時パッケージを消す ----
                 if (File.Exists(temp))
                 {
                     File.Delete(temp);

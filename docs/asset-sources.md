@@ -150,7 +150,21 @@ D:\Users\pipe_render\Downloads\solar-system-explorer\sound\
 5. 不要物（デモシーン・Built-in 専用のパッケージ・例示プレハブ）を削除リストに
    従って消す。**テクスチャは消さない**（参照されないアセットはビルドに含まれない
    ので、消しても exe は軽くならない）
-6. URP 変換（Step 11-1b）→ `run_tests.ps1` で全緑を確認
+6. URP 変換と棚卸しは 4 の中で続けて走る（Step 11-1b / 11-1c）。やり直すときは
+   `SolarSetup.ConvertCockpitToUrp` / `SolarSetup.InventoryCockpit`
+7. `run_tests.ps1` で全緑を確認
+
+**URP の公式一括変換 `Converters.RunInBatchMode` は使えない（URP 17.3.0 で実測）。**
+`Converters.GetConvertersInContainer` が `TypeCache.GetTypesDerivedFrom<RenderPipelineConverter>()`
+の結果を **abstract かどうかを見ずに** `Activator.CreateInstance` に渡すため、2D 側の抽象クラス
+`Base2DMaterialUpgrader` で `MissingMethodException` になる（Converters.cs:263）。
+代わりに**同じ変換表**（`MaterialUpgrader.FetchAllUpgradersForPipeline` +
+`MaterialUpgrader.Upgrade`。どちらも public）を 1 枚ずつ当てている。
+対応表を自作しないこと。**Unity の変換規則と二重管理になる。**
+
+**変換が 0 件で終わっても「効いた」とは限らない。** Hi-Rez は取り込み時点で
+すべて URP なので、変換の経路が生きているかは陽性対照
+（`SolarSetup.VerifyUrpConversion` と同名の EditMode テスト）で確かめる。
 
 **`.unitypackage` は gzip ヘッダに FEXTRA（Asset Store のメタ情報）が入っていて、
 Python の `tarfile` では開けない**（`ReadError: invalid compressed data`）。

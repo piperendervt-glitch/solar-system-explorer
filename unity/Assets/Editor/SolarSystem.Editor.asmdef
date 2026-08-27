@@ -5,6 +5,7 @@
         "SolarSystem.Core",
         "SolarSystem.Unity",
         "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Core.Editor",
         "Unity.InputSystem",
         "Unity.TextMeshPro",
         "Unity.TextMeshPro.Editor",

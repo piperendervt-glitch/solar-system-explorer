@@ -50,6 +50,10 @@ Step 番号は **Step 11**。ゲート方式は Demo 2 と同じ（ファイル�
 | Render Texture の解像度 | 未定 | 11-3b。画面の投影サイズ W px に対し **2W 以上**（TMP の滲み防止） |
 | 役割 → 画面の対応 | 未定 | 11-3a。`Definition.Screens` が持つ。コードは役割だけを見る |
 | 取り込み後のレンダラー数 | **54 個**（内装プレハブ `Cockpit3_WithInterior`） | 11-1a で実測。**シーン上での「箱より多い」の比較は 11-2**（配置がまだなのでシーンは箱のまま） |
+| URP 変換で shader 名が変わった数 | **0 件 / 22 枚中** | 11-1b で実測。取り込み時点で 22 枚すべて `Universal Render Pipeline/Lit`。**変換器が効くことは陽性対照で別に確認**（Standard 1 枚 → URP/Lit、`_MainTex` → `_BaseMap` の引き継ぎ **あり**） |
+| ガラスの Surface Type | **2 枚とも Transparent（queue 3000）** | 11-1c で実測。`Cockpit3Grey_Glass` / `Cockpit3Red_Glass`。**張り替え不要だった**（有料アセットとの比較材料） |
+| 画面マテリアルの共有 | **画面 4 枚が 1 マテリアルを共有 / 内壁とは非共有** | 11-1c で実測。`CockpitEquipments_Screens` は Gauge_01・Gauge_02・Screen_01・Screen_04 の 4 メッシュ。内壁は `CockpitsEquipments`（r=46 / m=20）で別。**役割別 RT には 11-3 で複製が要る** |
+| 発光しているマテリアル | **4 件** | 11-1c で実測。`Cockpit3Grey` / `Cockpit3Red` / `CockpitEquipments_Screens` / `Thrusters1`。11-4b の `Definition.Emissives` の入力 |
 | 追跡ファイル中の `Assets/ThirdParty/` 件数 | **0 件（固定）** | 11-0b。EULA のため。**これは測定ではなく守るべき不変条件** |
 
 ### 代表カット

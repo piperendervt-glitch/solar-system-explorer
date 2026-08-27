@@ -94,4 +94,42 @@ public static class SolarSetup
         Debug.Log("[SolarSetup] ImportCockpit OK");
     }
 
+    /// <summary>
+    /// 取り込んだアセットを URP へ変換する (Step 11-1b)。取り込み直後にも走るので、
+    /// **これを単独で呼ぶのは取り込み直さずに変換だけやり直したいとき。**
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.ConvertCockpitToUrp
+    /// </summary>
+    public static void ConvertCockpitToUrp()
+    {
+        SolarSystem.Editor.UrpConversion.Run();
+        Debug.Log("[SolarSetup] ConvertCockpitToUrp OK");
+    }
+
+    /// <summary>
+    /// **変換器が実際に効くことを確かめる（陽性対照。Step 11-1b）。**
+    ///
+    /// Hi-Rez は既に URP なので変換は 0 件で終わる。それだけでは「呼んだ」と
+    /// 「効いた」の区別がつかないので、Standard のマテリアルを 1 枚わざと作って
+    /// 変換されることを見る。**11-6 で有料アセットを入れる前にもう一度走らせる。**
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.VerifyUrpConversion
+    /// </summary>
+    public static void VerifyUrpConversion()
+    {
+        SolarSystem.Editor.UrpConversion.RunPositiveControl();
+        Debug.Log("[SolarSetup] VerifyUrpConversion OK");
+    }
+
+    /// <summary>
+    /// 取り込んだマテリアルの棚卸し (Step 11-1c)。**何も書き換えない。**
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.InventoryCockpit
+    /// </summary>
+    public static void InventoryCockpit()
+    {
+        SolarSystem.Editor.CockpitInventory.Log();
+        Debug.Log("[SolarSetup] InventoryCockpit OK");
+    }
+
 }
