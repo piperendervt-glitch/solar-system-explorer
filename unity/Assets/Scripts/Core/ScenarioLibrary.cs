@@ -49,11 +49,23 @@ namespace SolarSystem.Core
             list.Add(CreateSunOcclusion(model, SunEmergeName, SunPhase.Emerge));
             list.Add(CreateSunOcclusion(model, SunClearName, SunPhase.Clear));
 
+            // 太陽の HDR 化 (Step 9-1)。眩しさと縁の立ち方は目で見るしかない。
+            list.Add(CreateSunFace(model));
+
             // LOD と実スケール引き渡しの確認 (Step 2 / 3b から移設)。
             list.Add(CreateLod(model, "lod-from-earth", 2.0e4, fromEarth: true,
                 "地球近傍 (地球から 2e4 units) から火星方向"));
+            // **太陽の LOD 帯の連続性はここで見る (Step 9-1)。**
+            // 中間点では太陽が 6.85 px で、光点 α 0.287 / 殻 α 0.713 の
+            // 両方が描かれている。静止画 1 枚では跳びが見えないので、
+            // earth-close-day と行き来して比べる。
             list.Add(CreateLod(model, "lod-midpoint", SolarSystemModel.EarthToMarsKm * 0.5, fromEarth: true,
-                "地球-火星の中間点"));
+                "地球-火星の中間点", new[]
+                {
+                    "火星が視界の中央にあり、光点とメッシュの切替が破綻していない",
+                    "太陽が光点と殻の両方で描かれている (角直径 6.85 px)",
+                    "地球近傍 (earth-close-day) と比べて太陽の明るさが跳んでいない",
+                }));
             list.Add(CreateLod(model, "lod-mars-5e4", 5.0e4, fromEarth: false,
                 "火星まで 5e4 units (引き渡し帯の入口)"));
             list.Add(CreateLod(model, "lod-mars-2e4", 2.0e4, fromEarth: false,
@@ -110,6 +122,9 @@ namespace SolarSystem.Core
         public const string SunHiddenName = "sun-hidden";
         public const string SunEmergeName = "sun-emerge";
         public const string SunClearName = "sun-clear";
+
+        /// <summary>太陽を正面から見る (Step 9-1)。距離は地球近傍。</summary>
+        public const string SunFaceName = "sun-face";
 
         /// <summary>太陽が地球の縁からどれだけ出ているか。</summary>
         public enum SunPhase
@@ -389,6 +404,41 @@ namespace SolarSystem.Core
             return new Scenario(name, $"太陽が地球の縁から出る途中 ({phase})", start, checkPoints);
         }
 
+        /// <summary>
+        /// 太陽を正面から見る (Step 9-1)。
+        ///
+        /// **地球から 1e5 units だけ太陽側に出た位置。** 地球を背にするので
+        /// 視界には太陽だけが残る。距離は 1.495e8 units で、角直径は 8.70 px。
+        /// 地球の軌道上から見た太陽の本当の大きさで、ここは誇張しない。
+        /// </summary>
+        static Scenario CreateSunFace(SolarSystemModel model)
+        {
+            Vec3d earth = model.Earth.AbsolutePosition;
+            Vec3d sun = model.Sun.AbsolutePosition;
+            Vec3d towardSun = (sun - earth).Normalized;
+
+            Vec3d position = earth + towardSun * 1.0e5;
+
+            var start = new ScenarioStart
+            {
+                Position = position,
+                LookAt = sun,
+                Up = new Vec3d(0.0, 1.0, 0.0),
+                TargetStationIndex = 0,
+                ElapsedSeconds = 0.0,
+                VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                DebugHudVisible = false,
+                SunDirectionOverride = null, // 本物の幾何で判定させる
+            };
+
+            return new Scenario(SunFaceName, "太陽を正面から見る (地球近傍)", start, new[]
+            {
+                "太陽が眩しい (bloom で白く滲んでいる)",
+                "円盤の縁が滲まずに立っている (輪郭が bloom に溶けていない)",
+                "縁が中心よりわずかに暗く、模様が潰れきっていない (周辺減光)",
+            });
+        }
+
         /// <summary>与えた向きに垂直な単位ベクトルを 1 つ返す。</summary>
         static Vec3d PerpendicularTo(Vec3d direction)
         {
@@ -407,7 +457,8 @@ namespace SolarSystem.Core
         /// 旧 VerifyCapture の 01〜04 に対応する。
         /// </summary>
         static Scenario CreateLod(SolarSystemModel model, string name, double distance,
-                                  bool fromEarth, string description)
+                                  bool fromEarth, string description,
+                                  string[] checkPointsOverride = null)
         {
             Vec3d earth = model.Earth.AbsolutePosition;
             Vec3d mars = model.Mars.AbsolutePosition;
@@ -429,11 +480,15 @@ namespace SolarSystem.Core
                 SunDirectionOverride = null,
             };
 
-            return new Scenario(name, description, start, new[]
+            // **確認項目は 1〜3 行 (ScenarioTests が縛っている)。**
+            // 足すのではなく差し替える。
+            string[] checkPoints = checkPointsOverride ?? new[]
             {
                 "火星が視界の中央にある",
                 "光点とメッシュの切替が破綻していない",
-            });
+            };
+
+            return new Scenario(name, description, start, checkPoints);
         }
 
         /// <summary>

@@ -185,7 +185,9 @@ namespace SolarSystem.Editor
             applier.Bind(universeRoot, stack, sunFlare, shake, preset, stationSet,
                          MaterialLibrary.MeshMaterial(appearanceModel.Earth),
                          MaterialLibrary.MeshMaterial(appearanceModel.Mars),
-                         MaterialLibrary.CloudMaterial(appearanceModel.Earth));
+                         MaterialLibrary.CloudMaterial(appearanceModel.Earth),
+                         MaterialLibrary.MeshMaterial(appearanceModel.Sun),
+                         MaterialLibrary.PointMaterial(appearanceModel.Sun));
             debugPanel.Bind(universeRoot, rig, applier, stack, overlay);
 
             // ---- exe からのスクショ用 (Step 7) ----

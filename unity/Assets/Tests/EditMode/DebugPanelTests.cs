@@ -22,7 +22,8 @@ namespace SolarSystem.Tests.EditMode
                 PlanetAppearance.EarthAtmosphereStrength,
                 PlanetAppearance.CloudOpacity,
                 SunFlareController.BaseIntensity,
-                CockpitShake.MaxAmplitudeRadians);
+                CockpitShake.MaxAmplitudeRadians,
+                PlanetAppearance.SunEmissionIntensity);
         }
 
         [Test]

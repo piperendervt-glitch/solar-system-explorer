@@ -186,6 +186,12 @@ namespace SolarSystem.Core
         public const string FlareId = "num.flare";
         public const string ShakeId = "num.shake";
 
+        /// <summary>
+        /// 太陽の HDR 発光強度 (Step 9-1)。**1 項目で光点と殻の両方に効く。**
+        /// 別々に振ると LOD 帯で不連続になるので分けない。
+        /// </summary>
+        public const string SunEmissionId = "num.sunEmission";
+
         readonly List<DebugItem> _items = new List<DebugItem>();
 
         public IReadOnlyList<DebugItem> Items => _items;
@@ -206,7 +212,8 @@ namespace SolarSystem.Core
             double atmosphereStrength,
             double cloudOpacity,
             double flareIntensity,
-            double shakeAmplitude)
+            double shakeAmplitude,
+            double sunEmission)
         {
             var m = new DebugPanelModel();
 
@@ -238,6 +245,8 @@ namespace SolarSystem.Core
                 cloudOpacity, 0.0, 2.0, 0.05, "F2"));
             m._items.Add(DebugItem.MakeNumber(FlareId, "フレア基準強度",
                 flareIntensity, 0.0, 2.0, 0.05, "F2"));
+            m._items.Add(DebugItem.MakeNumber(SunEmissionId, "太陽の発光強度",
+                sunEmission, 0.0, 16.0, 0.25, "F2"));
             m._items.Add(DebugItem.MakeNumber(ShakeId, "微振動の振幅 [rad]",
                 shakeAmplitude, 0.0, 5.0e-3, 2.5e-4, "E3"));
 

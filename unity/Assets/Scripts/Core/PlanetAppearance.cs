@@ -38,5 +38,23 @@ namespace SolarSystem.Core
         /// 濃さそのものは目視で決めた値なので、変えるならまた目で見ること。
         /// </summary>
         public const double CloudOpacity = 1.15;
+
+        /// <summary>
+        /// 太陽の HDR 発光強度 (Step 9-1)。**光点と殻の両方に同じ値を掛ける。**
+        ///
+        /// 航行範囲で太陽は LOD 帯 (4〜8px) を横切るため
+        /// (地球近傍 8.70px / 火星近傍 5.71px)、殻だけ HDR にすると
+        /// 火星側で光点が優勢になり太陽が暗くなっていく。
+        ///
+        /// **暫定値。** 計画書 9-1 の 4〜8 の中間を初期値にした。
+        /// **9-4 で bloom と露出を再調整するときに決め直す。**
+        /// 実機での目視による決定もそのときにまとめて行う (9-1 では行わない)。
+        ///
+        /// **実測: この値でトーンマップ前の最大輝度は 5.688。**
+        /// bloom のしきい値 1.05 (Medium) を構造として超えている。
+        /// 測り方は SunPlayModeTests。カメラの renderPostProcessing を
+        /// 切らないと ACES が残って潰れる (CLAUDE.md 0-B)。
+        /// </summary>
+        public const double SunEmissionIntensity = 6.0;
     }
 }

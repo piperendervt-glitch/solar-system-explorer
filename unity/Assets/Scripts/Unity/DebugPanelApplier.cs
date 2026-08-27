@@ -26,9 +26,14 @@ namespace SolarSystem.Unity
         [SerializeField] Material _marsSurface;
         [SerializeField] Material _clouds;
 
+        /// <summary>太陽の殻と光点 (Step 9-1)。**1 つの数値で両方に効かせる。**</summary>
+        [SerializeField] Material _sunMesh;
+        [SerializeField] Material _sunPoint;
+
         public void Bind(UniverseRoot root, CameraStackController stack, SunFlareController flare,
                          CockpitShake shake, PostProcessPreset post, StationViewSet stations,
-                         Material earthSurface, Material marsSurface, Material clouds)
+                         Material earthSurface, Material marsSurface, Material clouds,
+                         Material sunMesh, Material sunPoint)
         {
             _root = root;
             _stack = stack;
@@ -39,6 +44,8 @@ namespace SolarSystem.Unity
             _earthSurface = earthSurface;
             _marsSurface = marsSurface;
             _clouds = clouds;
+            _sunMesh = sunMesh;
+            _sunPoint = sunPoint;
         }
 
         /// <summary>1 フレームぶん反映する。</summary>
@@ -173,6 +180,11 @@ namespace SolarSystem.Unity
             {
                 _shake.SetMaxAmplitude((float)model.NumberOf(DebugPanelModel.ShakeId));
             }
+
+            // **殻と光点に同じ値を掛ける。** LOD 帯で不連続にしないため。
+            var sun = (float)model.NumberOf(DebugPanelModel.SunEmissionId);
+            if (_sunMesh != null) { _sunMesh.SetFloat("_EmissionIntensity", sun); }
+            if (_sunPoint != null) { _sunPoint.SetFloat("_EmissionIntensity", sun); }
         }
     }
 }

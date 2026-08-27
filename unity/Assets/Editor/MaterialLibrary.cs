@@ -16,13 +16,28 @@ namespace SolarSystem.Editor
 
         public static Material PointMaterial(CelestialBody body)
         {
+            if (body.Kind == CelestialBodyKind.Star)
+            {
+                // **光点も殻と同じ強度に乗せる (Step 9-1)。**
+                // 航行範囲で太陽は LOD 帯 (4〜8px) を横切る
+                // (地球近傍 8.70px / 火星近傍 5.71px)。殻だけ HDR にすると
+                // 火星側で光点が優勢になり、太陽が航行中に暗くなっていく。
+                Material star = GetOrCreate(
+                    $"{body.Name}_Point",
+                    SunShaderName,
+                    ToColor(body.Color),
+                    transparent: true);
+
+                ApplySunProperties(star);
+                return star;
+            }
+
             // 光点は常に自己発光。距離が離れても暗くならないよう Unlit にする。
             return GetOrCreate(
                 $"{body.Name}_Point",
                 "Universal Render Pipeline/Unlit",
                 ToColor(body.Color),
-                transparent: true,
-                emissive: false);
+                transparent: true);
         }
 
         public static Material MeshMaterial(CelestialBody body)
@@ -32,13 +47,17 @@ namespace SolarSystem.Editor
             if (body.Kind == CelestialBodyKind.Star)
             {
                 // 太陽は自ら光る。Lit にすると自分の光が当たらず真っ黒になる。
-                return GetOrCreate(
+                // **手書きの SunSurface (Step 9-1)。** Unlit には強度を持たせる
+                // 空きプロパティが無く、周辺減光も書けない。
+                Material star = GetOrCreate(
                     $"{body.Name}_Mesh",
-                    "Universal Render Pipeline/Unlit",
+                    SunShaderName,
                     ToColor(body.Color),
                     transparent: true,
-                    emissive: false,
                     albedo: albedo);
+
+                ApplySunProperties(star);
+                return star;
             }
 
             // 惑星は手書きの PlanetSurface (Step 8-2)。
@@ -47,7 +66,6 @@ namespace SolarSystem.Editor
                 PlanetShaderName,
                 ToColor(body.Color),
                 transparent: true,
-                emissive: false,
                 albedo: albedo);
 
             ApplyPlanetProperties(material, body);
@@ -108,6 +126,27 @@ namespace SolarSystem.Editor
 
         /// <summary>惑星シェーダの名前 (Step 8-2)。</summary>
         public const string PlanetShaderName = "SolarSystem/PlanetSurface";
+
+        /// <summary>太陽シェーダの名前 (Step 9-1)。光点と殻の両方で使う。</summary>
+        public const string SunShaderName = "SolarSystem/SunSurface";
+
+        /// <summary>太陽の HDR 強度。実体は Core (パネルが実行時に読む)。</summary>
+        public static float SunEmissionIntensity => (float)PlanetAppearance.SunEmissionIntensity;
+
+        /// <summary>縁の明るさ。中心 1.0 に対する比 (計画書 9-1: 中心 1.0 -> 縁 0.6)。</summary>
+        public const float SunLimbFloor = 0.6f;
+
+        /// <summary>
+        /// 太陽マテリアルの見た目。**光点と殻の両方に同じ値を掛ける。**
+        /// 強度を _BaseColor に焼かない: CelestialBodyView が MPB で RGBA を
+        /// 毎フレーム上書きするので、焼いた値は初回フレームで消える。
+        /// </summary>
+        static void ApplySunProperties(Material material)
+        {
+            material.SetFloat("_EmissionIntensity", SunEmissionIntensity);
+            material.SetFloat("_LimbDarkening", 1.0f);
+            material.SetFloat("_LimbFloor", SunLimbFloor);
+        }
 
         /// <summary>大気の縁の仕様 (docs/02-demo2-plan.md 8-2)。</summary>
         public struct PlanetLook
@@ -186,7 +225,7 @@ namespace SolarSystem.Editor
 
         /// <summary>不透明な単色マテリアル (コックピットの枠など)。</summary>
         public static Material SolidMaterial(string name, Color color)
-            => GetOrCreate(name, "Universal Render Pipeline/Lit", color, transparent: false, emissive: false);
+            => GetOrCreate(name, "Universal Render Pipeline/Lit", color, transparent: false);
 
         /// <summary>天体ごとのアルベドテクスチャ。無い天体は null。</summary>
         public static Texture2D AlbedoFor(CelestialBody body)
@@ -234,13 +273,10 @@ namespace SolarSystem.Editor
             return material;
         }
 
-        /// <summary>発光体 (太陽) の HDR 強度。Bloom のしきい値 1.30 を確実に超える値。</summary>
-        public const float EmissionIntensity = 4.0f;
-
         static Color ToColor(Rgb rgb) => new Color((float)rgb.R, (float)rgb.G, (float)rgb.B, 1f);
 
         static Material GetOrCreate(string name, string shaderName, Color color, bool transparent,
-                                   bool emissive, Texture2D albedo = null)
+                                   Texture2D albedo = null)
         {
             if (!Directory.Exists(Folder))
             {
@@ -276,18 +312,6 @@ namespace SolarSystem.Editor
                 material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
                 material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
                 material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            }
-
-            if (emissive)
-            {
-                // Bloom のしきい値は 0.85〜1.30 なので、発光は HDR 域 (>1) まで上げないと光らない。
-                // 4.0 なら 3 段階すべてでしきい値を超え、段階差が「にじみの広さ」として出る。
-                material.EnableKeyword("_EMISSION");
-                material.SetColor("_EmissionColor", color * EmissionIntensity);
-                if (albedo != null)
-                {
-                    material.SetTexture("_EmissionMap", albedo);
-                }
             }
 
             if (existing == null)

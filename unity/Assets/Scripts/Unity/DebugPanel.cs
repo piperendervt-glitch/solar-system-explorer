@@ -74,7 +74,8 @@ namespace SolarSystem.Unity
                 PlanetAppearance.EarthAtmosphereStrength,
                 PlanetAppearance.CloudOpacity,
                 SunFlareController.BaseIntensity,
-                CockpitShake.MaxAmplitudeRadians);
+                CockpitShake.MaxAmplitudeRadians,
+                PlanetAppearance.SunEmissionIntensity);
 
             if (HasDebugPanelArg())
             {
