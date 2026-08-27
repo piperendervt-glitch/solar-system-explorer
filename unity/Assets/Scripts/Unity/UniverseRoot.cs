@@ -35,6 +35,7 @@ namespace SolarSystem.Unity
         [SerializeField] CockpitShake _shake;
         [SerializeField] CameraStackController _stack;
         [SerializeField] SunFlareController _sunFlare;
+        [SerializeField] DebugPanel _debugPanel;
 
         [Header("Step 1 の初期速度 (km/s)。既定は 0.9c を +Z へ)")]
         [SerializeField] double _initialVelocityX;
@@ -59,6 +60,7 @@ namespace SolarSystem.Unity
         public ScenarioRunner Scenario => _scenario;
         public CockpitShake Shake => _shake;
         public SunFlareController SunFlare => _sunFlare;
+        public DebugPanel DebugPanel => _debugPanel;
 
         /// <summary>太陽方向の上書き (Step 8-0)。null ならモデルの計算値。</summary>
         public Vec3d? SunDirectionOverride { get; private set; }
@@ -77,6 +79,11 @@ namespace SolarSystem.Unity
 
             // シナリオ指定があればそちらを初期状態にする (Step 8-0)。
             // 引数が無ければ従来どおりセーブから始める。**通常プレイの挙動は変えない。**
+            if (_debugPanel != null)
+            {
+                _debugPanel.Initialize(Model);
+            }
+
             if (_scenario != null)
             {
                 _scenario.Initialize(Model);
@@ -197,6 +204,12 @@ namespace SolarSystem.Unity
             {
                 _shipRig.ApplyInput(this, realDeltaSeconds);
                 HandleHarnessKeys();
+
+                // デバッグパネル (Step 8-0b)。閉じている間は何もしない。
+                if (_debugPanel != null)
+                {
+                    _debugPanel.Tick();
+                }
             }
 
             int steps = Clock.Advance(realDeltaSeconds);
@@ -323,7 +336,8 @@ namespace SolarSystem.Unity
             ScenarioRunner scenario = null,
             CockpitShake shake = null,
             CameraStackController stack = null,
-            SunFlareController sunFlare = null)
+            SunFlareController sunFlare = null,
+            DebugPanel debugPanel = null)
         {
             _shiftDriver = shiftDriver;
             _shipTransform = shipTransform;
@@ -339,6 +353,7 @@ namespace SolarSystem.Unity
             _shake = shake;
             _stack = stack;
             _sunFlare = sunFlare;
+            _debugPanel = debugPanel;
         }
 
         /// <summary>F1 / F2 / F3 の処理 (Step 8-0)。</summary>

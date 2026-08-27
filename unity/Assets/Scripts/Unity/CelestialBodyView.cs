@@ -54,6 +54,9 @@ namespace SolarSystem.Unity
         public Transform Mesh => _mesh;
         public Transform CloudMesh => _cloudMesh;
         public Renderer CloudRenderer => _cloudRenderer;
+        public Renderer PointRenderer => _pointRenderer;
+        public Renderer MeshRenderer => _meshRenderer;
+        public Renderer RealMeshRenderer => _realMeshRenderer;
         public Renderer RealCloudRenderer => _realCloudRenderer;
 
         readonly BodyLodSolver _lod = new BodyLodSolver();

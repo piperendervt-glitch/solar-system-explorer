@@ -155,6 +155,10 @@ namespace SolarSystem.Unity
                 overlay.BindScenario(this);
             }
 
+            // **トグルだけ既定へ戻す。数値は保持する (Step 8-0b)。**
+            // earth-close-day で決めた値を terminator や night でも確かめるため。
+            root.DebugPanel?.ResetTogglesForScenario();
+
             Debug.Log($"[ScenarioRunner] '{scenario.Name}' を適用 ({_index + 1}/{Count}): {scenario.Description}");
         }
     }

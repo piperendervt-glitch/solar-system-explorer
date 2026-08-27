@@ -35,6 +35,11 @@ namespace SolarSystem.Unity
 
         public void Bind(Transform rig) => _rig = rig;
 
+        /// <summary>デバッグパネルから振幅を差し替える (Step 8-0b)。</summary>
+        public void SetMaxAmplitude(float radians) => _maxAmplitudeRadians = radians;
+
+        public float MaxAmplitude => _maxAmplitudeRadians;
+
         /// <summary>
         /// 振幅を決める純関数。テストから直接叩ける。
         /// ドッキング中は 0 (計画書 §8-0)。

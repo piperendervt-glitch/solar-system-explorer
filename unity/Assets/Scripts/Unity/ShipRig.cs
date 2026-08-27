@@ -69,6 +69,34 @@ namespace SolarSystem.Unity
         InputAction _scenarioNext;
         InputAction _scenarioPrev;
 
+        InputAction _debugPanel;
+        InputAction _debugUp;
+        InputAction _debugDown;
+        InputAction _debugLeft;
+        InputAction _debugRight;
+        InputAction _debugSelect;
+        InputAction _debugReset;
+
+        bool _panelHeld;
+        bool _upHeld;
+        bool _downHeld;
+        bool _leftHeld;
+        bool _rightHeld;
+        bool _selectHeld;
+        bool _resetHeld;
+
+        /// <summary>デバッグパネルが開いている間 true。船の操作を止める (Step 8-0b)。</summary>
+        public bool DebugPanelOpen { get; set; }
+
+        /// <summary>この Tick で押された (立ち上がりだけ)。パネルが読む。</summary>
+        public bool DebugPanelPressed { get; private set; }
+        public bool DebugUpPressed { get; private set; }
+        public bool DebugDownPressed { get; private set; }
+        public bool DebugLeftPressed { get; private set; }
+        public bool DebugRightPressed { get; private set; }
+        public bool DebugSelectPressed { get; private set; }
+        public bool DebugResetPressed { get; private set; }
+
         bool _hudHeld;
         bool _nextHeld;
         bool _prevHeld;
@@ -173,6 +201,13 @@ namespace SolarSystem.Unity
             _debugHudToggle = _flight.FindAction("DebugHudToggle");
             _scenarioNext = _flight.FindAction("ScenarioNext");
             _scenarioPrev = _flight.FindAction("ScenarioPrev");
+            _debugPanel = _flight.FindAction("DebugPanel");
+            _debugUp = _flight.FindAction("DebugUp");
+            _debugDown = _flight.FindAction("DebugDown");
+            _debugLeft = _flight.FindAction("DebugLeft");
+            _debugRight = _flight.FindAction("DebugRight");
+            _debugSelect = _flight.FindAction("DebugSelect");
+            _debugReset = _flight.FindAction("DebugReset");
             _undock = _flight.FindAction("Undock");
 
             _jumps = new InputAction[DebugJumpTable.Count];
@@ -212,6 +247,13 @@ namespace SolarSystem.Unity
             input.ToggleDebugHud = IsDown(_debugHudToggle);
             input.ScenarioNext = IsDown(_scenarioNext);
             input.ScenarioPrev = IsDown(_scenarioPrev);
+            input.DebugPanelToggle = IsDown(_debugPanel);
+            input.DebugUp = IsDown(_debugUp);
+            input.DebugDown = IsDown(_debugDown);
+            input.DebugLeft = IsDown(_debugLeft);
+            input.DebugRight = IsDown(_debugRight);
+            input.DebugSelect = IsDown(_debugSelect);
+            input.DebugReset = IsDown(_debugReset);
             input.Undock = IsDown(_undock);
 
             if (_jumps != null)
@@ -248,6 +290,30 @@ namespace SolarSystem.Unity
             _hudHeld = input.ToggleDebugHud;
             _nextHeld = input.ScenarioNext;
             _prevHeld = input.ScenarioPrev;
+
+            // デバッグパネル (Step 8-0b)。
+            DebugPanelPressed = input.DebugPanelToggle && !_panelHeld;
+            DebugUpPressed = input.DebugUp && !_upHeld;
+            DebugDownPressed = input.DebugDown && !_downHeld;
+            DebugLeftPressed = input.DebugLeft && !_leftHeld;
+            DebugRightPressed = input.DebugRight && !_rightHeld;
+            DebugSelectPressed = input.DebugSelect && !_selectHeld;
+            DebugResetPressed = input.DebugReset && !_resetHeld;
+            _panelHeld = input.DebugPanelToggle;
+            _upHeld = input.DebugUp;
+            _downHeld = input.DebugDown;
+            _leftHeld = input.DebugLeft;
+            _rightHeld = input.DebugRight;
+            _selectHeld = input.DebugSelect;
+            _resetHeld = input.DebugReset;
+
+            // **パネルが開いている間は船を動かさない。**
+            // Space (前進) と R (ダイヤル増) をパネルが使うため。
+            // 閉じれば元どおり。F4 を押さなければここは通らない。
+            if (DebugPanelOpen)
+            {
+                input = FlightInput.None;
+            }
 
             if (root == null || _shipTransform == null)
             {

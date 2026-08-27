@@ -35,6 +35,9 @@ namespace SolarSystem.Unity
 
         public LensFlareComponentSRP Flare => _flare;
 
+        /// <summary>デバッグパネルから基準強度を差し替える (Step 8-0b)。</summary>
+        public void SetBaseIntensity(float value) => _baseIntensity = value;
+
         public void Bind(LensFlareComponentSRP flare)
         {
             _flare = flare;

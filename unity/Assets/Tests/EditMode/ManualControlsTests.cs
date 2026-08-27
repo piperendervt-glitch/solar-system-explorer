@@ -150,6 +150,9 @@ namespace SolarSystem.Tests.EditMode
                 "CycleTarget", "DockRequest", "Undock",
                 // 検証ハーネス (Step 8-0)
                 "DebugHudToggle", "ScenarioNext", "ScenarioPrev",
+                // デバッグパネル (Step 8-0b)
+                "DebugPanel", "DebugUp", "DebugDown", "DebugLeft", "DebugRight",
+                "DebugSelect", "DebugReset",
             };
 
             foreach (string name in required)
@@ -202,6 +205,13 @@ namespace SolarSystem.Tests.EditMode
             Assert.That(AllPaths("DebugHudToggle"), Does.Contain("<Keyboard>/f1"));
             Assert.That(AllPaths("ScenarioNext"), Does.Contain("<Keyboard>/f2"));
             Assert.That(AllPaths("ScenarioPrev"), Does.Contain("<Keyboard>/f3"));
+
+            // デバッグパネル (Step 8-0b)。
+            Assert.That(AllPaths("DebugPanel"), Does.Contain("<Keyboard>/f4"));
+            Assert.That(AllPaths("DebugUp"), Does.Contain("<Keyboard>/upArrow"));
+            Assert.That(AllPaths("DebugDown"), Does.Contain("<Keyboard>/downArrow"));
+            Assert.That(AllPaths("DebugLeft"), Does.Contain("<Keyboard>/leftArrow"));
+            Assert.That(AllPaths("DebugRight"), Does.Contain("<Keyboard>/rightArrow"));
         }
     }
 }

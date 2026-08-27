@@ -60,17 +60,8 @@ namespace SolarSystem.Editor
         /// <summary>雲球の半径倍率。実寸 +8km では 1 画素にならないので見た目優先。</summary>
         public const float CloudRadiusScale = 1.006f;
 
-        /// <summary>
-        /// 雲の不透明度のゲイン。**1.15 で確定** (earth-close-day を目視して決定)。
-        ///
-        /// 素材 (earth_clouds) の最大値は 227/255 = 0.89 しかない。
-        /// これを 1.0 まで持ち上げる係数は 255/227 = 1.123 で、1.15 はその少し上。
-        ///
-        /// **EditMode テストは下限 1.12 しか縛っていない。**
-        /// 「素材の最大 0.89 のままでは薄い」ことしか自動では言えないため。
-        /// 濃さそのものは目視で決めた値なので、変えるならまた目で見ること。
-        /// </summary>
-        public const float CloudOpacity = 1.15f;
+        /// <summary>雲の不透明度のゲイン。実体は Core (Step 8-0b で移した)。</summary>
+        public const float CloudOpacity = (float)PlanetAppearance.CloudOpacity;
 
         /// <summary>
         /// 雲球のマテリアル (Step 8-3)。地球のみ。
@@ -136,7 +127,7 @@ namespace SolarSystem.Editor
                 {
                     AtmosphereColor = new Color(1.0f, 0.6f, 0.35f, 1f),
                     AtmospherePower = 5.0f,
-                    AtmosphereStrength = EarthAtmosphereStrength * 0.25f, // 地球の 1/4 (薄い大気)
+                    AtmosphereStrength = EarthAtmosphereStrength * (float)PlanetAppearance.MarsAtmosphereRatio,
                     UsesEarthMaps = false,
                 };
             }
@@ -150,21 +141,8 @@ namespace SolarSystem.Editor
             };
         }
 
-        /// <summary>
-        /// 地球の大気の強さ。**5.0 で確定** (earth-close-day を目視して決定)。
-        ///
-        /// **画素テストは相対成分 B/(R+G+B) で判定している。**
-        /// 絶対値の B で比べると、中心が明るい海のとき大気の強さと無関係に
-        /// 中心が勝ちうるため。5.0 での実測: 縁 0.5145 / 中心 0.4975 (差 +0.0170)。
-        ///
-        /// **注意: 以前この欄に書いていた「縁 B=132.0 / 中心 B=117.2 (差 +14.8)」は
-        /// 誤った走査範囲で得た値だった。** PlayMode テストの画素走査が
-        /// `y < Height - PanelTop` となっており、計器パネルを除くつもりで
-        /// 画面下 1/3 だけを見ていた (GetPixels32 は下から上に並ぶ)。
-        /// 修正後の絶対値は 縁 132.4 / 中心 130.6 で、差は +1.8 しかない。
-        /// 値そのものの妥当性は目視で決めた。
-        /// </summary>
-        public const float EarthAtmosphereStrength = 5.0f;
+        /// <summary>地球の大気の強さ。実体は Core (Step 8-0b で移した)。</summary>
+        public const float EarthAtmosphereStrength = (float)PlanetAppearance.EarthAtmosphereStrength;
 
         public const float SmoothnessLand = 0.1f;
         public const float SmoothnessOcean = 0.85f;

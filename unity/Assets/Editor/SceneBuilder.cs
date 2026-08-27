@@ -174,6 +174,20 @@ namespace SolarSystem.Editor
             var shake = cockpit.ShakeRig.gameObject.AddComponent<CockpitShake>();
             shake.Bind(cockpit.ShakeRig);
 
+            // ---- デバッグパネル (Step 8-0b) ----
+            // F1 の情報表示とは別。F4 で開く操作盤。
+            var panelGo = new GameObject("DebugPanel");
+            panelGo.transform.SetParent(rootGo.transform, false);
+            var debugPanel = panelGo.AddComponent<DebugPanel>();
+            var applier = panelGo.AddComponent<DebugPanelApplier>();
+
+            SolarSystemModel appearanceModel = model;
+            applier.Bind(universeRoot, stack, sunFlare, shake, preset, stationSet,
+                         MaterialLibrary.MeshMaterial(appearanceModel.Earth),
+                         MaterialLibrary.MeshMaterial(appearanceModel.Mars),
+                         MaterialLibrary.CloudMaterial(appearanceModel.Earth));
+            debugPanel.Bind(universeRoot, rig, applier, stack);
+
             // ---- exe からのスクショ用 (Step 7) ----
             // 引数が無ければ何もしない。見た目には影響しない。
             rootGo.AddComponent<StandaloneCapture>();
@@ -200,7 +214,7 @@ namespace SolarSystem.Editor
 
             universeRoot.Configure(shiftDriver, shipGo.transform, solarSystemView, aimer, rig,
                                    cockpit.Panel, stationSet, preset, engineAudio,
-                                   overlay, scenarioRunner, shake, stack, sunFlare);
+                                   overlay, scenarioRunner, shake, stack, sunFlare, debugPanel);
 
             // 登録漏れの検査 (docs/01-architecture.md §2-5)。
             shiftDriver.CollectFromScene();

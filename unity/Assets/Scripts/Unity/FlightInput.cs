@@ -58,6 +58,21 @@ namespace SolarSystem.Unity
         /// <summary>前のシナリオへ (F3 / Step 8-0)。</summary>
         public bool ScenarioPrev;
 
+        /// <summary>デバッグパネルの開閉 (F4 / Step 8-0b)。</summary>
+        public bool DebugPanelToggle;
+
+        /// <summary>パネルの項目移動と値の増減 (上下左右)。</summary>
+        public bool DebugUp;
+        public bool DebugDown;
+        public bool DebugLeft;
+        public bool DebugRight;
+
+        /// <summary>トグル項目の ON/OFF (Space)。**船の前進と同じキー。**</summary>
+        public bool DebugSelect;
+
+        /// <summary>全項目を既定へ (R)。**速度ダイヤル増と同じキー。**</summary>
+        public bool DebugReset;
+
         /// <summary>手動の操作入力があるか。オートパイロットの解除条件に使う。</summary>
         public bool HasManualActivity =>
             Thrust != 0f || Roll != 0f
