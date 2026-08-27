@@ -19,14 +19,14 @@ namespace SolarSystem.Tests.EditMode
         static int RealItemCount()
         {
             DebugPanelModel m = DebugPanelModel.Create(
-                new[] { "Sun", "Earth", "Mars" }, 5.0, 1.15, 0.6, 1.5e-3, 6.0, 2.5, 1.5, 6.0, 0.4, 0.8, 1.05, 0.6, 3.0, 0.10, 1.0, 0.55, 0.30, 0.70);
+                new[] { "Sun", "Earth", "Mars" }, 5.0, 1.15, 0.6, 1.5e-3, 6.0, 2.5, 1.5, 6.0, 0.4, 0.8, 1.05, 0.6, 3.0, 0.10, 1.0, 0.55, 0.30, 0.70, 0.50);
             return m.Items.Count;
         }
 
         [Test]
-        public void 項目数は38件()
+        public void 項目数は39件()
         {
-            Assert.That(RealItemCount(), Is.EqualTo(38));
+            Assert.That(RealItemCount(), Is.EqualTo(39));
         }
 
         [Test]

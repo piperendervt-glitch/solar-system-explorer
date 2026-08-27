@@ -233,6 +233,7 @@ namespace SolarSystem.Unity
                 _audio.SetVolume(AudioGroup.Engine, model.NumberOf(DebugPanelModel.EngineVolumeId));
                 _audio.SetVolume(AudioGroup.Cockpit, model.NumberOf(DebugPanelModel.CockpitVolumeId));
                 _audio.SetVolume(AudioGroup.Sfx, model.NumberOf(DebugPanelModel.SfxVolumeId));
+                _audio.EngineLagSeconds = model.NumberOf(DebugPanelModel.EngineLagId);
             }
 
             var coronaSize = (float)model.NumberOf(DebugPanelModel.CoronaSizeId);

@@ -219,6 +219,8 @@ namespace SolarSystem.Unity
                 // **ドッキング中はエンジンを絞ってローパスを掛ける (Step 10-5)。**
                 // 遷移は AudioMix の純関数が時間で補間する。
                 _audio.Thrust01 = _shipRig != null ? _shipRig.LastThrust : 0f;
+                _audio.Braking = _shipRig != null && _shipRig.Autopilot != null
+                                 && _shipRig.Autopilot.State == AutopilotState.Brake;
                 bool docked = _shipRig != null && _shipRig.Docking != null && _shipRig.Docking.IsDocked;
                 _audio.Tick(docked, realDeltaSeconds);
             }

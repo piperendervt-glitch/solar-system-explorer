@@ -228,6 +228,9 @@ namespace SolarSystem.Core
         public const string CockpitVolumeId = "num.volCockpit";
         public const string SfxVolumeId = "num.volSfx";
 
+        /// <summary>エンジンの一次遅れの時定数 [秒] (Step 10-3)。**耳で決める値。**</summary>
+        public const string EngineLagId = "num.engineLag";
+
         readonly List<DebugItem> _items = new List<DebugItem>();
 
         public IReadOnlyList<DebugItem> Items => _items;
@@ -262,7 +265,8 @@ namespace SolarSystem.Core
             double masterVolume,
             double engineVolume,
             double cockpitVolume,
-            double sfxVolume)
+            double sfxVolume,
+            double engineLagSeconds)
         {
             var m = new DebugPanelModel();
 
@@ -332,6 +336,10 @@ namespace SolarSystem.Core
                 cockpitVolume, AudioMix.MinVolume, AudioMix.MaxVolume, 0.05, "F2"));
             m._items.Add(DebugItem.MakeNumber(SfxVolumeId, "音量 SFX",
                 sfxVolume, AudioMix.MinVolume, AudioMix.MaxVolume, 0.05, "F2"));
+
+            m._items.Add(DebugItem.MakeNumber(EngineLagId, "エンジンの追従 [秒]",
+                engineLagSeconds, AudioMix.MinEngineLagSeconds,
+                AudioMix.MaxEngineLagSeconds, 0.05, "F2"));
 
             m._items.Add(DebugItem.MakeNumber(ShakeId, "微振動の振幅 [rad]",
                 shakeAmplitude, 0.0, 5.0e-3, 2.5e-4, "E3"));

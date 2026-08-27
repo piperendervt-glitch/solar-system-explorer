@@ -36,7 +36,8 @@ namespace SolarSystem.Tests.EditMode
                 AudioMix.MasterVolume,
                 AudioMix.EngineVolume,
                 AudioMix.CockpitVolume,
-                AudioMix.SfxVolume);
+                AudioMix.SfxVolume,
+                AudioMix.EngineLagSeconds);
         }
 
         [Test]

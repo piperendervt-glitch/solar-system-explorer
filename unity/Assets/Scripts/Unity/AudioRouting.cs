@@ -47,8 +47,17 @@ namespace SolarSystem.Unity
         /// <summary>0 = 飛行 / 1 = ドッキング。時間で補間する。</summary>
         public double Docked01 { get; private set; }
 
-        /// <summary>エンジンの速度連動 (Step 10-3) が書く。0〜1。</summary>
+        /// <summary>スラスト 0〜1。UniverseRoot が毎フレーム書く。</summary>
         public double Thrust01 { get; set; }
+
+        /// <summary>制動中か。UniverseRoot が毎フレーム書く。</summary>
+        public bool Braking { get; set; }
+
+        /// <summary>スラスト連動 (Step 10-3)。**音量は係数、pitch は絶対値。**</summary>
+        public EngineAudioModel EngineModel { get; } = new EngineAudioModel();
+
+        /// <summary>一次遅れの時定数 [秒]。F4 が書き換える。</summary>
+        public double EngineLagSeconds { get; set; } = AudioMix.EngineLagSeconds;
 
         public AudioSource Engine => _engine;
         public AudioSource Cockpit => _cockpit;
@@ -59,6 +68,7 @@ namespace SolarSystem.Unity
         public float LastEngineVolume { get; private set; }
         public float LastCockpitVolume { get; private set; }
         public float LastCutoffHz { get; private set; }
+        public float LastEnginePitch { get; private set; }
 
         public void Bind(AudioSource engine, AudioSource cockpit, AudioSource sfx,
                          AudioLowPassFilter engineLowPass)
@@ -99,6 +109,7 @@ namespace SolarSystem.Unity
         public void SnapDocked(bool docked)
         {
             Docked01 = docked ? 1.0 : 0.0;
+            EngineModel.Snap(Thrust01, Braking);
             Apply();
         }
 
@@ -106,6 +117,7 @@ namespace SolarSystem.Unity
         public void Tick(bool docked, double deltaSeconds)
         {
             Docked01 = AudioMix.AdvanceDocked(Docked01, docked, deltaSeconds);
+            EngineModel.Advance(Thrust01, Braking, deltaSeconds, EngineLagSeconds);
             Apply();
         }
 
@@ -115,8 +127,14 @@ namespace SolarSystem.Unity
 
             if (_engine != null)
             {
-                LastEngineVolume = (float)(_master * _engineVolume * engineScale);
+                // **音量の掛け算はここだけ。** EngineAudioModel が返すのは係数で、
+                // 全開で 1.0 になるよう正規化されている (Step 10-3)。
+                LastEngineVolume =
+                    (float)(_master * _engineVolume * engineScale * EngineModel.VolumeScale);
                 _engine.volume = LastEngineVolume;
+
+                LastEnginePitch = (float)EngineModel.Pitch;
+                _engine.pitch = LastEnginePitch;
             }
 
             if (_cockpit != null)

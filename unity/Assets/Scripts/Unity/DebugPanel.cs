@@ -88,7 +88,8 @@ namespace SolarSystem.Unity
                 AudioMix.MasterVolume,
                 AudioMix.EngineVolume,
                 AudioMix.CockpitVolume,
-                AudioMix.SfxVolume);
+                AudioMix.SfxVolume,
+                AudioMix.EngineLagSeconds);
 
             if (HasDebugPanelArg())
             {

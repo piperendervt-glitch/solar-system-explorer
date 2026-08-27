@@ -72,8 +72,10 @@ namespace SolarSystem.Tests.PlayMode
             yield return null;
             _root.Tick(Dt);
 
+            // **スラスト係数も掛かる (Step 10-3)。** 停止中はアイドルなので 0.36。
             double expectedEngine = AudioMix.MasterVolume * AudioMix.EngineVolume
-                                    * AudioMix.EngineScale(_audio.Docked01);
+                                    * AudioMix.EngineScale(_audio.Docked01)
+                                    * _audio.EngineModel.VolumeScale;
             double expectedCockpit = AudioMix.MasterVolume * AudioMix.CockpitVolume;
 
             Debug.Log(string.Format(
@@ -166,6 +168,104 @@ namespace SolarSystem.Tests.PlayMode
 
             // null を渡しても落ちないこと。
             Assert.DoesNotThrow(() => _audio.PlayOneShot(null));
+        }
+
+        // ---- スラスト連動 (Step 10-3) ----
+
+        [UnityTest]
+        public IEnumerator スラストを上げると音量とピッチが上がる()
+        {
+            yield return null;
+
+            _audio.Thrust01 = 0.0;
+            _audio.Braking = false;
+            _audio.SnapDocked(false);
+
+            float idleVolume = _audio.LastEngineVolume;
+            float idlePitch = _audio.LastEnginePitch;
+
+            _audio.Thrust01 = 1.0;
+            _audio.SnapDocked(false);
+
+            float fullVolume = _audio.LastEngineVolume;
+            float fullPitch = _audio.LastEnginePitch;
+
+            Debug.Log(string.Format(
+                "  [Step10-3] アイドル vol {0:F4} / pitch {1:F3}  ->  全開 vol {2:F4} / pitch {3:F3}",
+                idleVolume, idlePitch, fullVolume, fullPitch));
+
+            Assert.That(fullVolume, Is.GreaterThan(idleVolume), "音量が上がっていない");
+            Assert.That(fullPitch, Is.GreaterThan(idlePitch), "ピッチが上がっていない");
+            Assert.That(_audio.Engine.pitch, Is.EqualTo(fullPitch).Within(1e-4f),
+                        "AudioSource に pitch が書かれていない");
+        }
+
+        [UnityTest]
+        public IEnumerator ピッチは0対9から1対2に収まる()
+        {
+            yield return null;
+            _audio.SnapDocked(false);
+
+            for (int i = 0; i <= 10; i++)
+            {
+                _audio.Thrust01 = i / 10.0;
+                _audio.SnapDocked(false);
+                Assert.That(_audio.Engine.pitch, Is.InRange(0.9f, 1.2f), $"thrust={i / 10.0}");
+            }
+
+            _audio.Braking = true;
+            _audio.SnapDocked(false);
+            Assert.That(_audio.Engine.pitch, Is.InRange(0.9f, 1.2f), "制動中");
+        }
+
+        [UnityTest]
+        public IEnumerator 全開の音量はグループ音量そのもの()
+        {
+            yield return null;
+
+            // **音量係数は全開で 1.0 に正規化されている (Step 10-3)。**
+            // 耳で決めた Engine = 0.10 が「全開時の音量」を意味する。
+            _audio.Thrust01 = 1.0;
+            _audio.Braking = false;
+            _audio.SnapDocked(false);
+
+            double expected = AudioMix.MasterVolume * AudioMix.EngineVolume;
+            Assert.That(_audio.LastEngineVolume, Is.EqualTo((float)expected).Within(1e-3f),
+                        "全開で係数が 1.0 になっていない");
+        }
+
+        [UnityTest]
+        public IEnumerator 一次遅れが効いている()
+        {
+            yield return null;
+
+            _audio.Thrust01 = 0.0;
+            _audio.SnapDocked(false);
+            float before = _audio.LastEnginePitch;
+
+            _audio.Thrust01 = 1.0;
+            _audio.Tick(docked: false, deltaSeconds: 1.0 / 60.0);
+
+            Assert.That(_audio.LastEnginePitch, Is.GreaterThan(before), "進んでいない");
+            Assert.That(_audio.LastEnginePitch, Is.LessThan(1.2f), "1 フレームで振り切れた");
+        }
+
+        [UnityTest]
+        public IEnumerator ローパスはスラストで動かない()
+        {
+            yield return null;
+
+            // **カットオフはドッキングだけで動かす (A 案)。**
+            // 2 つの信号で 1 つのフィルタを動かすと 10-5 の意味が曖昧になる。
+            _audio.Thrust01 = 0.0;
+            _audio.SnapDocked(false);
+            float idle = _audio.LastCutoffHz;
+
+            _audio.Thrust01 = 1.0;
+            _audio.SnapDocked(false);
+
+            Assert.That(_audio.LastCutoffHz, Is.EqualTo(idle).Within(1e-3f),
+                        "スラストでカットオフが動いている");
         }
     }
 }

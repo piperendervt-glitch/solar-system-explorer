@@ -79,6 +79,18 @@ namespace SolarSystem.Core
         /// <summary>飛行 ⇔ ドッキングの遷移にかける秒数。</summary>
         public const double TransitionSeconds = 1.5;
 
+        // ---- エンジンのスラスト連動 (Step 10-3) ----
+
+        /// <summary>
+        /// スラストの変化に掛ける一次遅れの時定数 [秒]。
+        /// **暫定値。耳で決める値なので F4 で振れる。**
+        /// 短いと急変が耳につき、長いと操作と音がずれる。
+        /// </summary>
+        public const double EngineLagSeconds = 0.50;
+
+        public const double MinEngineLagSeconds = 0.05;
+        public const double MaxEngineLagSeconds = 2.00;
+
         public static double DefaultVolume(AudioGroup group)
         {
             switch (group)
