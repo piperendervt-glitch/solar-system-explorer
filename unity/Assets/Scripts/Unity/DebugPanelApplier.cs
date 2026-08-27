@@ -30,10 +30,13 @@ namespace SolarSystem.Unity
         [SerializeField] Material _sunMesh;
         [SerializeField] Material _sunPoint;
 
+        /// <summary>コロナ (Step 9-2)。太陽のみ。</summary>
+        [SerializeField] Material _sunCorona;
+
         public void Bind(UniverseRoot root, CameraStackController stack, SunFlareController flare,
                          CockpitShake shake, PostProcessPreset post, StationViewSet stations,
                          Material earthSurface, Material marsSurface, Material clouds,
-                         Material sunMesh, Material sunPoint)
+                         Material sunMesh, Material sunPoint, Material sunCorona)
         {
             _root = root;
             _stack = stack;
@@ -46,6 +49,7 @@ namespace SolarSystem.Unity
             _clouds = clouds;
             _sunMesh = sunMesh;
             _sunPoint = sunPoint;
+            _sunCorona = sunCorona;
         }
 
         /// <summary>1 フレームぶん反映する。</summary>
@@ -185,6 +189,22 @@ namespace SolarSystem.Unity
             var sun = (float)model.NumberOf(DebugPanelModel.SunEmissionId);
             if (_sunMesh != null) { _sunMesh.SetFloat("_EmissionIntensity", sun); }
             if (_sunPoint != null) { _sunPoint.SetFloat("_EmissionIntensity", sun); }
+
+            // **コロナも本体と同じ強度。** 取り残されると縁で段差になる。
+            if (_sunCorona != null) { _sunCorona.SetFloat("_EmissionIntensity", sun); }
+
+            var coronaSize = (float)model.NumberOf(DebugPanelModel.CoronaSizeId);
+            bool coronaOn = model.BoolOf("show.corona");
+            if (_root != null && _root.SolarSystem != null)
+            {
+                foreach (CelestialBodyView v in _root.SolarSystem.Views)
+                {
+                    if (v == null) { continue; }
+
+                    v.CoronaRadiusScale = coronaSize;
+                    if (v.CoronaRenderer != null) { v.CoronaRenderer.enabled = coronaOn; }
+                }
+            }
         }
     }
 }

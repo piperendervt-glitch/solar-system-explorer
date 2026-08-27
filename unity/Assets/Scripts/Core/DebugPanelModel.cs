@@ -192,6 +192,10 @@ namespace SolarSystem.Core
         /// </summary>
         public const string SunEmissionId = "num.sunEmission";
 
+        /// <summary>コロナの半径倍率 (Step 9-2)。太陽本体の何倍か。</summary>
+        public const string CoronaSizeId = "num.coronaSize";
+
+
         readonly List<DebugItem> _items = new List<DebugItem>();
 
         public IReadOnlyList<DebugItem> Items => _items;
@@ -213,7 +217,8 @@ namespace SolarSystem.Core
             double cloudOpacity,
             double flareIntensity,
             double shakeAmplitude,
-            double sunEmission)
+            double sunEmission,
+            double coronaSize)
         {
             var m = new DebugPanelModel();
 
@@ -238,6 +243,7 @@ namespace SolarSystem.Core
             m._items.Add(DebugItem.MakeToggle("show.skybox", "スカイボックス", true));
             m._items.Add(DebugItem.MakeToggle("show.post", "ポストプロセス", true));
             m._items.Add(DebugItem.MakeToggle("show.flare", "レンズフレア", true));
+            m._items.Add(DebugItem.MakeToggle("show.corona", "コロナ", true));
 
             m._items.Add(DebugItem.MakeNumber(AtmosphereId, "_AtmosphereStrength",
                 atmosphereStrength, 0.0, 10.0, 0.25, "F2"));
@@ -247,6 +253,8 @@ namespace SolarSystem.Core
                 flareIntensity, 0.0, 2.0, 0.05, "F2"));
             m._items.Add(DebugItem.MakeNumber(SunEmissionId, "太陽の発光強度",
                 sunEmission, 0.0, 16.0, 0.25, "F2"));
+            m._items.Add(DebugItem.MakeNumber(CoronaSizeId, "コロナの大きさ (本体比)",
+                coronaSize, 1.0, 6.0, 0.25, "F2"));
             m._items.Add(DebugItem.MakeNumber(ShakeId, "微振動の振幅 [rad]",
                 shakeAmplitude, 0.0, 5.0e-3, 2.5e-4, "E3"));
 

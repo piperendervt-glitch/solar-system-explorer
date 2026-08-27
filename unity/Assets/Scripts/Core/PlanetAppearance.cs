@@ -56,5 +56,19 @@ namespace SolarSystem.Core
         /// 切らないと ACES が残って潰れる (CLAUDE.md 0-B)。
         /// </summary>
         public const double SunEmissionIntensity = 6.0;
+    
+        /// <summary>
+        /// コロナの半径倍率 (Step 9-2)。太陽本体の何倍の Quad を出すか。
+        ///
+        /// **暫定値。実機で決める。** F4 の数値項目「コロナの大きさ」で振れる
+        /// (1.0〜6.0 / 刻み 0.25)。
+        ///
+        /// 減衰は (1 - r)^3 で、r は Quad の中心からの正規化距離。
+        /// 2.5 倍のとき太陽の縁は r = 1/2.5 = 0.40 に来るので、
+        /// そこでの寄与は 0.216。強度 6.0 との積は 1.296 で
+        /// bloom のしきい値 1.05 を超える。縁 (r = 1.0) では厳密に 0 になる。
+        /// </summary>
+        public const double CoronaRadiusScale = 2.5;
+    
     }
 }

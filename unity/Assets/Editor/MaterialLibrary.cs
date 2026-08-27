@@ -240,6 +240,46 @@ namespace SolarSystem.Editor
                 : AssetDatabase.LoadAssetAtPath<Texture2D>(TextureSetup.AssetPath(file));
         }
 
+        /// <summary>コロナシェーダの名前 (Step 9-2)。</summary>
+        public const string CoronaShaderName = "SolarSystem/SunCorona";
+
+        /// <summary>
+        /// コロナのマテリアル (Step 9-2)。太陽のみ。
+        ///
+        /// **Additive なので GetOrCreate は使わない。** あちらは Transparent の
+        /// アルファブレンドを組む前提で、_Surface / _SrcBlend などを書きにいく。
+        /// このシェーダはブレンドをパスに固定で書いているので、
+        /// マテリアル側から触られると噛み合わない。
+        /// </summary>
+        public static Material CoronaMaterial(CelestialBody body)
+        {
+            string path = $"{Folder}/{body.Name}_Corona.mat";
+            Shader shader = Shader.Find(CoronaShaderName);
+            if (shader == null)
+            {
+                throw new System.InvalidOperationException($"シェーダが見つからない: {CoronaShaderName}");
+            }
+
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+            Material material = existing != null ? existing : new Material(shader);
+            material.shader = shader;
+            material.SetTexture("_BaseMap", CoronaTextureBuilder.GetOrCreate());
+
+            // **本体と同じ強度。** コロナだけ取り残されると縁で段差になる。
+            material.SetFloat("_EmissionIntensity", SunEmissionIntensity);
+
+            if (existing == null)
+            {
+                AssetDatabase.CreateAsset(material, path);
+            }
+            else
+            {
+                EditorUtility.SetDirty(material);
+            }
+
+            return material;
+        }
+
         /// <summary>星空スカイボックス (Step 6)。Deep 段だけが描く。</summary>
         public static Material Skybox()
         {

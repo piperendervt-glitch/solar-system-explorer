@@ -233,9 +233,143 @@ namespace SolarSystem.Tests.PlayMode
             Assert.That(peak, Is.GreaterThan(threshold),
                         "太陽の出力が bloom しきい値を超えていない");
         }
-    }
+            [UnityTest]
+        public IEnumerator コロナが太陽の外側の画素を明るくする()
+        {
+            ApplyScenario(ScenarioLibrary.SunFaceName);
+            yield return null;
 
-    /// <summary>Editor アセンブリを参照せずにシェーダ名を照合するための定数。</summary>
+            CelestialBodyView sun = null;
+            foreach (CelestialBodyView v in _root.SolarSystem.Views)
+            {
+                if (v.Body != null && v.Body.Name == "Sun") { sun = v; }
+            }
+
+            Assert.That(sun, Is.Not.Null);
+            Assert.That(sun.CoronaRenderer, Is.Not.Null, "太陽にコロナが無い");
+
+            // **本体との比が保たれていること。** 距離が変わっても崩れない。
+            float bodyDiameter = sun.Mesh.localScale.x;
+            float coronaDiameter = sun.Corona.localScale.x;
+            float ratio = coronaDiameter / bodyDiameter;
+
+            Debug.Log(string.Format(
+                "  [Step9-2] 本体 {0:E3} / コロナ {1:E3} / 比 {2:F3} (既定 {3:F2})",
+                bodyDiameter, coronaDiameter, ratio, PlanetAppearance.CoronaRadiusScale));
+
+            Assert.That(ratio, Is.EqualTo((float)PlanetAppearance.CoronaRadiusScale).Within(1e-3f),
+                        "コロナの大きさが本体に追従していない");
+
+            // コロナは自転しない。root の LookRotation だけが乗る。
+            Assert.That(sun.Corona.parent, Is.EqualTo(sun.transform),
+                        "コロナが Spin の下にあると自転してしまう");
+        }
+
+        [UnityTest]
+        public IEnumerator コロナをOFFにすると太陽まわりの画素が暗くなる()
+        {
+            ApplyScenario(ScenarioLibrary.SunFaceName);
+            yield return null;
+
+            foreach (UnityEngine.Rendering.Volume vol in Object.FindObjectsByType<
+                         UnityEngine.Rendering.Volume>(FindObjectsInactive.Include,
+                                                       FindObjectsSortMode.None))
+            {
+                vol.enabled = false;
+            }
+
+            foreach (Camera cam in new[] { _stack.Deep, _stack.Near, _stack.Nearfield, _stack.Cockpit })
+            {
+                if (cam == null) { continue; }
+                var data = cam.GetUniversalAdditionalCameraData();
+                if (data != null) { data.renderPostProcessing = false; }
+            }
+
+            if (_stack.Cockpit != null) { _stack.Cockpit.enabled = false; }
+            if (_stack.Nearfield != null) { _stack.Nearfield.enabled = false; }
+            _stack.Deep.clearFlags = CameraClearFlags.SolidColor;
+            _stack.Deep.backgroundColor = Color.black;
+
+            var flare = Object.FindAnyObjectByType<SunFlareController>();
+            if (flare != null)
+            {
+                var lf = flare.GetComponentInChildren<
+                    UnityEngine.Rendering.LensFlareComponentSRP>(true);
+                if (lf != null) { lf.enabled = false; }
+            }
+
+            CelestialBodyView sun = null;
+            foreach (CelestialBodyView v in _root.SolarSystem.Views)
+            {
+                if (v.Body == null) { continue; }
+                if (v.Body.Name == "Sun") { sun = v; continue; }
+                foreach (Renderer r in v.GetComponentsInChildren<Renderer>(true))
+                {
+                    r.enabled = false;
+                }
+            }
+
+            Assert.That(sun, Is.Not.Null);
+            yield return null;
+
+            // 太陽本体を消してコロナだけにする。外側の光がコロナ由来だと確かめるため。
+            sun.MeshRenderer.enabled = false;
+            sun.PointRenderer.enabled = false;
+
+            sun.CoronaRenderer.enabled = true;
+            float withCorona = SunAreaPeak();
+            sun.CoronaRenderer.enabled = false;
+            float withoutCorona = SunAreaPeak();
+
+            Debug.Log(string.Format(
+                "  [Step9-2] 本体を消した状態 コロナ ON {0:F3} / OFF {1:F3}",
+                withCorona, withoutCorona));
+
+            Assert.That(withoutCorona, Is.LessThan(1e-3f), "コロナを消しても何かが描かれている");
+            Assert.That(withCorona, Is.GreaterThan(1.05f),
+                        "コロナ単独で bloom しきい値に届いていない");
+        }
+
+        /// <summary>トーンマップ前の最大輝度。呼ぶ前にポストプロセスを切っておくこと。</summary>
+        float SunAreaPeak()
+        {
+            const int W = 512;
+            const int H = 512;
+            var rt = new RenderTexture(W, H, 24, RenderTextureFormat.ARGBHalf);
+            rt.Create();
+            RenderTexture prevTarget = _stack.Deep.targetTexture;
+            RenderTexture prevActive = RenderTexture.active;
+            float peak = 0f;
+
+            try
+            {
+                _stack.Deep.targetTexture = rt;
+                _stack.Deep.Render();
+                RenderTexture.active = rt;
+
+                var shot = new Texture2D(W, H, TextureFormat.RGBAHalf, false);
+                shot.ReadPixels(new Rect(0, 0, W, H), 0, 0);
+                shot.Apply();
+                foreach (Color c in shot.GetPixels())
+                {
+                    float lum = Mathf.Max(c.r, Mathf.Max(c.g, c.b));
+                    if (lum > peak) { peak = lum; }
+                }
+
+                Object.DestroyImmediate(shot);
+            }
+            finally
+            {
+                _stack.Deep.targetTexture = prevTarget;
+                RenderTexture.active = prevActive;
+                rt.Release();
+                Object.DestroyImmediate(rt);
+            }
+
+            return peak;
+        }
+        }
+
     static class MaterialLibraryNames
     {
         public const string PlanetShader = "SolarSystem/PlanetSurface";

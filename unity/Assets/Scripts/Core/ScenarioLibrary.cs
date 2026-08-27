@@ -434,7 +434,7 @@ namespace SolarSystem.Core
             return new Scenario(SunFaceName, "太陽を正面から見る (地球近傍)", start, new[]
             {
                 "太陽が眩しい (bloom で白く滲んでいる)",
-                "円盤の縁が滲まずに立っている (輪郭が bloom に溶けていない)",
+                "コロナが円盤の外へ滑らかに広がり、縁で切れていない",
                 "縁が中心よりわずかに暗く、模様が潰れきっていない (周辺減光)",
             });
         }

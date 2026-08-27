@@ -37,6 +37,10 @@ namespace SolarSystem.Unity
         [SerializeField] Transform _spin;
         [SerializeField] Transform _cloudSpin;
         [SerializeField] Transform _cloudMesh;
+
+        /// <summary>コロナのビルボード (Step 9-2)。太陽のみ。</summary>
+        [SerializeField] Transform _corona;
+        [SerializeField] Renderer _coronaRenderer;
         [SerializeField] Renderer _cloudRenderer;
         [SerializeField] Transform _realAnchor;
         [SerializeField] Transform _realSpin;
@@ -53,6 +57,14 @@ namespace SolarSystem.Unity
         public Transform Spin => _spin;
         public Transform Mesh => _mesh;
         public Transform CloudMesh => _cloudMesh;
+        public Transform Corona => _corona;
+        public Renderer CoronaRenderer => _coronaRenderer;
+
+        /// <summary>
+        /// コロナの半径倍率。**F4 のパネルが実行時に書き換える。**
+        /// 既定は Core の定数から取り、ここに数値を二重定義しない。
+        /// </summary>
+        public float CoronaRadiusScale { get; set; } = (float)PlanetAppearance.CoronaRadiusScale;
         public Renderer CloudRenderer => _cloudRenderer;
         public Renderer PointRenderer => _pointRenderer;
         public Renderer MeshRenderer => _meshRenderer;
@@ -92,7 +104,8 @@ namespace SolarSystem.Unity
         public void BindAll(CelestialBody body, Transform point, Transform mesh, Transform realMesh,
                             Transform spin, Transform realAnchor, Transform realSpin,
                             Transform cloudSpin, Transform cloudMesh,
-                            Transform realCloudSpin, Transform realCloudMesh)
+                            Transform realCloudSpin, Transform realCloudMesh,
+                            Transform corona = null)
         {
             BindCore(body, point, mesh, realMesh);
             _spin = spin;
@@ -104,6 +117,8 @@ namespace SolarSystem.Unity
             _realCloudMesh = realCloudMesh;
             _cloudRenderer = cloudMesh != null ? cloudMesh.GetComponent<Renderer>() : null;
             _realCloudRenderer = realCloudMesh != null ? realCloudMesh.GetComponent<Renderer>() : null;
+            _corona = corona;
+            _coronaRenderer = corona != null ? corona.GetComponent<Renderer>() : null;
         }
 
         void BindCore(CelestialBody body, Transform point, Transform mesh, Transform realMesh)
@@ -221,6 +236,20 @@ namespace SolarSystem.Unity
                         Vector3.one * (meshRadius * 2f * SolarSystem.Unity.CloudLayer.RadiusScale);
                     _cloudMesh.gameObject.SetActive(_mesh.gameObject.activeSelf);
                 }
+            }
+
+            // ---- コロナ (Step 9-2) ----
+            // **本体の見かけの大きさに追従させる。** 殻のスケール係数が
+            // そのまま乗るので、距離が変わっても本体との比は一定になる。
+            //
+            // **フェードは持たない。** 太陽は引き渡し対象ではないので
+            // RealScaleBlend は常に 0、つまり「光点 α + 殻 α」は構造的に
+            // 常に 1.0 で、掛けても何も起きない。
+            // コロナは太陽が描かれている限り常に出る。
+            if (_corona != null)
+            {
+                float coronaRadius = (float)(Body.RadiusKm * scale) * CoronaRadiusScale;
+                _corona.localScale = Vector3.one * (coronaRadius * 2f);
             }
 
             // ---- 光点: 最小 px でクランプ ----

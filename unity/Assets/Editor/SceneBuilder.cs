@@ -187,7 +187,8 @@ namespace SolarSystem.Editor
                          MaterialLibrary.MeshMaterial(appearanceModel.Mars),
                          MaterialLibrary.CloudMaterial(appearanceModel.Earth),
                          MaterialLibrary.MeshMaterial(appearanceModel.Sun),
-                         MaterialLibrary.PointMaterial(appearanceModel.Sun));
+                         MaterialLibrary.PointMaterial(appearanceModel.Sun),
+                         MaterialLibrary.CoronaMaterial(appearanceModel.Sun));
             debugPanel.Bind(universeRoot, rig, applier, stack, overlay);
 
             // ---- exe からのスクショ用 (Step 7) ----
@@ -406,10 +407,26 @@ namespace SolarSystem.Editor
                 realCloud.SetActive(false);
                 realCloudMesh = realCloud.transform;
             }
+            // ---- コロナ (Step 9-2) ----
+            // **root の直下。Spin の下ではない。** ビルボードなので自転させない。
+            // root には LookRotation(dir) が入っているので、ここに置けば
+            // 常に観測者を向く。追加のビルボード処理は要らない。
+            Transform corona = null;
+            if (body.Kind == CelestialBodyKind.Star)
+            {
+                GameObject coronaGo = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                coronaGo.name = "Corona";
+                coronaGo.transform.SetParent(root.transform, false);
+                coronaGo.layer = deepLayer;
+                Object.DestroyImmediate(coronaGo.GetComponent<Collider>());
+                coronaGo.GetComponent<Renderer>().sharedMaterial = MaterialLibrary.CoronaMaterial(body);
+                corona = coronaGo.transform;
+            }
+
             var view = root.AddComponent<CelestialBodyView>();
             view.BindAll(body, point.transform, mesh.transform, realMesh.transform,
                          spinGo.transform, realAnchorGo.transform, realSpinGo.transform,
-                         cloudSpin, cloudMesh, realCloudSpin, realCloudMesh);
+                         cloudSpin, cloudMesh, realCloudSpin, realCloudMesh, corona);
             return view;
         }
     }
