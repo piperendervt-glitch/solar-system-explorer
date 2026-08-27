@@ -19,14 +19,6 @@ namespace SolarSystem.Tests.PlayMode
         /// <summary>計器パネルが占める帯。画素検証から外す。</summary>
         const int PanelTop = 700;
 
-        /// <summary>
-        /// 画面中央に出る Directional Light の SRP Lens Flare を検証から外す半径。
-        /// 夜側は太陽が地球の真後ろに来るため、フレアが画面中央 38x38 px に描かれる。
-        /// 惑星は Transparent / ZWrite off で深度を書かないので遮蔽されない
-        /// (docs/02-demo2-plan.md 9-3 の確定事項)。Step 9-3 で引き渡し率による
-        /// 減衰を入れるまでの回避。
-        /// </summary>
-        const int FlareGuardRadius = 40;
 
         UniverseRoot _root;
         ShipRig _rig;
@@ -171,8 +163,9 @@ namespace SolarSystem.Tests.PlayMode
                         float dy = y - Height * 0.5f;
                         float d = Mathf.Sqrt(dx * dx + dy * dy);
 
-                        // 中央はレンズフレアが乗るので除外する。
-                        if (d > r * 0.97f || d < FlareGuardRadius)
+                        // **中央の除外はしない。** Step 9-3a の遮蔽判定が効いていれば
+                        // レンズフレアは出ないので、円盤全体を見てよい。
+                        if (d > r * 0.97f)
                         {
                             continue;
                         }
@@ -240,6 +233,70 @@ namespace SolarSystem.Tests.PlayMode
                 Assert.That(profile.Count, Is.GreaterThan(30), "標本が足りない");
                 Assert.That(lit, Is.GreaterThan(dark + 20f), "明暗の差が出ていない");
                 Assert.That(maxJump, Is.LessThan(120f), "境界で輝度が段差になっている");
+            }
+            finally
+            {
+                Object.DestroyImmediate(shot);
+            }
+        }
+
+        // ---- Step 9-3a フレアの遮蔽 ----
+
+        [UnityTest]
+        public IEnumerator 夜側では画面中央にフレアが出ない()
+        {
+            yield return null;
+            Texture2D shot = RenderScenario(ScenarioLibrary.EarthNightName);
+            try
+            {
+                SunFlareController flare = _root.SunFlare;
+                Assert.That(flare, Is.Not.Null, "SunFlareController がシーンに無い");
+
+                Color32[] px = shot.GetPixels32();
+                int worst = 0;
+                for (int y = Height / 2 - 20; y < Height / 2 + 20; y++)
+                {
+                    for (int x = Width / 2 - 20; x < Width / 2 + 20; x++)
+                    {
+                        Color32 c = px[y * Width + x];
+                        worst = Mathf.Max(worst, Mathf.Max(c.r, Mathf.Max(c.g, c.b)));
+                    }
+                }
+
+                Debug.Log($"[Step9-3a] 夜側 遮蔽率 {flare.LastOcclusion:F3} / 強度 {flare.LastIntensity:F3} / " +
+                          $"画面中央 40x40 の最大輝度 {worst}");
+
+                Assert.That(flare.LastOcclusion, Is.GreaterThan(0.99), "地球で完全に遮蔽されるはず");
+                Assert.That(flare.LastIntensity, Is.LessThan(0.01), "強度が落ちていない");
+                Assert.That(worst, Is.EqualTo(0), "画面中央にフレアが残っている");
+            }
+            finally
+            {
+                Object.DestroyImmediate(shot);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator 昼側の鏡面ハイライトは残る()
+        {
+            yield return null;
+            Texture2D shot = RenderScenario(ScenarioLibrary.EarthDayName);
+            try
+            {
+                Color32[] px = shot.GetPixels32();
+                int worst = 0;
+                for (int y = Height / 2 - 20; y < Height / 2 + 20; y++)
+                {
+                    for (int x = Width / 2 - 20; x < Width / 2 + 20; x++)
+                    {
+                        Color32 c = px[y * Width + x];
+                        worst = Mathf.Max(worst, Mathf.Max(c.r, Mathf.Max(c.g, c.b)));
+                    }
+                }
+
+                Debug.Log($"[Step9-3a] 昼側 遮蔽率 {_root.SunFlare.LastOcclusion:F3} / " +
+                          $"画面中央 40x40 の最大輝度 {worst}");
+                Assert.That(worst, Is.GreaterThan(100), "海の鏡面ハイライトが消えている");
             }
             finally
             {

@@ -32,6 +32,13 @@ namespace SolarSystem.Core
             list.Add(CreateEarthClose(model, EarthTerminatorName, SunSide.Terminator));
             list.Add(CreateEarthClose(model, EarthNightName, SunSide.Night));
 
+            // フレアの遮蔽の遷移 (Step 9-3a)。
+            // 遷移幅は太陽の角直径ぶん (約 0.53 度) しかなく、静止画 1 枚では
+            // 「強くなる」が見えない。3 点に分けて F2/F3 で連続して見る。
+            list.Add(CreateSunOcclusion(model, SunHiddenName, SunPhase.Hidden));
+            list.Add(CreateSunOcclusion(model, SunEmergeName, SunPhase.Emerge));
+            list.Add(CreateSunOcclusion(model, SunClearName, SunPhase.Clear));
+
             // LOD と実スケール引き渡しの確認 (Step 2 / 3b から移設)。
             list.Add(CreateLod(model, "lod-from-earth", 2.0e4, fromEarth: true,
                 "地球近傍 (地球から 2e4 units) から火星方向"));
@@ -81,6 +88,23 @@ namespace SolarSystem.Core
             }
 
             return -1;
+        }
+
+        public const string SunHiddenName = "sun-hidden";
+        public const string SunEmergeName = "sun-emerge";
+        public const string SunClearName = "sun-clear";
+
+        /// <summary>太陽が地球の縁からどれだけ出ているか。</summary>
+        public enum SunPhase
+        {
+            /// <summary>完全に隠れている。遮蔽率 1.0。</summary>
+            Hidden,
+
+            /// <summary>縁に半分かかっている。遮蔽率 0.5。</summary>
+            Emerge,
+
+            /// <summary>出きっている。遮蔽率 0.0。</summary>
+            Clear,
         }
 
         public const string EarthDayName = "earth-close-day";
@@ -167,6 +191,105 @@ namespace SolarSystem.Core
 
             return new Scenario(name, $"地球へ {EarthCloseRadii} 半径まで寄る ({side})",
                                 start, checkPoints);
+        }
+
+        /// <summary>
+        /// フレアの遮蔽の遷移を見る (Step 9-3a)。
+        ///
+        /// **SunDirectionOverride は使わない。** 遮蔽判定が本物の幾何で動くことを見るため、
+        /// 実際の太陽位置をそのまま使う。
+        ///
+        /// **注意: SunDirectionOverride は光の向きだけを差し替える。**
+        /// 太陽の位置は動かないので、遮蔽率は常に本物の幾何で決まる。
+        /// earth-close-day は陰影こそ昼側だが、実際には太陽が地球の裏にあるため
+        /// 遮蔽率 1.000 になる (実測)。フレアはもともと視錐台の外なので実害は無いが、
+        /// **override を使ったシナリオでフレアの遮蔽を語ってはいけない。**
+        ///
+        /// 観測者は地球中心から EarthCloseRadii 倍の球面上に置き、
+        /// 「太陽 → 地球」の軸から角度 theta だけずらす。太陽は十分遠いので、
+        /// 観測者から見た太陽と地球の角距離はほぼ theta に等しくなる。
+        ///   theta = 0            → 遮蔽率 1.0
+        ///   theta = ab           → 遮蔽率 0.5 (太陽の中心が地球の縁に乗る)
+        ///   theta = ab + as + 余裕 → 遮蔽率 0.0
+        /// </summary>
+        static Scenario CreateSunOcclusion(SolarSystemModel model, string name, SunPhase phase)
+        {
+            double distance = SolarSystemModel.EarthRadiusKm * EarthCloseRadii;
+            Vec3d earth = model.Earth.AbsolutePosition;
+            Vec3d sun = model.Sun.AbsolutePosition;
+
+            // 太陽から地球へ向かう向き。この先 (地球の裏側) が「完全に隠れる」位置。
+            Vec3d axis = (earth - sun).Normalized;
+            Vec3d side = PerpendicularTo(axis);
+
+            double bodyAngle = FlareOcclusion.AngularRadius(SolarSystemModel.EarthRadiusKm, distance);
+            double sunAngle = FlareOcclusion.AngularRadius(
+                SolarSystemModel.SunRadiusKm, Vec3d.Distance(earth, sun));
+
+            double theta;
+            string[] checkPoints;
+            switch (phase)
+            {
+                case SunPhase.Hidden:
+                    theta = 0.0;
+                    checkPoints = new[]
+                    {
+                        "完全に隠れている間はフレアが出ない (遮蔽率 1.00)",
+                        "HUD の FLARE 行が occl 1.00 / int 0.00",
+                        "地球の夜側と縁の青はいつもどおり",
+                    };
+                    break;
+
+                case SunPhase.Emerge:
+                    theta = bodyAngle; // 太陽の中心が縁に乗る = 遮蔽率 0.5
+                    checkPoints = new[]
+                    {
+                        "太陽が縁に半分かかり、フレアが弱く出ている (遮蔽率 0.50)",
+                        "HUD の FLARE 行が occl 0.50 / int 0.30",
+                        "F3 で sun-hidden に戻すとフレアが消える",
+                    };
+                    break;
+
+                default:
+                    theta = bodyAngle + sunAngle * 1.5; // 接触の外側へ余裕を取る
+                    checkPoints = new[]
+                    {
+                        "縁から出きって、フレアが最大 (遮蔽率 0.00)",
+                        "HUD の FLARE 行が occl 0.00 / int 0.60",
+                        "F3 で sun-emerge に戻すとフレアが弱まる",
+                    };
+                    break;
+            }
+
+            Vec3d dir = axis * System.Math.Cos(theta) + side * System.Math.Sin(theta);
+            Vec3d position = earth + dir.Normalized * distance;
+
+            var start = new ScenarioStart
+            {
+                Position = position,
+                LookAt = earth,
+                Up = new Vec3d(0.0, 1.0, 0.0),
+                TargetStationIndex = 0,
+                ElapsedSeconds = 0.0,
+                VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                DebugHudVisible = false,
+                SunDirectionOverride = null, // 本物の幾何で判定させる
+            };
+
+            return new Scenario(name, $"太陽が地球の縁から出る途中 ({phase})", start, checkPoints);
+        }
+
+        /// <summary>与えた向きに垂直な単位ベクトルを 1 つ返す。</summary>
+        static Vec3d PerpendicularTo(Vec3d direction)
+        {
+            var up = new Vec3d(0.0, 1.0, 0.0);
+            Vec3d side = Vec3d.Cross(direction, up);
+            if (side.Magnitude < 1e-9)
+            {
+                side = Vec3d.Cross(direction, new Vec3d(1.0, 0.0, 0.0));
+            }
+
+            return side.Normalized;
         }
 
         /// <summary>

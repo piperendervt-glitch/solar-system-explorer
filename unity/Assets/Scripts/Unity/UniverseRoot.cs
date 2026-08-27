@@ -34,6 +34,7 @@ namespace SolarSystem.Unity
         [SerializeField] ScenarioRunner _scenario;
         [SerializeField] CockpitShake _shake;
         [SerializeField] CameraStackController _stack;
+        [SerializeField] SunFlareController _sunFlare;
 
         [Header("Step 1 の初期速度 (km/s)。既定は 0.9c を +Z へ)")]
         [SerializeField] double _initialVelocityX;
@@ -57,6 +58,7 @@ namespace SolarSystem.Unity
         public DebugOverlay Overlay => _overlay;
         public ScenarioRunner Scenario => _scenario;
         public CockpitShake Shake => _shake;
+        public SunFlareController SunFlare => _sunFlare;
 
         /// <summary>太陽方向の上書き (Step 8-0)。null ならモデルの計算値。</summary>
         public Vec3d? SunDirectionOverride { get; private set; }
@@ -237,6 +239,12 @@ namespace SolarSystem.Unity
                 _sunLightAimer.Apply(Model, Ship.Position, SunDirectionOverride);
             }
 
+            // レンズフレアの遮蔽 (Step 9-3a)。深度を使わず角半径で判定する。
+            if (_sunFlare != null)
+            {
+                _sunFlare.Apply(Ship.Position, Model);
+            }
+
             if (_engineAudio != null && _shipRig != null)
             {
                 _engineAudio.Apply(_shipRig.LastThrust);
@@ -313,7 +321,8 @@ namespace SolarSystem.Unity
             DebugOverlay overlay = null,
             ScenarioRunner scenario = null,
             CockpitShake shake = null,
-            CameraStackController stack = null)
+            CameraStackController stack = null,
+            SunFlareController sunFlare = null)
         {
             _shiftDriver = shiftDriver;
             _shipTransform = shipTransform;
@@ -328,6 +337,7 @@ namespace SolarSystem.Unity
             _scenario = scenario;
             _shake = shake;
             _stack = stack;
+            _sunFlare = sunFlare;
         }
 
         /// <summary>F1 / F2 / F3 の処理 (Step 8-0)。</summary>

@@ -375,6 +375,12 @@ namespace SolarSystem.Editor
                 }
             }
 
+            if (root != null && root.SunFlare != null)
+            {
+                sb.AppendLine($"[ScenarioCapture]   フレア 遮蔽率 {root.SunFlare.LastOcclusion:F3} / " +
+                              $"強度 {root.SunFlare.LastIntensity:F3} (基準 {root.SunFlare.Base:F2})");
+            }
+
             if (root != null && root.SunLight != null)
             {
                 sb.Append($"[ScenarioCapture]   太陽光の向き {root.SunLight.LastDirection} / " +

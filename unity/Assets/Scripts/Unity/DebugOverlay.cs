@@ -138,6 +138,15 @@ namespace SolarSystem.Unity
                               $"(帯 {RealScaleHandoff.FadeStartDistance:E0} -> {RealScaleHandoff.FadeEndDistance:E0} units)");
             }
 
+            // レンズフレアの遮蔽 (Step 9-3a)。
+            // 「なぜ今フレアが出ていないのか」を目視で切り分けられるようにする。
+            SunFlareController flare = _root.SunFlare;
+            if (flare != null)
+            {
+                sb.AppendLine($"FLARE    : occl {flare.LastOcclusion:0.00}  int {flare.LastIntensity:0.00}  " +
+                              $"(基準 {flare.Base:0.00})");
+            }
+
             sb.Append($"操作     : W/S/A/D=ピッチ/ヨー  Q/E=ロール  Space=前進  1〜8=ジャンプ  T=AP起動  G=AP解除");
 
             if (clipping)

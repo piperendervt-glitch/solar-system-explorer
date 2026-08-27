@@ -155,9 +155,14 @@ namespace SolarSystem.Editor
             // ---- 太陽のフレア (Step 6) ----
             var flare = light.gameObject.AddComponent<UnityEngine.Rendering.LensFlareComponentSRP>();
             flare.lensFlareData = LensFlareBuilder.GetOrCreate();
-            flare.intensity = 0.6f;
+            flare.intensity = SunFlareController.BaseIntensity;
             flare.scale = 1.0f;
             flare.attenuationByLightShape = false;
+
+            // ---- フレアの遮蔽 (Step 9-3a) ----
+            // SRP の occlusion は深度を見るので効かない。角半径で解析的に判定する。
+            var sunFlare = light.gameObject.AddComponent<SunFlareController>();
+            sunFlare.Bind(flare);
 
             // ---- 検証ハーネス (Step 8-0) ----
             // 起動引数 -scenario が無ければ何もしない。通常プレイの挙動は変えない。
@@ -195,7 +200,7 @@ namespace SolarSystem.Editor
 
             universeRoot.Configure(shiftDriver, shipGo.transform, solarSystemView, aimer, rig,
                                    cockpit.Panel, stationSet, preset, engineAudio,
-                                   overlay, scenarioRunner, shake, stack);
+                                   overlay, scenarioRunner, shake, stack, sunFlare);
 
             // 登録漏れの検査 (docs/01-architecture.md §2-5)。
             shiftDriver.CollectFromScene();
