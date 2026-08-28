@@ -60,6 +60,11 @@ namespace SolarSystem.Core
             // 見えていることを見る。位置と光は earth-close-day と同じ。
             list.Add(CreateCockpitView(model));
 
+            // **Nearfield 段の立体視を見る場面 (Step 12-2b)。**
+            // 配布 (`XrEyeRig`) が効いたことを絵で示せるのはこの段だけ。
+            // Deep と Near は距離が大きすぎて、配布の有無で何も変わらない。
+            list.Add(CreateStationClose(model));
+
             // LOD と実スケール引き渡しの確認 (Step 2 / 3b から移設)。
             list.Add(CreateLod(model, "lod-from-earth", 2.0e4, fromEarth: true,
                 "地球近傍 (地球から 2e4 units) から火星方向"));
@@ -144,6 +149,22 @@ namespace SolarSystem.Core
         /// </summary>
         public const string CockpitViewName = "cockpit-view";
 
+        /// <summary>
+        /// **ステーションのすぐ手前 (Step 12-2b)。**
+        /// 頭姿勢の段配布が Nearfield 段の絵に届いたかを見るための場面。
+        /// </summary>
+        public const string StationCloseName = "station-close";
+
+        /// <summary>
+        /// ステーションの中心からの距離 [units]。
+        ///
+        /// **近いほど視差が大きく出るが、半径 0.25 units の中には入れない。**
+        /// 0.5 units なら角直径 2*atan(0.25/0.5) = 0.927 rad = 53 度で、
+        /// 画角 (XR で 111 度) に収まったまま画面の半分ほどを占める。
+        /// ドッキング口の標準停止位置 (PortStandoff = 0.3 units) の少し外。
+        /// </summary>
+        public const double StationCloseDistanceUnits = 0.5;
+
         /// <summary>太陽が地球の縁からどれだけ出ているか。</summary>
         public enum SunPhase
         {
@@ -206,6 +227,44 @@ namespace SolarSystem.Core
                 "窓の外に地球が見えている (窓枠に隠れていない)",
                 "正面窓の上端が画面の上端より上、計器盤の上端が下 1/3 より下",
                 "ガラス越しの景色が暗くなりすぎていない",
+            });
+        }
+
+        /// <summary>
+        /// ステーションのすぐ手前に立つ (Step 12-2b)。
+        ///
+        /// **視差の理論値（12-1 の f * 眼間 * s / D）が桁で効く唯一の場面。**
+        /// D = 0.5 units なので、配布前（眼間がメートルのまま）と配布後で
+        /// 左右のずれがちょうど 1000 倍違う。
+        /// </summary>
+        static Scenario CreateStationClose(SolarSystemModel model)
+        {
+            SpaceStation station = model.Stations[0];
+
+            // ドッキング口の側から見る。**station の中心を見る**ので、
+            // 画面中央に既知の距離の物がある形になる。
+            Vec3d position = station.AbsolutePosition
+                             + station.PortDirection * StationCloseDistanceUnits;
+
+            var start = new ScenarioStart
+            {
+                Position = position,
+                LookAt = station.AbsolutePosition,
+                Up = new Vec3d(0.0, 1.0, 0.0),
+                TargetStationIndex = 0,
+                ElapsedSeconds = 0.0,
+                VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                DebugHudVisible = false,
+
+                // ステーションを正面から照らす（陰にして測れなくならないように）。
+                SunDirectionOverride = station.PortDirection * -1.0,
+            };
+
+            return new Scenario(StationCloseName,
+                                "ステーションのすぐ手前 (中心まで 0.5 units)", start, new[]
+            {
+                "窓の外にステーションが見えていて、画面からはみ出していない",
+                "XR: 左右の目でステーションがほぼ同じ位置にある (融合できる)",
             });
         }
 

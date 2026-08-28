@@ -188,6 +188,39 @@ namespace SolarSystem.Core
             return focalLengthPixels * IpdInStageUnits(ipdMeters, scale) / distanceStageUnits;
         }
 
+        // ---- 画素 -> 角度 (Step 12-2b) ----
+
+        /// <summary>
+        /// **画素座標をその目の視線方向の正接に戻す。**
+        ///
+        /// XR の錐台は非対称で、投影行列の `m02` / `m12` が 0 でない。
+        /// **左右で主点がずれているので、画素座標のまま左右を比べると
+        /// 視差ではなく主点のずれを測ってしまう**（12-2 の実測で 4 段とも
+        /// -42〜-72 px と、距離に依らない値が出た）。
+        ///
+        /// 目ごとに**その目自身の投影行列**で戻せば、主点のずれは消えて
+        /// 角度だけが残る。返すのは tan（= x/(-z)）で、角度が要るなら atan する。
+        ///
+        ///   ndc  = 2*px/W - 1          （y は上下を反転してから）
+        ///   tanX = (ndc.x - m02) / m00
+        ///   tanY = (ndc.y - m12) / m11
+        /// </summary>
+        public static double TangentFromPixel(double pixel, int size, double m, double offset)
+        {
+            if (size <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(size), size, "画面の大きさは正の数");
+            }
+
+            RequirePositive(m, nameof(m));
+
+            double ndc = (2.0 * pixel / size) - 1.0;
+            return (ndc - offset) / m;
+        }
+
+        /// <summary>主点のずれ [px]。`m02` は NDC なので画面幅の半分を掛ける。</summary>
+        public static double PrincipalOffsetPixels(double m02, int width) => m02 * width * 0.5;
+
         // ---- 4. 頭を動かしたときの方向変化 ----
 
         /// <summary>

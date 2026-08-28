@@ -70,10 +70,21 @@ namespace SolarSystem.Unity
                 frames = parsed;
             }
 
+            // **実行をまたいで同じ絵にする (Step 12-2b)。**
+            // 既定では Time.deltaTime が実測時間なので、同じ設定で 2 回撮っても
+            // 微振動の位相が違い、内装で 47,000 px 動く（12-2 の実測）。
+            // その土俵では「配布 on/off で差が無い」ことを示せない。
+            // 固定の刻みで進めてから、撮影の直前に世界を止める。
+            Time.captureFramerate = 60;
+
             for (int i = 0; i < frames; i++)
             {
                 yield return null;
             }
+
+            // **ここから先は時間を進めない。** 撮り比べのあいだ絵が動かない。
+            Time.timeScale = 0f;
+            yield return null;
 
             Directory.CreateDirectory(dir);
 
@@ -466,8 +477,7 @@ namespace SolarSystem.Unity
                 yield break;
             }
 
-            float timeScale = Time.timeScale;
-            Time.timeScale = 0f;
+            // 世界は撮影の入口で既に止めてある。
             diagnostics.SetProbesVisible(false);
 
             yield return null;
@@ -479,7 +489,6 @@ namespace SolarSystem.Unity
                                              report, "右目 (プローブ無し)");
 
             diagnostics.SetProbesVisible(true);
-            Time.timeScale = timeScale;
 
             if (bareLeft == null || bareRight == null)
             {
@@ -525,8 +534,79 @@ namespace SolarSystem.Unity
                 }));
             }
 
+            WriteAngleComparison(report, hitsLeft, hitsRight, width, height);
+
             Destroy(bareLeft);
             Destroy(bareRight);
+        }
+
+        /// <summary>
+        /// **左右を角度空間で比べる (Step 12-2b)。**
+        ///
+        /// 画素座標のままだと、左右の投影の非対称（主点のずれ）が視差に化ける。
+        /// 12-2 の実測では 4 段とも -42〜-72 px と、**距離に依らない値**が出た。
+        /// 目ごとに**その目自身の投影行列**で方向へ戻せば、そのずれは消える。
+        ///
+        /// **注意: ここで使う画素はミラーウィンドウの解像度**（目テクスチャでは
+        /// ない）。ミラーが目の絵をそのまま縮めているという前提が要る。
+        /// その前提が崩れていれば角度は正しく出ない。**確かめていない。**
+        /// </summary>
+        void WriteAngleComparison(StringBuilder report,
+                                  List<XrDiagnosticsModel.ProbeHit> hitsLeft,
+                                  List<XrDiagnosticsModel.ProbeHit> hitsRight,
+                                  int width, int height)
+        {
+            var stack = FindAnyObjectByType<CameraStackController>();
+            List<XrStereoOptics.Reading> optics = XrStereoOptics.ReadStack(stack);
+
+            report.AppendLine();
+            report.AppendLine("== 左右の差 (角度空間) ==");
+            report.AppendLine("  主点のずれ [px] = m02 * 幅/2。左右で違うぶんが画素座標に乗る。");
+            report.AppendLine("  段\tm02 左\tm02 右\t主点 左 [px]\t主点 右 [px]\t主点の差 [px]");
+
+            foreach (XrStereoOptics.Reading r in optics)
+            {
+                double pl = StereoGeometry.PrincipalOffsetPixels(r.M02Left, width);
+                double pr = StereoGeometry.PrincipalOffsetPixels(r.M02Right, width);
+                report.AppendLine("  " + string.Join("\t", new[]
+                {
+                    r.CameraName, F(r.M02Left), F(r.M02Right), F(pl), F(pr), F(pr - pl),
+                }));
+            }
+
+            report.AppendLine();
+            report.AppendLine("  段\ttanX 左\ttanX 右\t角度差 [mrad]\tf 換算 [px]");
+
+            for (int i = 0; i < hitsLeft.Count && i < optics.Count; i++)
+            {
+                XrDiagnosticsModel.ProbeHit l = hitsLeft[i];
+                XrDiagnosticsModel.ProbeHit r = hitsRight[i];
+                XrStereoOptics.Reading o = optics[i];
+
+                if (l.Count == 0 || r.Count == 0 || o.M00Left <= 0.0 || o.M00Right <= 0.0)
+                {
+                    report.AppendLine("  " + XrDiagnosticsModel.LayerNames[i] + "\t---");
+                    continue;
+                }
+
+                double tanLeft = StereoGeometry.TangentFromPixel(
+                    l.CenterX, width, o.M00Left, o.M02Left);
+                double tanRight = StereoGeometry.TangentFromPixel(
+                    r.CenterX, width, o.M00Right, o.M02Right);
+
+                double radians = System.Math.Atan(tanRight) - System.Math.Atan(tanLeft);
+
+                report.AppendLine("  " + string.Join("\t", new[]
+                {
+                    XrDiagnosticsModel.LayerNames[i],
+                    tanLeft.ToString("F8", CultureInfo.InvariantCulture),
+                    tanRight.ToString("F8", CultureInfo.InvariantCulture),
+                    F(radians * 1000.0),
+                    F(radians * o.FocalLengthPixelsLeft),
+                }));
+            }
+
+            report.AppendLine();
         }
 
         static bool[] Differs(byte[] a, byte[] b)

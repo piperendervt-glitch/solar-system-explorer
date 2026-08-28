@@ -44,6 +44,21 @@ namespace SolarSystem.Unity
             public double M11Left;
             public double M11Right;
 
+            /// <summary>
+            /// 横方向の倍率 m00 と、**主点のずれ** m02 / m12 (Step 12-2b)。
+            ///
+            /// XR の錐台は非対称で、m02 / m12 が 0 でない。**これが左右の絵を
+            /// 丸ごとずらす**ので、画素座標のまま左右を比べると視差ではなく
+            /// 主点のずれを測ってしまう（12-2 で 4 段とも -42〜-72 px が出た）。
+            /// 判定は角度空間で行うこと。
+            /// </summary>
+            public double M00Left;
+            public double M00Right;
+            public double M02Left;
+            public double M02Right;
+            public double M12Left;
+            public double M12Right;
+
             /// <summary>目テクスチャの高さ [px]。f の換算に要る。</summary>
             public int EyeTextureHeight;
 
@@ -71,6 +86,9 @@ namespace SolarSystem.Unity
                 => $"{CameraName} (s={StageScale}) / stereo={StereoEnabled}"
                    + $" / eyeH={EyeTextureHeight}"
                    + $" / m11 L={M11Left:F6} R={M11Right:F6}"
+                   + $" / m00 L={M00Left:F6} R={M00Right:F6}"
+                   + $" / m02 L={M02Left:F6} R={M02Right:F6}"
+                   + $" / m12 L={M12Left:F6} R={M12Right:F6}"
                    + $" / f L={FocalLengthPixelsLeft:F4} R={FocalLengthPixelsRight:F4} px"
                    + $" / fov={CameraFieldOfView:F2} 度"
                    + $" / lossyScale={LossyScale:E3}"
@@ -111,6 +129,12 @@ namespace SolarSystem.Unity
 
             reading.M11Left = projectionLeft.m11;
             reading.M11Right = projectionRight.m11;
+            reading.M00Left = projectionLeft.m00;
+            reading.M00Right = projectionRight.m00;
+            reading.M02Left = projectionLeft.m02;
+            reading.M02Right = projectionRight.m02;
+            reading.M12Left = projectionLeft.m12;
+            reading.M12Right = projectionRight.m12;
 
             if (reading.M11Left > 0.0 && reading.EyeTextureHeight > 0)
             {
