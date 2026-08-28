@@ -559,6 +559,16 @@ namespace SolarSystem.Editor
                 slot.transform.SetParent(sourceRoot.transform, false);
                 slot.transform.localPosition = new Vector3(i * SourceSpacing, 0f, 0f);
 
+                // **診断の描画元は 1 面だけ。** 実機では HMD の中から
+                // ミラーウィンドウが見えないので、数値をここへ出して読む。
+                Camera diagnosticsCamera = null;
+                TMP_Text diagnosticsText = null;
+                if (a.RendererName == DiagnosticsScreenName)
+                {
+                    diagnosticsCamera = BuildDiagnosticsSource(
+                        slot.transform, texture, SourceSpacing * 2f, out diagnosticsText);
+                }
+
                 built.Add(new CockpitScreens.Screen
                 {
                     RendererName = a.RendererName,
@@ -569,6 +579,8 @@ namespace SolarSystem.Editor
                     CameraA = BuildScreenSource(slot.transform, texture, a.Role, panel, 0f,
                                                 IsTransparent(target)),
                     CameraPattern = BuildPatternSource(slot.transform, texture, SourceSpacing),
+                    CameraDiagnostics = diagnosticsCamera,
+                    DiagnosticsText = diagnosticsText,
                     Facing = BuildFacingQuad(root, target, texture, eye, IsTransparent(target)),
                     Warped = warped,
                     Warp = warp.Warp,
@@ -1091,6 +1103,68 @@ namespace SolarSystem.Editor
         ///
         /// 文字だけは TMP（計器と同じ経路）で載せる。文字側の傾きを見るため。
         /// </summary>
+        /// <summary>
+        /// **XR 診断の数値を出す面の名前 (Step 12 の準備)。**
+        /// 1 面だけに作る。**実機では HMD の中からミラーウィンドウが見えない**ので、
+        /// 数値を計器の画面へ出して読めるようにする。
+        /// </summary>
+        public const string DiagnosticsScreenName = "CockpitEquipments_Screen-1";
+
+        /// <summary>
+        /// 診断の数値を出す描画元 (Step 12 の準備)。**テスト柄と同じ作り。**
+        /// 中身は 1 枚の TMP で、文字は `XrDiagnostics` が毎回差す。
+        /// </summary>
+        static Camera BuildDiagnosticsSource(Transform parent, RenderTexture rt, float offsetY,
+                                             out TMP_Text text)
+        {
+            var camGo = new GameObject("Cam_ScreenDiagnostics");
+            camGo.transform.SetParent(parent, false);
+            camGo.transform.localPosition = new Vector3(0f, offsetY, -2f);
+
+            Camera cam = camGo.AddComponent<Camera>();
+            cam.orthographic = true;
+            cam.orthographicSize = 0.5f;
+            cam.nearClipPlane = 0.01f;
+            cam.farClipPlane = 10f;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.01f, 0.02f, 0.03f, 1f);
+            cam.cullingMask = 1 << 5;
+            cam.targetTexture = rt;
+            cam.enabled = false;
+
+            var canvasGo = new GameObject("Canvas");
+            canvasGo.transform.SetParent(camGo.transform, false);
+            canvasGo.layer = 5;
+            var canvas = canvasGo.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = cam;
+            canvas.planeDistance = 1f;
+            canvasGo.AddComponent<UnityEngine.UI.CanvasScaler>().dynamicPixelsPerUnit = 4f;
+            canvasGo.GetComponent<RectTransform>().sizeDelta = new Vector2(rt.width, rt.height);
+
+            var go = new GameObject("Diagnostics");
+            go.transform.SetParent(canvasGo.transform, false);
+            go.layer = 5;
+
+            var tmp = go.AddComponent<TextMeshProUGUI>();
+            tmp.enableAutoSizing = false;
+            tmp.fontSize = rt.height * 0.055f;
+            tmp.alignment = TextAlignmentOptions.TopLeft;
+            tmp.color = new Color(0.55f, 0.95f, 0.75f, 1f);
+            tmp.enableWordWrapping = false;
+            tmp.overflowMode = TextOverflowModes.Overflow;
+            tmp.text = "XR DIAG";
+
+            var rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.03f, 0.02f);
+            rect.anchorMax = new Vector2(0.97f, 0.98f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
+            text = tmp;
+            return cam;
+        }
+
         static void BuildPattern(Transform canvas, int width, int height)
         {
             var raw = new GameObject("PatternTexture");
@@ -1278,6 +1352,122 @@ namespace SolarSystem.Editor
             }
 
             return found;
+        }
+
+        /// <summary>
+        /// **層ごとの診断プローブ (Step 12 の準備)。**
+        ///
+        /// 各段に 1 個ずつ、識別色の球を置く。**段の描画経路（カリング・
+        /// 深度クリア・描画順）を通るかどうかを画素で見るための的。**
+        ///
+        /// ■ 位置の決め方（実測で 2 回変えた）
+        /// 最初は「その段が担当する代表的な距離」に船の前方基準で置いたが、
+        /// **Deep / Near / Cockpit の 3 つが 1 画素も写らなかった。**
+        /// 理由は 2 つ:
+        ///   1. 外の段のプローブは**コックピットに隠れる**（内装は最後に描く）
+        ///   2. コックピット段のプローブは**内装の中に埋まる**
+        ///
+        /// そこで**それぞれの段のカメラの子**にして、画面の同じ場所
+        /// （中央より少し左上 = 窓が開いていて地球とも重ならない）へ、
+        /// **段ごとの距離**で置く。大きさは距離に比例させ、どの段でも
+        /// 画面上で同じくらい（測定 640x360 で直径 20 px 前後）になる。
+        ///
+        /// **写らないこと自体が情報。** 場面によっては隠れる。0 px と出たら
+        /// 「その段はそこに見えていない」であって、道具の壊れではない。
+        ///
+        /// **既定では非表示。** F5 の「プローブ」で出す。
+        /// </summary>
+        public static List<XrDiagnostics.Probe> BuildProbes(
+            CameraStackController stack,
+            int deepLayer, int nearLayer, int nearfieldLayer, int cockpitLayer)
+        {
+            var probes = new List<XrDiagnostics.Probe>();
+            if (stack == null)
+            {
+                return probes;
+            }
+
+            // 画面上の向き。**中央より少し左上。** 正規化しない（z=1 が前方）。
+            var direction = new Vector3(-0.22f, 0.26f, 1f);
+
+            // 段 / カメラ / レイヤー / 距離 [units]
+            (SolarSystem.Core.XrLayer Layer, Camera Camera, int UnityLayer, float Distance)[] spec =
+            {
+                (SolarSystem.Core.XrLayer.Deep, stack.Deep, deepLayer, 2000f),
+                (SolarSystem.Core.XrLayer.Near, stack.Near, nearLayer, 8000f),
+                (SolarSystem.Core.XrLayer.Nearfield, stack.Nearfield, nearfieldLayer, 20f),
+                (SolarSystem.Core.XrLayer.Cockpit, stack.Cockpit, cockpitLayer, 0.9f),
+            };
+
+            foreach (var item in spec)
+            {
+                if (item.Camera == null)
+                {
+                    continue;
+                }
+
+                GameObject go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                go.name = "XrProbe_"
+                          + SolarSystem.Core.XrDiagnosticsModel.LayerNames[(int)item.Layer];
+                go.transform.SetParent(item.Camera.transform, false);
+                go.layer = item.UnityLayer;
+                Object.DestroyImmediate(go.GetComponent<Collider>());
+
+                go.transform.localPosition = direction * item.Distance;
+                go.transform.localScale = Vector3.one * (item.Distance * 0.06f);
+
+                Renderer renderer = go.GetComponent<Renderer>();
+                renderer.sharedMaterial = GetOrCreateProbeMaterial(item.Layer);
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+                renderer.enabled = false;
+
+                if (item.UnityLayer == cockpitLayer)
+                {
+                    renderer.renderingLayerMask =
+                        SolarSystem.Core.CockpitDefinition.CockpitRenderingLayerMask;
+                }
+
+                probes.Add(new XrDiagnostics.Probe
+                {
+                    Layer = item.Layer,
+                    Renderer = renderer,
+                });
+            }
+
+            return probes;
+        }
+        /// <summary>
+        /// プローブのマテリアル。**Unlit で、最大成分は 0.85。**
+        /// bloom のしきい値 0.90 を超えると滲んで白へ寄り、色相での分類が効かなくなる。
+        /// </summary>
+        static Material GetOrCreateProbeMaterial(SolarSystem.Core.XrLayer layer)
+        {
+            string name = SolarSystem.Core.XrDiagnosticsModel.LayerNames[(int)layer];
+            string path = "Assets/Materials/XrProbe_" + name + ".mat";
+
+            double[] c = SolarSystem.Core.XrDiagnosticsModel.ProbeColor[(int)layer];
+            var color = new Color((float)c[0], (float)c[1], (float)c[2], 1f);
+
+            // **色は毎回入れ直す。** 定数を変えたのにアセットが古い色のままだと、
+            // 分類が外れて「プローブが 0 px」になる（実測でそうなった）。
+            // 出所は `XrDiagnosticsModel.ProbeColor` ただ 1 つ。
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (existing != null)
+            {
+                existing.SetColor("_BaseColor", color);
+                EditorUtility.SetDirty(existing);
+                return existing;
+            }
+
+            var material = new Material(Shader.Find("Universal Render Pipeline/Unlit"))
+            {
+                name = "XrProbe_" + name,
+            };
+
+            material.SetColor("_BaseColor", color);
+            AssetDatabase.CreateAsset(material, path);
+            return material;
         }
 
         /// <summary>コックピットの子へレイヤーを配る。</summary>

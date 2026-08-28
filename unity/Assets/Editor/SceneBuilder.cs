@@ -220,6 +220,16 @@ namespace SolarSystem.Editor
             debugPanel.Bind(universeRoot, rig, applier, stack, overlay, cockpit.Metrics,
                             cockpit.Screens);
 
+            // ---- XR 診断 (Step 12 の準備) ----
+            // **まだ XR は入れない。** 平面のまま、層ごとの見え方を切り替えて
+            // 人が目で承認するための道具。既定はすべて OFF。
+            var xrGo = new GameObject("XrDiagnostics");
+            xrGo.transform.SetParent(rootGo.transform, false);
+            var xrDiagnostics = xrGo.AddComponent<XrDiagnostics>();
+            xrDiagnostics.Bind(stack, cockpit.Metrics, cockpit.Screens,
+                               CockpitBuilder.BuildProbes(stack, deepLayer, 0,
+                                                         nearfieldLayer, cockpitLayer));
+
             // ---- exe からのスクショ用 (Step 7) ----
             // 引数が無ければ何もしない。見た目には影響しない。
             rootGo.AddComponent<StandaloneCapture>();
@@ -234,7 +244,7 @@ namespace SolarSystem.Editor
             universeRoot.Configure(shiftDriver, shipGo.transform, solarSystemView, aimer, rig,
                                    cockpit.Panel, stationSet, preset, audioRouting,
                                    overlay, scenarioRunner, shake, stack, sunFlare, debugPanel,
-                                   cockpit.Screens);
+                                   cockpit.Screens, xrDiagnostics);
 
             // 登録漏れの検査 (docs/01-architecture.md §2-5)。
             shiftDriver.CollectFromScene();

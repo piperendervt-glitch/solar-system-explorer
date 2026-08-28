@@ -49,6 +49,16 @@ namespace SolarSystem.Unity
             public Camera CameraPattern;
 
             /// <summary>
+            /// XR 診断の数値を出す描画元 (Step 12 の準備)。**1 面だけに作る。**
+            /// 実機では HMD の中からミラーウィンドウが見えないので、
+            /// **数値を計器の画面へ出して読めるようにする。**
+            /// </summary>
+            public Camera CameraDiagnostics;
+
+            /// <summary>診断の数値を書き込む先。`CameraDiagnostics` を持つ面だけ。</summary>
+            public TMPro.TMP_Text DiagnosticsText;
+
+            /// <summary>
             /// 視線に正対するクアッド (Step 11-3b)。**既定では隠してある。**
             /// 元の面の投影を覆う大きさ・位置で、組み立て時に置いてある。
             /// </summary>
@@ -77,6 +87,9 @@ namespace SolarSystem.Unity
         /// <summary>テスト柄を出しているか (Step 11-3b)。</summary>
         [SerializeField] bool _pattern;
 
+        /// <summary>XR 診断の数値を出しているか (Step 12 の準備)。</summary>
+        [SerializeField] bool _diagnostics;
+
         /// <summary>
         /// 計器の見せ方 (Step 11-3c)。面に貼る / 正対 / 逆歪ませ。
         /// **既定は逆歪ませ（実機で見比べて確定）。**
@@ -101,6 +114,33 @@ namespace SolarSystem.Unity
         public float Emission => _emission;
 
         public bool PatternEnabled => _pattern;
+
+        public bool DiagnosticsEnabled => _diagnostics;
+
+        /// <summary>F5 から。**計器の画面を XR 診断の数値に差し替える。**</summary>
+        public void SetDiagnostics(bool on)
+        {
+            if (_diagnostics == on)
+            {
+                return;
+            }
+
+            _diagnostics = on;
+            ApplyLayout();
+            _nextUpdateAt = 0.0;
+        }
+
+        /// <summary>診断の数値を差す。**出所は XrDiagnostics ただ 1 つ。**</summary>
+        public void SetDiagnosticsText(string text)
+        {
+            foreach (Screen screen in _screens)
+            {
+                if (screen?.DiagnosticsText != null)
+                {
+                    screen.DiagnosticsText.text = text;
+                }
+            }
+        }
 
         public ScreenMode Mode => _mode;
 
@@ -197,7 +237,15 @@ namespace SolarSystem.Unity
 
             foreach (Screen screen in _screens)
             {
-                Camera cam = _pattern ? screen?.CameraPattern : screen?.CameraA;
+                Camera cam = screen?.CameraA;
+                if (_diagnostics && screen?.CameraDiagnostics != null)
+                {
+                    cam = screen.CameraDiagnostics;
+                }
+                else if (_pattern)
+                {
+                    cam = screen?.CameraPattern;
+                }
                 if (cam != null && screen.Texture != null)
                 {
                     cam.Render();
@@ -225,8 +273,10 @@ namespace SolarSystem.Unity
         {
             foreach (Screen screen in _screens)
             {
-                SetActive(screen?.CameraA, !_pattern);
-                SetActive(screen?.CameraPattern, _pattern);
+                bool diagnostics = _diagnostics && screen?.CameraDiagnostics != null;
+                SetActive(screen?.CameraA, !_pattern && !diagnostics);
+                SetActive(screen?.CameraPattern, _pattern && !diagnostics);
+                SetActive(screen?.CameraDiagnostics, diagnostics);
             }
         }
 

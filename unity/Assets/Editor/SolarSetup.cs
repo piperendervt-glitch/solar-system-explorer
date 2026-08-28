@@ -99,6 +99,18 @@ public static class SolarSetup
         Debug.Log("[SolarSetup] DumpScreenTextures OK");
     }
 
+    /// <summary>
+    /// xr-stack シナリオ（平面版 / Step 12 の準備）。
+    /// 正常時の画像一式・測定値・**故意破壊の前後の数値**を出す。
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.CaptureXrStack
+    /// </summary>
+    public static void CaptureXrStack()
+    {
+        SolarSystem.Editor.XrStackCapture.Run();
+        Debug.Log("[SolarSetup] CaptureXrStack OK");
+    }
+
     /// <summary>暗い場面で内装が潰れていないかを画素で測る (Step 11-4)。</summary>
     public static void MeasureCockpitLighting()
     {
