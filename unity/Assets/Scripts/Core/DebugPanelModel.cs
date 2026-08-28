@@ -233,6 +233,16 @@ namespace SolarSystem.Core
         public const string ScreenEmissionId = "num.screenEmission";
 
         /// <summary>
+        /// **補助光の ON/OFF (Step 11-4)。**
+        /// 消してみて絵が変わることを目で確かめるための口。
+        /// **「効いていない」と「消している」を見分けられるようにする。**
+        /// </summary>
+        public const string FillLightId = "cockpit.fill";
+
+        /// <summary>補助光の強さ (Step 11-4)。**目で決める値。**</summary>
+        public const string FillIntensityId = "num.fillIntensity";
+
+        /// <summary>
         /// **画面のテスト柄 (Step 11-3b の切り分け道具)。**
         /// ON にすると 5 面の RT の中身を計器の表示から生成したテスト柄へ差し替える。
         /// 枠線・格子・真円・四隅の印・基準線の文字が入っており、
@@ -334,6 +344,7 @@ namespace SolarSystem.Core
             double spikeThickness,
             double engineLagSeconds,
             double screenEmission,
+            double fillIntensity,
             double eyeX,
             double eyeY,
             double eyeZ,
@@ -406,6 +417,10 @@ namespace SolarSystem.Core
                 screenEmission, 0.0, 2.0, 0.05, "F2"));
 
             // **切り分けの道具 (11-3b)。** 歪みが直ったら消す。
+            m._items.Add(DebugItem.MakeToggle(FillLightId, "補助光", true));
+            m._items.Add(DebugItem.MakeNumber(FillIntensityId, "補助光の強さ",
+                fillIntensity, 0.0, 2.0, 0.05, "F2"));
+
             m._items.Add(DebugItem.MakeToggle(ScreenPatternId, "画面のテスト柄", false));
             m._items.Add(DebugItem.MakeToggle(ScreenRtViewId, "RT を直接表示", false));
             m._items.Add(DebugItem.MakeChoice(ScreenRtFaceId, "RT 表示の面",

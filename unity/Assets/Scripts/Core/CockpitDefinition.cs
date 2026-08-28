@@ -6,7 +6,7 @@ namespace SolarSystem.Core
     /// コックピットの定義 (Step 11-0c)。**UnityEngine 非依存。**
     ///
     /// ■ **いまはフォールバック判定に要る分しか無い。**
-    /// `Scale` / `EyeLocal` / `EyeForward` / `Screens[]` / `Emissives[]` は
+    /// `Scale` / `EyeLocal` / `EyeForward` / `Screens[]` は
     /// 計画書 11-2a で作る。使う段になってから足す。
     /// **見えないコードを残さない**（Step 6 の EmissionIntensity = 4.0 と同じ轍を
     /// 踏まないため）。
@@ -157,6 +157,42 @@ namespace SolarSystem.Core
         /// F4 で振って決めたらここを書き換える。
         /// </summary>
         public const double DefaultScreenEmission = 0.75;
+
+        /// <summary>
+        /// **補助光の強さの初期値 (Step 11-4)。目で決める値なので未確定。**
+        ///
+        /// 内装が暗い場面で真っ黒に潰れないようにするだけの弱い光。
+        /// **0 にしない。** 0 は「消えている」と「設定し忘れた」が見分けられず、
+        /// 絵も出るので気づけない（11-3c の単位行列と同じ型の失敗）。
+        /// 実機で F4 を振って決めたらここを書き換える。
+        /// </summary>
+        public const double DefaultFillLightIntensity = 0.35;
+
+        /// <summary>
+        /// **補助光を内装だけに当てるためのレンダリングレイヤー (Step 11-4)。**
+        ///
+        /// `Light.cullingMask` は **URP では効かない**（実測 / 11-4a）。
+        /// 光の 0.6 m 先に検査用の球を置いて測ったところ、球を別の段の
+        /// レイヤーに移しても mask を外しても**明るさの差は +20.23 で同じ**
+        /// だった。URP が見るのは**レンダリングレイヤー**のほう。
+        ///
+        ///   内装のレンダラー : ビット 0 と 1（太陽光も当たる）
+        ///   補助光           : ビット 1 だけ（内装しか照らせない）
+        ///   他のすべて       : ビット 0（既定のまま）
+        /// </summary>
+        public const uint CockpitRenderingLayer = 1u << 1;
+
+        /// <summary>内装のレンダラーが持つレンダリングレイヤー。既定のビットも残す。</summary>
+        public const uint CockpitRenderingLayerMask = 1u | CockpitRenderingLayer;
+
+        /// <summary>補助光が届く範囲 [m]。**内装だけを包む大きさ。**</summary>
+        public const double FillLightRangeMeters = 3.0;
+
+        /// <summary>
+        /// 補助光の位置（目のローカル、メートル）。**目のやや後ろ上。**
+        /// 目の位置に置くと陰影がまったく出ず、のっぺりする。
+        /// </summary>
+        public static Vec3d FillLightOffset => new Vec3d(0.0, 0.35, -0.30);
 
         /// <summary>
         /// この定義の画面の割り当て (Step 11-3a / 11-3c で案 A に確定)。

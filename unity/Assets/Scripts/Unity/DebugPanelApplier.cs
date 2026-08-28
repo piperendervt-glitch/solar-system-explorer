@@ -39,6 +39,9 @@ namespace SolarSystem.Unity
         /// <summary>計器の画面 (Step 11-3)。発光の強さと A/B の割り当てを流す。</summary>
         [SerializeField] CockpitScreens _screens;
 
+        /// <summary>補助光と発光 (Step 11-4)。F4 の 2 項目を流す。</summary>
+        [SerializeField] CockpitLights _lights;
+
         /// <summary>
         /// 目の位置を動かす先 (Step 11-2b)。`Cam_Cockpit` の Transform。
         /// **触るのは実行時の Transform だけで、シーンには書き戻さない。**
@@ -50,7 +53,8 @@ namespace SolarSystem.Unity
                          CockpitShake shake, PostProcessPreset post, StationViewSet stations,
                          Material earthSurface, Material marsSurface, Material clouds,
                          Material sunMesh, Material sunPoint, Material sunCorona,
-                         AudioRouting audio, Transform cockpitEye, CockpitScreens screens)
+                         AudioRouting audio, Transform cockpitEye, CockpitScreens screens,
+                         CockpitLights lights)
         {
             _root = root;
             _stack = stack;
@@ -67,6 +71,7 @@ namespace SolarSystem.Unity
             _audio = audio;
             _cockpitEye = cockpitEye;
             _screens = screens;
+            _lights = lights;
         }
 
         /// <summary>1 フレームぶん反映する。</summary>
@@ -272,6 +277,13 @@ namespace SolarSystem.Unity
                 // 確定しており、値は AudioMix の定数がそのまま効く。
                 // 追従の時定数だけは Demo 3 でも触れるように残す。
                 _audio.EngineLagSeconds = model.NumberOf(DebugPanelModel.EngineLagId);
+            }
+
+            if (_lights != null)
+            {
+                _lights.SetFillEnabled(model.BoolOf(DebugPanelModel.FillLightId));
+                _lights.SetFillIntensity(
+                    (float)model.NumberOf(DebugPanelModel.FillIntensityId));
             }
 
             if (_screens != null)

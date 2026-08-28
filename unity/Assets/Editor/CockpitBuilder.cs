@@ -65,6 +65,9 @@ namespace SolarSystem.Editor
 
             /// <summary>計器を映す 5 面 (Step 11-3)。箱では空。</summary>
             public CockpitScreens Screens;
+
+            /// <summary>補助光と発光 (Step 11-4)。F4 とテストが読む。</summary>
+            public CockpitLights Lights;
         }
 
         /// <summary>既定の定義（`CockpitCatalog.Requested`）で組む。</summary>
@@ -151,6 +154,13 @@ namespace SolarSystem.Editor
                     canvas.enabled = false;
                 }
             }
+            // ---- 補助光 (Step 11-4) ----
+            ApplyRenderingLayers(root.transform, cockpitLayer);
+
+            var lights = root.AddComponent<CockpitLights>();
+            lights.Bind(BuildFillLight(camGo.transform, cockpitLayer));
+            lights.Apply();
+
             // ---- 窓の物差し (Step 11-2b) ----
             // **箱には窓が無い**ので、そのときは空のまま。計測器は「測れない」を返す。
             var metrics = root.AddComponent<CockpitMetrics>();
@@ -160,7 +170,7 @@ namespace SolarSystem.Editor
             {
                 CockpitCamera = cockpitCam, Panel = panel,
                 ShakeRig = rig.transform, Identity = identity, Metrics = metrics,
-                Screens = screens,
+                Screens = screens, Lights = lights,
             };
         }
 
@@ -667,6 +677,54 @@ namespace SolarSystem.Editor
             renderer.enabled = false; // 既定は「面に貼る」
 
             return renderer;
+        }
+
+        /// <summary>
+        /// **内装だけを照らす補助光 (Step 11-4)。**
+        ///
+        /// ■ 他の段へ漏らさない
+        /// `cullingMask` をコックピット層だけにする。**URP がこれを尊重するかは
+        /// 実測で確かめる**（尊重しないなら Rendering Layers へ切り替える）。
+        /// 判定は「過大な強度にして、外の天体の画素が動くか」で行う。
+        ///
+        /// ■ 範囲
+        /// コックピット空間は 1 m = 1 unit なので、範囲 3 は 3 m。内装を包む
+        /// だけの大きさにして、届く先を物理的にも狭めておく。
+        ///
+        /// ■ 影は落とさない
+        /// 潰れを防ぐだけの光なので影は要らない。**影を出すとコックピット段の
+        /// 深度クリアと相まって描画順の当たり外れが増える。**
+        /// </summary>
+        static Light BuildFillLight(Transform eye, int cockpitLayer)
+        {
+            var go = new GameObject("CockpitFillLight");
+            go.transform.SetParent(eye, false);
+            go.layer = cockpitLayer;
+
+            SolarSystem.Core.Vec3d offset = SolarSystem.Core.CockpitDefinition.FillLightOffset;
+            go.transform.localPosition =
+                new Vector3((float)offset.X, (float)offset.Y, (float)offset.Z);
+
+            Light light = go.AddComponent<Light>();
+            light.type = LightType.Point;
+            light.range = (float)SolarSystem.Core.CockpitDefinition.FillLightRangeMeters;
+            light.intensity =
+                (float)SolarSystem.Core.CockpitDefinition.DefaultFillLightIntensity;
+            light.color = new Color(0.82f, 0.88f, 1.00f); // わずかに青い機内灯
+            light.shadows = LightShadows.None;
+            // **止めているのはこちら。** `cullingMask` は URP では効かない
+            // （実測 / 11-4a）が、他の描画経路のために正しい値を入れておく。
+            light.renderingLayerMask = (int)SolarSystem.Core.CockpitDefinition
+                .CockpitRenderingLayer;
+            light.cullingMask = 1 << cockpitLayer;
+            light.renderMode = LightRenderMode.ForcePixel;
+
+            Debug.Log($"[CockpitBuilder] 補助光: 強さ {light.intensity:F2} / "
+                      + $"範囲 {light.range:F1} m / 位置 {go.transform.localPosition} / "
+                      + $"rendering layer 0x{light.renderingLayerMask:X} / "
+                      + $"culling mask 0x{light.cullingMask:X}");
+
+            return light;
         }
 
         /// <summary>XY 平面の四角。**法線は +Z（目の側）**、UV は 0..1。</summary>
@@ -1222,12 +1280,35 @@ namespace SolarSystem.Editor
             return found;
         }
 
+        /// <summary>コックピットの子へレイヤーを配る。</summary>
         static void SetLayerRecursive(GameObject go, int layer)
         {
             go.layer = layer;
             foreach (Transform child in go.transform)
             {
                 SetLayerRecursive(child.gameObject, layer);
+            }
+        }
+
+        /// <summary>
+        /// **コックピット段のレンダラーへレンダリングレイヤーを配る (Step 11-4)。**
+        ///
+        /// 補助光は内装のレンダリングレイヤーしか照らさない。**組み立ての最後に
+        /// 一度で配る**——面や正対クアッドは後から作られるので、生成箇所ごとに
+        /// 書くと必ず取りこぼす（実測でクアッドが漏れた）。
+        ///
+        /// 既定のビットも残す。外すと**太陽光が当たらなくなる**
+        /// （太陽の Directional は既定のビットしか持たない）。
+        /// </summary>
+        static void ApplyRenderingLayers(Transform root, int cockpitLayer)
+        {
+            foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                if (r.gameObject.layer == cockpitLayer)
+                {
+                    r.renderingLayerMask =
+                        SolarSystem.Core.CockpitDefinition.CockpitRenderingLayerMask;
+                }
             }
         }
 

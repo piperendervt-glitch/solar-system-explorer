@@ -150,9 +150,10 @@ namespace SolarSystem.Tests.EditMode
                 .OrderBy(n => n, StringComparer.Ordinal)
                 .ToArray();
 
-            // 11-4b の `Definition.Emissives` の入力。**変わったら気づけるように縛る。**
-            // Cockpit3Red は赤い機体用で、残っているプレハブからは参照されていない
-            // （レンダラー 0）。発光の一覧としては残す。
+            // 棚卸しの結果。**アセットが変わったら気づけるように縛る。**
+            // 11-4 で確かめたところ、シーンに置いているのは Cockpit3(interior) だけで、
+            // Cockpit3Red と Thrusters1 はレンダラー 0 件。Cockpit3Grey は見えるが
+            // **発光の強さを振っても画素が変わらなかった**ので、補助光だけにした。
             Assert.That(emissive, Is.EqualTo(new[]
             {
                 "Cockpit3Grey",

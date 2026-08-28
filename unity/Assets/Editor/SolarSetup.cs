@@ -99,6 +99,20 @@ public static class SolarSetup
         Debug.Log("[SolarSetup] DumpScreenTextures OK");
     }
 
+    /// <summary>暗い場面で内装が潰れていないかを画素で測る (Step 11-4)。</summary>
+    public static void MeasureCockpitLighting()
+    {
+        SolarSystem.Editor.CockpitLightingReport.Run();
+        Debug.Log("[SolarSetup] MeasureCockpitLighting OK");
+    }
+
+    /// <summary>発光しているメッシュが座席から見えるかを測る (Step 11-4a の調査)。</summary>
+    public static void ProbeCockpitVisibility()
+    {
+        SolarSystem.Editor.CockpitVisibilityProbe.Run();
+        Debug.Log("[SolarSetup] ProbeCockpitVisibility OK");
+    }
+
     public static void ImportCockpit()
     {
         SolarSystem.Editor.CockpitImporter.Run();

@@ -215,7 +215,8 @@ namespace SolarSystem.Editor
                          MaterialLibrary.MeshMaterial(appearanceModel.Sun),
                          MaterialLibrary.PointMaterial(appearanceModel.Sun),
                          MaterialLibrary.CoronaMaterial(appearanceModel.Sun),
-                         audioRouting, cockpit.CockpitCamera.transform, cockpit.Screens);
+                         audioRouting, cockpit.CockpitCamera.transform, cockpit.Screens,
+                         cockpit.Lights);
             debugPanel.Bind(universeRoot, rig, applier, stack, overlay, cockpit.Metrics,
                             cockpit.Screens);
 

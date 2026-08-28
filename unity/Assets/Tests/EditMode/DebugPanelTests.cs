@@ -35,6 +35,7 @@ namespace SolarSystem.Tests.EditMode
                 PlanetAppearance.FlareSpikeThickness,
                 AudioMix.EngineLagSeconds,
                 CockpitDefinition.DefaultScreenEmission,
+                CockpitDefinition.DefaultFillLightIntensity,
                 // 目の位置と画角 (Step 11-2b)。**本番はシーンに組まれた値を渡す**ので、
                 // ここは既定値の存在を確かめるためのダミー。
                 0.0, 0.0, 0.0,

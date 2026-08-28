@@ -25,7 +25,6 @@ namespace SolarSystem.Editor
         public const string ScenarioArg = "-scenario";
 
         /// <summary>どの画面割り当てで撮るか (Step 11-3a の一時的な口)。</summary>
-        public const string LayoutArg = "-screenLayout";
         public const string HeroArg = "-hero";
 
         /// <summary>段ごとに切り分けたスクショも出す。何が写っているか分からないときに使う。</summary>

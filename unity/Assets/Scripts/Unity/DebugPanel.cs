@@ -134,6 +134,7 @@ namespace SolarSystem.Unity
                 PlanetAppearance.FlareSpikeThickness,
                 AudioMix.EngineLagSeconds,
                 CockpitDefinition.DefaultScreenEmission,
+                CockpitDefinition.DefaultFillLightIntensity,
                 // **既定はシーンに組まれた値。** パネル側で数値を二重定義しない
                 // （目の位置は CockpitDefinition か bounds から来ている）。
                 eye.x, eye.y, eye.z, eyeMin, eyeMax, fov);
