@@ -5,6 +5,7 @@ using System.IO;
 using System.Text;
 using SolarSystem.Core;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 namespace SolarSystem.Unity
 {
@@ -44,6 +45,25 @@ namespace SolarSystem.Unity
         /// ための一時的な差し替え。exe の実行中だけで、アセットには書き戻さない。
         /// </summary>
         public const string SwapShaderArg = "-xrSwapShader";
+
+        /// <summary>**対照 (Step 12-2c)。** 撮影時にアンチエイリアスを切る。</summary>
+        public const string NoAaArg = "-xrCapNoAA";
+
+        /// <summary>**対照 (Step 12-2c)。** 撮影時にポストプロセスを切る。</summary>
+        public const string NoPostArg = "-xrCapNoPost";
+
+        /// <summary>
+        /// **試したが使えなかった経路 (Step 12-2c)。既定では使わない。**
+        ///
+        /// `CaptureScreenshotIntoRenderTexture` に目テクスチャと同じ記述子の
+        /// RenderTexture を渡しても、**目テクスチャは得られない。**
+        /// 実測では 1512x1680 の RT の**左下隅に、640x480 のミラーの中身が
+        /// 上下反転で書かれ**（左右が横に並んだ絵）、残りは黒。スライス 1 は
+        /// 丸ごと黒。**スライスの指定は効いていない。**
+        ///
+        /// 記録として残すが、既定はミラー経路。
+        /// </summary>
+        public const string EyeTextureArg = "-xrCapEyeTexture";
 
         /// <summary>既定の待ちフレーム。シーンとポストプロセスが落ち着くまで待つ。</summary>
         public const int DefaultFrames = 150;
@@ -103,6 +123,8 @@ namespace SolarSystem.Unity
             WriteConditions(report, facts, optics);
             WriteCameraState(report, stack);
 
+            WriteRenderState(report, stack);
+
             if (StandaloneCapture.HasArg(SwapShaderArg))
             {
                 SwapShaders(report);
@@ -137,11 +159,11 @@ namespace SolarSystem.Unity
             // 撮影そのものの雑音の下限は 0（＝左右の差は本物）。
             yield return new WaitForEndOfFrame();
 
-            Texture2D left = TryCapture(ScreenCapture.StereoScreenCaptureMode.LeftEye,
+            Texture2D left = CaptureEye(ScreenCapture.StereoScreenCaptureMode.LeftEye,
                                         report, "左目");
-            Texture2D right = TryCapture(ScreenCapture.StereoScreenCaptureMode.RightEye,
+            Texture2D right = CaptureEye(ScreenCapture.StereoScreenCaptureMode.RightEye,
                                          report, "右目");
-            Texture2D leftAgain = TryCapture(ScreenCapture.StereoScreenCaptureMode.LeftEye,
+            Texture2D leftAgain = CaptureEye(ScreenCapture.StereoScreenCaptureMode.LeftEye,
                                              report, "左目 (対照)");
 
             bool ok = left != null && right != null;
@@ -345,6 +367,164 @@ namespace SolarSystem.Unity
             report.AppendLine();
         }
 
+        /// <summary>
+        /// **描画の状態と、非決定要素の切り分け用スイッチ (Step 12-2c)。**
+        ///
+        /// 12-2b で、世界を止めても実行をまたぐと 76,000 画素動くことが分かった。
+        /// 平面の 36 枚は bit-exact なので **XR の経路に固有**。
+        /// 候補を 1 つずつ切って測れるように、状態を記録してから切る。
+        /// </summary>
+        static void WriteRenderState(StringBuilder report, CameraStackController stack)
+        {
+            report.AppendLine("== 描画の状態 ==");
+            report.AppendLine("  フレーム数        : " + Time.frameCount);
+            report.AppendLine("  captureFramerate  : " + Time.captureFramerate);
+            report.AppendLine("  timeScale         : " + Time.timeScale);
+            report.AppendLine("  renderViewportScale : "
+                              + UnityEngine.XR.XRSettings.renderViewportScale);
+            report.AppendLine("  eyeTextureResolutionScale : "
+                              + UnityEngine.XR.XRSettings.eyeTextureResolutionScale);
+
+            bool noAa = StandaloneCapture.HasArg(NoAaArg);
+            bool noPost = StandaloneCapture.HasArg(NoPostArg);
+
+            if (stack == null)
+            {
+                report.AppendLine("  カメラスタックが無い");
+                report.AppendLine();
+                return;
+            }
+
+            report.AppendLine("  段\tAA\tポスト\tMSAA\tDynamicRes");
+
+            (string Name, Camera Camera)[] cameras =
+            {
+                ("Deep", stack.Deep), ("Near", stack.Near),
+                ("Nearfield", stack.Nearfield), ("Cockpit", stack.Cockpit),
+            };
+
+            foreach ((string name, Camera camera) in cameras)
+            {
+                if (camera == null)
+                {
+                    continue;
+                }
+
+                UniversalAdditionalCameraData data = camera.GetUniversalAdditionalCameraData();
+                report.AppendLine("  " + string.Join("\t", new[]
+                {
+                    name,
+                    data.antialiasing.ToString(),
+                    data.renderPostProcessing.ToString(),
+                    camera.allowMSAA.ToString(),
+                    camera.allowDynamicResolution.ToString(),
+                }));
+
+                if (noAa)
+                {
+                    data.antialiasing = AntialiasingMode.None;
+                    camera.allowMSAA = false;
+                }
+
+                if (noPost)
+                {
+                    data.renderPostProcessing = false;
+                }
+            }
+
+            if (noAa)
+            {
+                report.AppendLine("  **AA を切った** (" + NoAaArg + ")");
+            }
+
+            if (noPost)
+            {
+                report.AppendLine("  **ポストプロセスを切った** (" + NoPostArg + ")");
+            }
+
+            report.AppendLine();
+        }
+
+        /// <summary>
+        /// **目テクスチャそのものから撮る (Step 12-2c)。**
+        ///
+        /// ミラーウィンドウ (640x480) は目テクスチャ (1512x1680) と解像度も
+        /// アスペクトも違う。**f は目テクスチャ基準の値**なので、ミラーの画素と
+        /// 直接比べられない（12-2b で 実測/理論 = 0.55、角度空間で -20 度）。
+        ///
+        /// `CaptureScreenshotIntoRenderTexture` に**目テクスチャと同じ記述子**の
+        /// RenderTexture を渡し、スライス 0 / 1 を読み戻す。
+        /// 取れなければミラーへ落ちる（`-xrCapMirror` で明示的にミラーにもできる）。
+        /// </summary>
+        Texture2D CaptureEye(ScreenCapture.StereoScreenCaptureMode mode,
+                             StringBuilder report, string label)
+        {
+            // **既定はミラー。** 目テクスチャの読み戻しは成立しなかった（上の注記）。
+            if (StandaloneCapture.HasArg(EyeTextureArg))
+            {
+                Texture2D fromEye = TryCaptureEyeTexture(mode, report, label);
+                if (fromEye != null)
+                {
+                    return fromEye;
+                }
+            }
+
+            return TryCapture(mode, report, label + " (ミラー)");
+        }
+
+        Texture2D TryCaptureEyeTexture(ScreenCapture.StereoScreenCaptureMode mode,
+                                       StringBuilder report, string label)
+        {
+            RenderTextureDescriptor desc = UnityEngine.XR.XRSettings.eyeTextureDesc;
+            if (desc.width <= 0 || desc.height <= 0 || desc.volumeDepth < 2)
+            {
+                report.AppendLine($"  {label}: 目テクスチャの記述子が使えない"
+                                  + $" ({desc.width}x{desc.height} depth={desc.volumeDepth})");
+                return null;
+            }
+
+            RenderTexture rt = null;
+            var texture = new Texture2D(desc.width, desc.height, TextureFormat.RGB24, false);
+            RenderTexture previous = RenderTexture.active;
+
+            try
+            {
+                rt = new RenderTexture(desc);
+                if (!rt.Create())
+                {
+                    report.AppendLine($"  {label}: RenderTexture を作れない");
+                    Destroy(texture);
+                    return null;
+                }
+
+                ScreenCapture.CaptureScreenshotIntoRenderTexture(rt);
+
+                int slice = mode == ScreenCapture.StereoScreenCaptureMode.RightEye ? 1 : 0;
+                Graphics.SetRenderTarget(rt, 0, CubemapFace.Unknown, slice);
+                texture.ReadPixels(new Rect(0, 0, desc.width, desc.height), 0, 0);
+                texture.Apply();
+
+                report.AppendLine($"  {label}: {texture.width}x{texture.height} (目テクスチャ slice {slice})");
+                return texture;
+            }
+            catch (System.Exception e)
+            {
+                report.AppendLine($"  {label}: 目テクスチャから撮れない"
+                                  + $" **例外** {e.GetType().Name}: {e.Message}");
+                Destroy(texture);
+                return null;
+            }
+            finally
+            {
+                RenderTexture.active = previous;
+                if (rt != null)
+                {
+                    rt.Release();
+                    Destroy(rt);
+                }
+            }
+        }
+
         /// <summary>撮る。**失敗したら症状を残して null を返す**（例外で落とさない）。</summary>
         Texture2D TryCapture(ScreenCapture.StereoScreenCaptureMode? mode,
                              StringBuilder report, string label)
@@ -483,9 +663,9 @@ namespace SolarSystem.Unity
             yield return null;
             yield return new WaitForEndOfFrame();
 
-            Texture2D bareLeft = TryCapture(ScreenCapture.StereoScreenCaptureMode.LeftEye,
+            Texture2D bareLeft = CaptureEye(ScreenCapture.StereoScreenCaptureMode.LeftEye,
                                             report, "左目 (プローブ無し)");
-            Texture2D bareRight = TryCapture(ScreenCapture.StereoScreenCaptureMode.RightEye,
+            Texture2D bareRight = CaptureEye(ScreenCapture.StereoScreenCaptureMode.RightEye,
                                              report, "右目 (プローブ無し)");
 
             diagnostics.SetProbesVisible(true);
