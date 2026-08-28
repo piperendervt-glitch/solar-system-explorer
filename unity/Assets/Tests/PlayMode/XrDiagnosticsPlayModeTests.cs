@@ -198,6 +198,75 @@ namespace SolarSystem.Tests.PlayMode
             Assert.That(_screens.DiagnosticsEnabled, Is.False);
         }
 
+        [UnityTest]
+        public IEnumerator 計器盤の画素数が想定の範囲にある()
+        {
+            yield return null;
+            RequireDiagnostics();
+
+            // **窓を「盤の外」で定義しているので、内装が消えると窓が画面全体に
+            // 広がり、漏れが 0 になって「正常」に見えてしまう。**
+            // 盤の面積そのものを不変条件にする。
+            XrDiagnosticsResult r = _diagnostics.Measure();
+            int total = r.Width * r.Height;
+
+            Debug.Log($"  [Step12] 盤 {r.Leak.PanelPixels} px / {total} px"
+                      + $" = {100.0 * r.Leak.PanelPixels / total:F2} %");
+
+            Assert.That(XrDiagnosticsModel.PanelWithinBudget(r.Leak.PanelPixels, total),
+                        Is.True,
+                        $"計器盤が想定の範囲外 ({r.Leak.PanelPixels} px / {total} px)");
+        }
+
+        [UnityTest]
+        public IEnumerator 同じ絵の左右比は1になる()
+        {
+            yield return null;
+            RequireDiagnostics();
+
+            _diagnostics.SetProbesVisible(true);
+            XrDiagnosticsResult r = _diagnostics.Measure();
+
+            // 平面では左右が無いので同じ絵を 2 枚渡す。**厳密に 1.0。**
+            System.Collections.Generic.List<XrDiagnosticsModel.StereoProbeHit> stereo =
+                XrDiagnosticsModel.MeasureStereo(r.Frame, r.Frame, r.Width, r.Height,
+                                                 r.ProbeMask, r.ProbeMask);
+
+            foreach (XrDiagnosticsModel.StereoProbeHit hit in stereo)
+            {
+                Assert.That(hit.Ratio, Is.EqualTo(1.0).Within(0.0), hit.ToString());
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator 片目の故意破壊は平面では絵を変えない()
+        {
+            yield return null;
+            RequireDiagnostics();
+
+            _diagnostics.SetProbesVisible(true);
+            XrDiagnosticsResult normal = Snapshot();
+
+            foreach (XrDiagnostics.Fault fault in new[]
+                     {
+                         XrDiagnostics.Fault.DropLayerInOneEye,
+                         XrDiagnostics.Fault.SkipDepthClearInOneEye,
+                     })
+            {
+                _diagnostics.SetFault(fault, XrLayer.Cockpit, XrDiagnostics.Eye.Left);
+                XrDiagnosticsResult after = Snapshot();
+                _diagnostics.ClearFault();
+
+                Assert.That(_diagnostics.PerEyeFaultApplied, Is.False);
+
+                for (int i = 0; i < normal.Probes.Count; i++)
+                {
+                    Assert.That(after.Probes[i].Count, Is.EqualTo(normal.Probes[i].Count),
+                                $"{fault} が平面で効いてしまっている");
+                }
+            }
+        }
+
         XrDiagnosticsResult Snapshot()
         {
             _root.Tick(UniverseConstants.FixedDeltaSeconds);

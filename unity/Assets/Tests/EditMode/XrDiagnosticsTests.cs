@@ -201,6 +201,152 @@ namespace SolarSystem.Tests.EditMode
             return n;
         }
 
+        // ---- 左右比 (Step 12 の本番用) ----
+
+        [Test]
+        public void 同じ絵を2枚渡すと左右比は1になる()
+        {
+            // **Q1 が問うのは絶対量ではなく比。** 平面では左右が無いので、
+            // 同じ絵を 2 枚渡す。ここが 1.0 でなければ数え方が壊れている。
+            var rgb = new byte[3 * 4];
+            for (int i = 0; i < 4; i++)
+            {
+                double[] c = XrDiagnosticsModel.ProbeColor[i];
+                rgb[(i * 3) + 0] = (byte)(c[0] * 255);
+                rgb[(i * 3) + 1] = (byte)(c[1] * 255);
+                rgb[(i * 3) + 2] = (byte)(c[2] * 255);
+            }
+
+            List<XrDiagnosticsModel.StereoProbeHit> stereo =
+                XrDiagnosticsModel.MeasureStereo(rgb, rgb, 4, 1);
+
+            Assert.That(stereo.Count, Is.EqualTo(4));
+            foreach (XrDiagnosticsModel.StereoProbeHit hit in stereo)
+            {
+                Assert.That(hit.Left, Is.EqualTo(hit.Right));
+                Assert.That(hit.Ratio, Is.EqualTo(1.0).Within(0.0),
+                            "同じ絵なのに左右比が 1.0 でない");
+                Assert.That(hit.OneEyeOnly, Is.False);
+            }
+        }
+
+        [Test]
+        public void 片目落ちは比が0になる()
+        {
+            double[] c = XrDiagnosticsModel.ProbeColor[(int)XrLayer.Cockpit];
+            var left = new[] { (byte)(c[0] * 255), (byte)(c[1] * 255), (byte)(c[2] * 255) };
+            var right = new byte[3];
+
+            List<XrDiagnosticsModel.StereoProbeHit> stereo =
+                XrDiagnosticsModel.MeasureStereo(left, right, 1, 1);
+
+            XrDiagnosticsModel.StereoProbeHit hit = stereo[(int)XrLayer.Cockpit];
+            Assert.That(hit.Left, Is.EqualTo(1));
+            Assert.That(hit.Right, Is.EqualTo(0));
+            Assert.That(hit.Ratio, Is.EqualTo(0.0).Within(1e-12),
+                        "**片目落ちの signature** が比に出ていない");
+            Assert.That(hit.OneEyeOnly, Is.True);
+        }
+
+        [Test]
+        public void どちらの目にも出ていなければ比は1()
+        {
+            // 「両目とも 0」は差が無い状態。**0 除算にしない。**
+            List<XrDiagnosticsModel.StereoProbeHit> stereo =
+                XrDiagnosticsModel.MeasureStereo(new byte[3], new byte[3], 1, 1);
+
+            foreach (XrDiagnosticsModel.StereoProbeHit hit in stereo)
+            {
+                Assert.That(hit.Ratio, Is.EqualTo(1.0).Within(0.0));
+                Assert.That(hit.OneEyeOnly, Is.False);
+            }
+        }
+
+        // ---- 計器盤の不変条件 ----
+
+        [Test]
+        public void 計器盤の画素数が範囲を外れたら失敗する()
+        {
+            // **「窓 = 計器盤の外」の定義には副作用がある。**
+            // 内装の描画が丸ごと失敗すると窓が画面全体に広がり、
+            // 漏れが 0 になって「正常」に見えてしまう。盤の面積そのものを縛る。
+            const int total = 230400;
+
+            Assert.That(XrDiagnosticsModel.PanelWithinBudget(15269, total), Is.True,
+                        "実測値 (cockpit-view / 6.6 %) が範囲外");
+
+            Assert.That(XrDiagnosticsModel.PanelWithinBudget(0, total), Is.False,
+                        "**内装が消えても通ってしまう**");
+            Assert.That(XrDiagnosticsModel.PanelWithinBudget(total, total), Is.False,
+                        "**盤が画面全体でも通ってしまう**");
+            Assert.That(XrDiagnosticsModel.PanelWithinBudget(100, 0), Is.False);
+        }
+
+        // ---- 片目の故意破壊（口だけ / 平面では no-op）----
+
+        [Test]
+        public void 片目の故意破壊は平面では何もしない()
+        {
+            CameraStackController stack = BuildStack();
+            var go = new GameObject("XrDiagnostics");
+            go.transform.SetParent(_ship, false);
+            var diagnostics = go.AddComponent<XrDiagnostics>();
+            diagnostics.Bind(stack, null, null, Array.Empty<XrDiagnostics.Probe>());
+
+            int deepMask = stack.Deep.cullingMask;
+            int cockpitMask = stack.Cockpit.cullingMask;
+            CameraClearFlags clear = stack.Deep.clearFlags;
+
+            foreach (XrDiagnostics.Fault fault in new[]
+                     {
+                         XrDiagnostics.Fault.DropLayerInOneEye,
+                         XrDiagnostics.Fault.SkipDepthClearInOneEye,
+                     })
+            {
+                diagnostics.SetFault(fault, XrLayer.Cockpit, XrDiagnostics.Eye.Left);
+
+                // **平面では効かない。** 動かそうとしないこと（口だけ先に切ってある）。
+                Assert.That(diagnostics.PerEyeFaultApplied, Is.False,
+                            "平面なのに片目の故意破壊が効いている");
+                Assert.That(stack.Deep.cullingMask, Is.EqualTo(deepMask));
+                Assert.That(stack.Cockpit.cullingMask, Is.EqualTo(cockpitMask));
+                Assert.That(stack.Deep.clearFlags, Is.EqualTo(clear));
+                Assert.That(stack.Deep.enabled, Is.True);
+
+                diagnostics.ClearFault();
+            }
+        }
+
+        [Test]
+        public void Deepを壊す口が3種類ある()
+        {
+            // **culling mask を空にしても星空は消えない (実測 / 0b)。**
+            // スカイボックスは clearFlags で描かれるので mask の対象外。
+            // Deep 段を壊すには別の口が要る。
+            CameraStackController stack = BuildStack();
+            var go = new GameObject("XrDiagnostics");
+            go.transform.SetParent(_ship, false);
+            var diagnostics = go.AddComponent<XrDiagnostics>();
+            diagnostics.Bind(stack, null, null, Array.Empty<XrDiagnostics.Probe>());
+
+            CameraClearFlags clear = stack.Deep.clearFlags;
+
+            diagnostics.SetFault(XrDiagnostics.Fault.SkyboxOff, XrLayer.Deep);
+            Assert.That(stack.Deep.clearFlags, Is.EqualTo(CameraClearFlags.SolidColor));
+            diagnostics.ClearFault();
+            Assert.That(stack.Deep.clearFlags, Is.EqualTo(clear), "戻せていない");
+
+            diagnostics.SetFault(XrDiagnostics.Fault.BaseCameraOff, XrLayer.Deep);
+            Assert.That(stack.Deep.enabled, Is.False);
+            diagnostics.ClearFault();
+            Assert.That(stack.Deep.enabled, Is.True, "戻せていない");
+
+            Assert.That(XrDiagnostics.ParseFault("skyboxoff"),
+                        Is.EqualTo(XrDiagnostics.Fault.SkyboxOff));
+            Assert.That(XrDiagnostics.ParseFault("basecameraoff"),
+                        Is.EqualTo(XrDiagnostics.Fault.BaseCameraOff));
+        }
+
         // ---- プローブの組み立て ----
 
         [Test]

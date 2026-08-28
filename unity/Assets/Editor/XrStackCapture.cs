@@ -24,7 +24,104 @@ namespace SolarSystem.Editor
     {
         const int Width = 1280;
         const int Height = 720;
-        const string Viewpoint = "cockpit-view";
+
+        /// <summary>
+        /// 視点。**1 つでは足りない (セッション 0b)。**
+        ///
+        /// cockpit-view では Deep 段が絵に寄与しないので、**どんな測定でも
+        /// Deep の故障を検出できない。** 段ごとに「その段が仕事をしている視点」
+        /// を用意して、視点の組み合わせで全層を覆う。
+        /// </summary>
+        sealed class Viewpoint
+        {
+            public string Name;
+            public string Note;
+            public System.Action<UniverseRoot, ShipRig> Place;
+        }
+
+        static Viewpoint[] Viewpoints()
+        {
+            return new[]
+            {
+                new Viewpoint
+                {
+                    Name = "cockpit-view",
+                    Note = "地球が窓を埋める（シナリオ）",
+                    Place = null,
+                },
+                new Viewpoint
+                {
+                    Name = "stars",
+                    Note = "地球と太陽の反対を向く（窓の大半が星空）",
+                    Place = (root, rig) =>
+                    {
+                        SpaceStation earth = root.Model.Stations[0];
+                        Vec3d at = earth.AbsolutePosition
+                                   + (earth.PortDirection * UniverseConstants.ArrivalRadiusUnits);
+                        root.PlaceObserver(at);
+
+                        // 地球からも太陽からも離れる向き。
+                        Vec3d away = (at - root.Model.Earth.AbsolutePosition).Normalized;
+                        Aim(rig, away);
+                    },
+                },
+                new Viewpoint
+                {
+                    Name = "proxy",
+                    Note = "太陽まで 1.2e6 units（プロキシ殻が画面を占める）",
+                    Place = (root, rig) =>
+                    {
+                        // **1e4 units ではプロキシ殻は出ない（実測 / 0b）。**
+                        // 指示は Demo 1 の「1e4 units で 672 px」だったが、
+                        // いまの引き渡しは 5e4 → 3e4 units で、**3e4 より近ければ
+                        // 実スケールだけ**になる (`RealScaleHandoff`)。
+                        // 1e4 units で写っていた火星は Near 段の実スケールで、
+                        // Deep 段は 1 px しか寄与していなかった。
+                        //
+                        // プロキシ殻だけが描かれるのは `FadeStartDistance` より遠い側。
+                        // **火星では画面を占めない。** 引き渡しが 5e4 → 3e4 units
+                        // なので、プロキシ殻が使われるのは 3e4 units より遠い側だけ。
+                        // 火星 (半径 3,389.5) を 6e4 units から見た角直径は 6.5 度で、
+                        // 実測でも Deep の寄与は 176 px (0.08 %) にしかならなかった。
+                        //
+                        // **太陽なら大きいまま遠い。** 半径 696,000 units を
+                        // 1.2e6 units から見れば角直径は約 60 度で、しかも引き渡しの
+                        // 帯 (5e4) よりはるかに遠いのでプロキシ殻だけが描かれる。
+                        Vec3d sun = root.Model.Sun.AbsolutePosition;
+                        Vec3d toward = new Vec3d(0.0, 0.0, 1.0);
+                        root.PlaceObserver(sun - (toward * 1.2e6));
+                        Aim(rig, toward);
+                    },
+                },
+            };
+        }
+
+        static void Aim(ShipRig rig, Vec3d direction)
+        {
+            if (rig == null || rig.ShipTransform == null)
+            {
+                return;
+            }
+
+            var f = new Vector3((float)direction.X, (float)direction.Y, (float)direction.Z);
+            if (f.sqrMagnitude > 0f)
+            {
+                rig.ShipTransform.rotation = Quaternion.LookRotation(f, Vector3.up);
+            }
+        }
+
+        static readonly (XrDiagnostics.Fault Fault, XrLayer Layer, string Name)[] Faults =
+        {
+            (XrDiagnostics.Fault.NoDepthClear, XrLayer.Cockpit, "深度クリアを外す"),
+            (XrDiagnostics.Fault.SwapOverlayOrder, XrLayer.Cockpit, "描画順の入れ替え"),
+            (XrDiagnostics.Fault.EmptyCullingMask, XrLayer.Cockpit, "Cockpit の mask を空に"),
+            (XrDiagnostics.Fault.EmptyCullingMask, XrLayer.Deep, "プロキシ殻の破壊 (Deep mask)"),
+            (XrDiagnostics.Fault.SkyboxOff, XrLayer.Deep, "星空を消す (clearFlags)"),
+            (XrDiagnostics.Fault.BaseCameraOff, XrLayer.Deep, "Base カメラを止める"),
+            (XrDiagnostics.Fault.DropLayerInOneEye, XrLayer.Cockpit, "片目だけ層を落とす (平面 no-op)"),
+            (XrDiagnostics.Fault.SkipDepthClearInOneEye, XrLayer.Cockpit,
+             "片目だけ深度クリアを飛ばす (平面 no-op)"),
+        };
 
         public static void Run()
         {
@@ -48,26 +145,13 @@ namespace SolarSystem.Editor
             stack.Configure();
             screens?.ApplyMaterials();
 
-            if (!runner.Select(root.Model, Viewpoint))
-            {
-                Debug.LogWarning("[XrStack] 視点の場面が無い: " + Viewpoint);
-                return;
-            }
-
-            runner.Apply(root, rig, stack, overlay);
-            for (int i = 0; i < 12; i++)
-            {
-                root.Tick(UniverseConstants.FixedDeltaSeconds);
-            }
-
             string outDir = Path.GetFullPath(
                 Path.Combine(Application.dataPath, "..", "..", "verify", "xr"));
             Directory.CreateDirectory(outDir);
 
             var report = new StringBuilder();
-            report.AppendLine("xr-stack（平面版） / 視点 " + Viewpoint
-                              + " / 測定 " + XrDiagnostics.MeasureWidth
-                              + "x" + XrDiagnostics.MeasureHeight
+            report.AppendLine("xr-stack（平面版 / セッション 0b） / 測定 "
+                              + XrDiagnostics.MeasureWidth + "x" + XrDiagnostics.MeasureHeight
                               + " / 画像 " + Width + "x" + Height);
             report.AppendLine();
 
@@ -75,83 +159,153 @@ namespace SolarSystem.Editor
             diagnostics.SetIsolation(0);
             diagnostics.ClearFault();
 
-            // ---- 正常時 ----
-            XrDiagnosticsResult normal = diagnostics.Measure();
-            report.AppendLine("■ 正常時");
-            report.AppendLine(Header());
-            report.AppendLine(Row("正常", normal));
-            report.AppendLine();
+            var probeRows = new List<string>();
+            var deepRows = new List<string>();
+            var faultRows = new List<string>();
+            var normals = new Dictionary<string, XrDiagnosticsResult>();
 
-            Save(stack, outDir, "01_normal");
-            SaveColorMap(outDir, "02_colormap", normal);
-            SaveMask(outDir, "03_mask", normal);
-
-            // ---- 層アイソレーション ----
-            report.AppendLine("■ 層アイソレーション（その層だけ表示）");
-            report.AppendLine(Header());
-            for (int layer = 1; layer <= 4; layer++)
+            foreach (Viewpoint viewpoint in Viewpoints())
             {
-                diagnostics.SetIsolation(layer);
-                XrDiagnosticsResult only = diagnostics.Measure();
-                report.AppendLine(Row("only " + XrDiagnosticsModel.LayerNames[layer - 1], only));
-                Save(stack, outDir, $"1{layer}_only-{XrDiagnosticsModel.LayerNames[layer - 1]}");
+                Place(root, rig, stack, runner, overlay, viewpoint);
+
+                XrDiagnosticsResult normal = diagnostics.Measure();
+                normals[viewpoint.Name] = normal;
+
+                Save(stack, outDir, viewpoint.Name + "_01_normal");
+                SaveColorMap(outDir, viewpoint.Name + "_02_colormap", normal);
+                SaveMask(outDir, viewpoint.Name + "_03_mask", normal);
+
+                // ---- 4 プローブの可視画素 ----
+                // 通常（4 段とも表示）と、**その層だけ表示**したときの両方を出す。
+                // 通常で 0 でも、層を切り分ければ測れることがある（内装に隠れるため）。
+                var probe = new StringBuilder(viewpoint.Name + "\t" + viewpoint.Note);
+                foreach (XrDiagnosticsModel.ProbeHit hit in normal.Probes)
+                {
+                    probe.Append('\t').Append(hit.Count);
+                }
+
+                for (int layer = 1; layer <= 4; layer++)
+                {
+                    diagnostics.SetIsolation(layer);
+                    XrDiagnosticsResult isolated = diagnostics.Measure();
+                    probe.Append('\t').Append(isolated.Probes[layer - 1].Count);
+                }
+
+                diagnostics.SetIsolation(0);
+                probeRows.Add(probe.ToString());
+
+                // ---- Deep 段が画面をどれだけ占めるか ----
+                // **絵は切り替えたまま保存する。** 先に戻すと通常の絵が
+                // 「only Deep」として残る（0b で実際に踏んだ）。
+                diagnostics.SetIsolation(1);
+                XrDiagnosticsResult onlyDeep = diagnostics.Measure();
+                Save(stack, outDir, viewpoint.Name + "_04_only-Deep");
+                diagnostics.SetIsolation(0);
+
+                deepRows.Add(viewpoint.Name
+                             + "\t" + normal.Leak.DeepVisiblePixels
+                             + "\t" + (100.0 * normal.Leak.DeepVisiblePixels
+                                       / (normal.Width * normal.Height)).ToString("F2")
+                             + "\t" + onlyDeep.Leak.OutsideVisiblePixels
+                             + "\t" + normal.Leak.PanelPixels
+                             + "\t" + (XrDiagnosticsModel.PanelWithinBudget(
+                                            normal.Leak.PanelPixels,
+                                            normal.Width * normal.Height)
+                                        ? "OK" : "**範囲外**"));
+
+                // ---- 視点 x 故意破壊 ----
+                for (int i = 0; i < Faults.Length; i++)
+                {
+                    diagnostics.SetFault(Faults[i].Fault, Faults[i].Layer);
+                    XrDiagnosticsResult broken = diagnostics.Measure();
+
+                    faultRows.Add(viewpoint.Name + "\t" + Faults[i].Name
+                                  + "\t" + Delta(normal, broken));
+
+                    Save(stack, outDir, viewpoint.Name + $"_1{i + 1}_" + Faults[i].Fault);
+                    diagnostics.ClearFault();
+                }
+            }
+
+            report.AppendLine("■ 各視点の 4 プローブ可視画素（正常時 / プローブの位置は動かしていない）");
+            report.AppendLine("視点\t内容\t通常 Deep\t通常 Near\t通常 Nearfield\t通常 Cockpit"
+                              + "\t単独 Deep\t単独 Near\t単独 Nearfield\t単独 Cockpit");
+            foreach (string row in probeRows)
+            {
+                report.AppendLine(row);
             }
 
             report.AppendLine();
-            report.AppendLine("■ 層アイソレーション（その層だけ非表示）");
-            report.AppendLine(Header());
-            for (int layer = 1; layer <= 4; layer++)
+            report.AppendLine("■ Deep 段の寄与と、計器盤の不変条件");
+            report.AppendLine("視点\tDeep 可視 px\t画面比 %\tDeep だけ表示の可視 px\t盤 px\t盤の不変条件");
+            foreach (string row in deepRows)
             {
-                diagnostics.SetIsolation(-layer);
-                XrDiagnosticsResult hidden = diagnostics.Measure();
-                report.AppendLine(Row("hide " + XrDiagnosticsModel.LayerNames[layer - 1], hidden));
-                Save(stack, outDir, $"2{layer}_hide-{XrDiagnosticsModel.LayerNames[layer - 1]}");
-            }
-
-            diagnostics.SetIsolation(0);
-            report.AppendLine();
-
-            // ---- 故意破壊 ----
-            report.AppendLine("■ 故意破壊（正常時との差）");
-            report.AppendLine(Header());
-            report.AppendLine(Row("正常", normal));
-
-            var faults = new (XrDiagnostics.Fault Fault, XrLayer Layer, string Name)[]
-            {
-                (XrDiagnostics.Fault.NoDepthClear, XrLayer.Cockpit, "深度クリアを外す"),
-                (XrDiagnostics.Fault.SwapOverlayOrder, XrLayer.Cockpit, "描画順の入れ替え"),
-                (XrDiagnostics.Fault.EmptyCullingMask, XrLayer.Cockpit, "Cockpit の mask を空に"),
-                (XrDiagnostics.Fault.EmptyCullingMask, XrLayer.Deep, "Deep の mask を空に"),
-            };
-
-            var deltas = new List<string>();
-            for (int i = 0; i < faults.Length; i++)
-            {
-                diagnostics.SetFault(faults[i].Fault, faults[i].Layer);
-                XrDiagnosticsResult broken = diagnostics.Measure();
-                report.AppendLine(Row(faults[i].Name, broken));
-                deltas.Add(Delta(faults[i].Name, normal, broken));
-                Save(stack, outDir, $"3{i + 1}_fault-{faults[i].Fault}-{faults[i].Layer}");
-                diagnostics.ClearFault();
+                report.AppendLine(row);
             }
 
             report.AppendLine();
-            report.AppendLine("■ 正常との差（0 なら、その測定はその壊れを検出できていない）");
-            report.AppendLine("故意破壊\tプローブ画素の差\t窓の外景\t盤の漏れ(内側)\t"
+            report.AppendLine("■ 視点 x 故意破壊（正常との差 / 0 は盲点として残す）");
+            report.AppendLine("視点\t故意破壊\tプローブ画素の差\t**絵の差分 px**\t窓の外景\t盤の漏れ(内側)\t"
                               + "盤の漏れ(縁)\t外景 可視\t層の持ち主が変わった画素");
-            foreach (string line in deltas)
+            foreach (string row in faultRows)
             {
-                report.AppendLine(line);
+                report.AppendLine(row);
             }
 
-            // ---- プローブの色が通過後も分離できているか ----
             report.AppendLine();
-            report.AppendLine(Separation(normal));
+            report.AppendLine(Separation(normals["cockpit-view"]));
+            report.AppendLine(Stereo(normals["cockpit-view"]));
 
             File.WriteAllText(Path.Combine(outDir, "xr-stack.txt"), report.ToString());
             Debug.Log("[XrStack]\n" + report);
         }
 
+        static void Place(UniverseRoot root, ShipRig rig, CameraStackController stack,
+                          ScenarioRunner runner, DebugOverlay overlay, Viewpoint viewpoint)
+        {
+            if (viewpoint.Place == null)
+            {
+                if (!runner.Select(root.Model, viewpoint.Name))
+                {
+                    Debug.LogWarning("[XrStack] 視点の場面が無い: " + viewpoint.Name);
+                    return;
+                }
+
+                runner.Apply(root, rig, stack, overlay);
+            }
+            else
+            {
+                viewpoint.Place(root, rig);
+            }
+
+            for (int i = 0; i < 12; i++)
+            {
+                root.Tick(UniverseConstants.FixedDeltaSeconds);
+            }
+        }
+
+        /// <summary>
+        /// 左右比の節。**平面では左右が無いので、同じ絵を 2 枚渡す。**
+        /// 比が 1.0 でないなら、その時点で数え方が壊れている。
+        /// </summary>
+        static string Stereo(XrDiagnosticsResult r)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("■ 左右比（平面なので同じ絵を 2 枚。**1.0 でなければ数え方が壊れている**）");
+            sb.AppendLine("層\t左\t右\t比");
+
+            List<XrDiagnosticsModel.StereoProbeHit> stereo = XrDiagnosticsModel.MeasureStereo(
+                r.Frame, r.Frame, r.Width, r.Height, r.ProbeMask, r.ProbeMask);
+
+            foreach (XrDiagnosticsModel.StereoProbeHit hit in stereo)
+            {
+                sb.AppendLine(XrDiagnosticsModel.LayerNames[(int)hit.Layer]
+                              + "\t" + hit.Left + "\t" + hit.Right
+                              + "\t" + hit.Ratio.ToString("F4"));
+            }
+
+            return sb.ToString();
+        }
         static string Header()
             => "条件\tDeep px\tNear px\tNearfield px\tCockpit px\t"
                + "窓 px\t窓の外景\t盤 px\t盤の漏れ(内側)\t盤の漏れ(縁)\t外景 可視\tDeep 可視";
@@ -174,7 +328,7 @@ namespace SolarSystem.Editor
             return sb.ToString();
         }
 
-        static string Delta(string label, XrDiagnosticsResult a, XrDiagnosticsResult b)
+        static string Delta(XrDiagnosticsResult a, XrDiagnosticsResult b)
         {
             int probeDelta = 0;
             for (int i = 0; i < a.Probes.Count; i++)
@@ -191,8 +345,26 @@ namespace SolarSystem.Editor
                 }
             }
 
-            return label
-                   + "\t" + probeDelta
+            // **絵そのものの差分。** 層の帰属が変わらない壊れ方（星空を消す等）は
+            // これでしか捕まらない。スカイボックスは culling mask の対象外なので、
+            // 層ごとのマスクの差分には出てこない（実測 / 0b）。
+            int frameChanged = 0;
+            if (a.Frame != null && b.Frame != null && a.Frame.Length == b.Frame.Length)
+            {
+                for (int i = 0; i < a.Frame.Length; i += 3)
+                {
+                    int d = Mathf.Max(Mathf.Abs(a.Frame[i] - b.Frame[i]),
+                                      Mathf.Max(Mathf.Abs(a.Frame[i + 1] - b.Frame[i + 1]),
+                                                Mathf.Abs(a.Frame[i + 2] - b.Frame[i + 2])));
+                    if (d > 2)
+                    {
+                        frameChanged++;
+                    }
+                }
+            }
+
+            return probeDelta
+                   + "\t" + frameChanged
                    + "\t" + (b.Leak.WindowOutside - a.Leak.WindowOutside)
                    + "\t" + (b.Leak.PanelOutsideInterior - a.Leak.PanelOutsideInterior)
                    + "\t" + (b.Leak.PanelOutsideEdgeBand - a.Leak.PanelOutsideEdgeBand)

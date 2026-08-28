@@ -355,6 +355,92 @@ namespace SolarSystem.Core
             return result;
         }
 
+        /// <summary>左右 1 組の測定結果。**Q1 が問うのは絶対量ではなく比。**</summary>
+        public sealed class StereoProbeHit
+        {
+            public XrLayer Layer;
+            public int Left;
+            public int Right;
+
+            /// <summary>
+            /// **左右比。** 小さいほう / 大きいほう で 0..1。両目 0 なら 1（差が無い）。
+            ///
+            /// Single Pass Instanced の片目落ちは「片方だけ 0」として出るので、
+            /// **比が 0 に落ちる**。絶対量では視点によって桁が変わるが、比は変わらない。
+            /// </summary>
+            public double Ratio
+            {
+                get
+                {
+                    int max = Math.Max(Left, Right);
+                    return max == 0 ? 1.0 : Math.Min(Left, Right) / (double)max;
+                }
+            }
+
+            /// <summary>片目にしか出ていないか。**片目落ちの signature。**</summary>
+            public bool OneEyeOnly => (Left == 0) != (Right == 0);
+
+            public override string ToString()
+                => LayerNames[(int)Layer] + ": L " + Left + " / R " + Right
+                   + " / 比 " + Ratio.ToString("F4", CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>
+        /// **左右 2 枚から層ごとの画素数と左右比を出す (Step 12 の本番用)。**
+        ///
+        /// 平面では左右が無いので**同じ画像を 2 枚渡す**。そのとき比は厳密に 1.0。
+        /// XR に入ったら、左右のビューをそれぞれ渡す。
+        ///
+        /// `onlyLeft` / `onlyRight` はプローブを消した絵との差分（場面の色を
+        /// 数えないため / セッション 0 の実測）。
+        /// </summary>
+        public static List<StereoProbeHit> MeasureStereo(
+            IReadOnlyList<byte> left, IReadOnlyList<byte> right, int width, int height,
+            bool[] onlyLeft = null, bool[] onlyRight = null)
+        {
+            List<ProbeHit> l = MeasureProbes(left, width, height, onlyLeft);
+            List<ProbeHit> r = MeasureProbes(right, width, height, onlyRight);
+
+            var hits = new List<StereoProbeHit>();
+            for (int i = 0; i < l.Count; i++)
+            {
+                hits.Add(new StereoProbeHit
+                {
+                    Layer = (XrLayer)i,
+                    Left = l[i].Count,
+                    Right = r[i].Count,
+                });
+            }
+
+            return hits;
+        }
+
+        /// <summary>
+        /// **計器盤の画素数が想定の範囲にあるか。**
+        ///
+        /// 「窓 = 計器盤の外」と定義したので、**内装の描画が丸ごと失敗すると
+        /// 窓が画面いっぱいに広がり、漏れが 0 になって「正常」に見えてしまう。**
+        /// 盤の面積そのものを不変条件として持ち、外れたら失敗させる。
+        /// </summary>
+        public static bool PanelWithinBudget(int panelPixels, int totalPixels)
+        {
+            if (totalPixels <= 0)
+            {
+                return false;
+            }
+
+            double share = panelPixels / (double)totalPixels;
+            return share >= MinPanelShare && share <= MaxPanelShare;
+        }
+
+        /// <summary>
+        /// 計器盤が画面に占める割合の下限・上限。
+        /// 実測（測定 640x360 / cockpit-view）で 15,269 / 230,400 = 6.6 %。
+        /// **内装が消えれば 0 %、窓の定義が壊れれば 100 % 近くになる。**
+        /// </summary>
+        public const double MinPanelShare = 0.02;
+        public const double MaxPanelShare = 0.30;
+
         /// <summary>マスクの縁（外側に非マスクを持つ画素）。</summary>
         public static bool[] Boundary(bool[] mask, int width, int height)
         {

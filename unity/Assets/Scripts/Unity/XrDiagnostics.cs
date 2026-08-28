@@ -58,8 +58,39 @@ namespace SolarSystem.Unity
             /// <summary>Overlay の描画順を入れ替える。</summary>
             SwapOverlayOrder = 2,
 
-            /// <summary>指定した層の culling mask を空にする。</summary>
+            /// <summary>
+            /// 指定した層の culling mask を空にする。
+            ///
+            /// **Deep に掛けても星空は消えない。** スカイボックスは clearFlags で
+            /// 描かれ、culling mask の対象外だから（実測 / セッション 0b）。
+            /// Deep に掛けたときに壊れるのは**プロキシ殻だけ**。
+            /// </summary>
             EmptyCullingMask = 3,
+
+            /// <summary>Base カメラの clearFlags を Skybox から SolidColor へ。**星空が消える。**</summary>
+            SkyboxOff = 4,
+
+            /// <summary>Base カメラの描画を止める。**画面が丸ごと出なくなる。**</summary>
+            BaseCameraOff = 5,
+
+            /// <summary>
+            /// **片目だけ層を描かない (Step 12 の本番用)。口だけ切ってある。**
+            /// 平面では目が 1 つしかないので **no-op**。動かそうとしないこと。
+            /// </summary>
+            DropLayerInOneEye = 6,
+
+            /// <summary>
+            /// **片目だけ深度クリアを飛ばす (Step 12 の本番用)。口だけ。**
+            /// 平面では **no-op**。
+            /// </summary>
+            SkipDepthClearInOneEye = 7,
+        }
+
+        /// <summary>片目の故意破壊で、どちらの目を壊すか。**平面では効かない。**</summary>
+        public enum Eye
+        {
+            Left = 0,
+            Right = 1,
         }
 
         [Serializable]
@@ -84,6 +115,11 @@ namespace SolarSystem.Unity
 
         [SerializeField] Fault _fault = Fault.None;
         [SerializeField] XrLayer _faultLayer = XrLayer.Cockpit;
+        [SerializeField] Eye _faultEye = Eye.Left;
+
+        CameraClearFlags _savedClearFlags;
+        bool _clearFlagsSaved;
+        bool _savedBaseEnabled;
 
         readonly int[] _savedMask = new int[4];
         bool _maskSaved;
@@ -106,6 +142,15 @@ namespace SolarSystem.Unity
         public Fault ActiveFault => _fault;
 
         public XrLayer FaultLayer => _faultLayer;
+
+        public Eye FaultEye => _faultEye;
+
+        /// <summary>
+        /// **片目だけの故意破壊が実際に効いたか。**
+        /// 平面では常に false（目が 1 つしかないので何もしない）。
+        /// XR を入れたら true になるべき箇所。
+        /// </summary>
+        public bool PerEyeFaultApplied { get; private set; }
 
         public IReadOnlyList<Probe> Probes => _probes;
 
@@ -181,11 +226,14 @@ namespace SolarSystem.Unity
             ApplyIsolation();
         }
 
-        public void SetFault(Fault fault, XrLayer layer)
+        public void SetFault(Fault fault, XrLayer layer) => SetFault(fault, layer, _faultEye);
+
+        public void SetFault(Fault fault, XrLayer layer, Eye eye)
         {
             ClearFault();
             _fault = fault;
             _faultLayer = layer;
+            _faultEye = eye;
             ApplyFault();
         }
 
@@ -284,6 +332,25 @@ namespace SolarSystem.Unity
                     SaveMasks();
                     CameraOf(_faultLayer).cullingMask = 0;
                     break;
+
+                case Fault.SkyboxOff:
+                    _savedClearFlags = _stack.Deep.clearFlags;
+                    _clearFlagsSaved = true;
+                    _stack.Deep.clearFlags = CameraClearFlags.SolidColor;
+                    _stack.Deep.backgroundColor = Color.black;
+                    break;
+
+                case Fault.BaseCameraOff:
+                    _savedBaseEnabled = _stack.Deep.enabled;
+                    _stack.Deep.enabled = false;
+                    break;
+
+                case Fault.DropLayerInOneEye:
+                case Fault.SkipDepthClearInOneEye:
+                    // **平面では何もしない。** 目が 1 つしかないので壊しようがない。
+                    // XR を入れたら、ここで片目のビューだけを触る。
+                    PerEyeFaultApplied = false;
+                    break;
             }
 
             _faultApplied = true;
@@ -310,6 +377,24 @@ namespace SolarSystem.Unity
 
                 case Fault.EmptyCullingMask:
                     ApplyIsolationAfterFaultCleared();
+                    break;
+
+                case Fault.SkyboxOff:
+                    if (_clearFlagsSaved)
+                    {
+                        _stack.Deep.clearFlags = _savedClearFlags;
+                        _clearFlagsSaved = false;
+                    }
+
+                    break;
+
+                case Fault.BaseCameraOff:
+                    _stack.Deep.enabled = _savedBaseEnabled;
+                    break;
+
+                case Fault.DropLayerInOneEye:
+                case Fault.SkipDepthClearInOneEye:
+                    PerEyeFaultApplied = false;
                     break;
             }
 
@@ -481,6 +566,10 @@ namespace SolarSystem.Unity
                 case "nodepthclear": return Fault.NoDepthClear;
                 case "swaporder": return Fault.SwapOverlayOrder;
                 case "emptymask": return Fault.EmptyCullingMask;
+                case "skyboxoff": return Fault.SkyboxOff;
+                case "basecameraoff": return Fault.BaseCameraOff;
+                case "droplayeroneeye": return Fault.DropLayerInOneEye;
+                case "skipdepthoneeye": return Fault.SkipDepthClearInOneEye;
                 default: return Fault.None;
             }
         }
@@ -570,6 +659,7 @@ namespace SolarSystem.Unity
 
             result.Leak = XrDiagnosticsModel.MeasureLeak(
                 deepVisible, windowRegion, panelRegion, band, outsideVisible);
+            result.ProbeMask = probeMask;
             result.DeepVisible = deepVisible;
             result.OutsideVisible = outsideVisible;
             result.WindowRegion = windowRegion;
@@ -724,6 +814,15 @@ namespace SolarSystem.Unity
 
         byte[] Render(int width, int height)
         {
+            // **Base カメラが止まっていれば描かない。**
+            // `Camera.Render()` は enabled を無視して描いてしまうので、
+            // ここで見ないと「Base を止める」故意破壊が効かない
+            // （測定経路だけ生きていて、実機と違う絵を測ることになる）。
+            if (!_stack.Deep.enabled)
+            {
+                return new byte[width * height * 3];
+            }
+
             var rt = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32);
             rt.Create();
 
@@ -897,6 +996,11 @@ namespace SolarSystem.Unity
                 case Fault.EmptyCullingMask:
                     return $"**{XrDiagnosticsModel.LayerNames[(int)_faultLayer]} の"
                            + " culling mask を空にしている**";
+                case Fault.SkyboxOff: return "**星空 (skybox) を消している**";
+                case Fault.BaseCameraOff: return "**Base カメラを止めている**";
+                case Fault.DropLayerInOneEye:
+                case Fault.SkipDepthClearInOneEye:
+                    return "片目の故意破壊（**平面では no-op**）";
                 default: return "なし";
             }
         }
@@ -935,6 +1039,9 @@ namespace SolarSystem.Unity
 
         /// <summary>画素ごとの「見えている層」。-1 はどの段も寄与していない。</summary>
         public sbyte[] Owner;
+
+        /// <summary>プローブを消した絵との差分。**色だけで数えないための的。**</summary>
+        public bool[] ProbeMask;
 
         public bool[] DeepVisible;
 
