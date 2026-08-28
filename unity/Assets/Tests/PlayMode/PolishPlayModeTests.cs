@@ -145,6 +145,14 @@ namespace SolarSystem.Tests.PlayMode
                 _root.Tick(Dt);
                 yield return null;
 
+                // **Volume スタックの解決には「カメラが描くこと」が要る。**
+                // 11-3c まではこれが偶然満たされていた——下端の帯の計器カメラが
+                // targetTexture 付きで常時有効だったため、batchmode でも毎フレーム
+                // 描かれていた。帯を撤去したら誰も描かなくなり、解決後の値が
+                // 前のまま (3.0) 残った（実測）。**測定を偶然に頼らない。**
+                UnityEngine.Rendering.VolumeManager.instance.Update(
+                    post.Volume.transform, ~0);
+
                 (float bloomIntensity, float bloomThreshold, float vignette) = PostProcessPreset.Values(strength);
 
                 // Volume が本当に効いているかを毎回確かめる。

@@ -188,12 +188,27 @@ namespace SolarSystem.Tests.PlayMode
 
             // 透け具合は計器 RenderTexture のアルファを直接測る。
             // 画面から測ると、背景の明るさと文字の明るさが混ざって切り分けられない。
-            var surface = GameObject.Find("InstrumentSurface");
-            Assert.That(surface, Is.Not.Null, "計器パネルが無い");
+            //
+            // **測る先は帯から HUD の面へ移した (11-3c)。** 帯は撤去され、
+            // 箱コックピットのときだけ出る。透過の性質は HUD のガラス面が
+            // 引き継いでいる（透明マテリアルの面だけ背景を透かす）。
+            var screens = Object.FindAnyObjectByType<CockpitScreens>();
+            Assert.That(screens, Is.Not.Null, "計器の画面が無い");
 
-            var source = surface.GetComponent<Renderer>().sharedMaterial.GetTexture("_BaseMap")
-                as RenderTexture;
-            Assert.That(source, Is.Not.Null, "計器 RenderTexture が貼られていない");
+            RenderTexture source = null;
+            foreach (CockpitScreens.Screen screen in screens.Screens)
+            {
+                if (screen.Transparent)
+                {
+                    source = screen.Texture;
+                    break;
+                }
+            }
+
+            if (source == null)
+            {
+                Assert.Inconclusive("透明な面が無い（箱コックピット）");
+            }
 
             RenderTexture prevActive = RenderTexture.active;
             var readback = new Texture2D(source.width, source.height, TextureFormat.RGBA32, false);
@@ -231,8 +246,11 @@ namespace SolarSystem.Tests.PlayMode
                           $"半透明の画素 {backgroundRatio * 100f:F1}% ({background} 個) / " +
                           $"不透明 {opaque} 個");
 
-                // 背景は 0.5〜0.6 の指定。文字はそのまま残る。
-                Assert.That(minAlpha, Is.EqualTo(0.55f).Within(0.02f), "背景の不透明度が指定と違う");
+                // **背景は完全に透過する (11-3b で 0.55 -> 0.00)。**
+                // 帯のときは黒い板の上に描いていたので半透明で足りたが、機内の
+                // ガラス面に貼ると、わずかでも不透明だと「半透明の板が浮いている」
+                // ように見えた（実機で確認）。文字だけが浮かぶ形にした。
+                Assert.That(minAlpha, Is.LessThan(0.02f), "背景が透けていない");
                 Assert.That(maxAlpha, Is.GreaterThan(0.95f), "文字まで透けている");
                 Assert.That(backgroundRatio, Is.GreaterThan(0.5f), "面積の大半は背景のはず");
             }

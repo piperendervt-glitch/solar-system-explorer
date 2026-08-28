@@ -347,10 +347,6 @@ namespace SolarSystem.Unity
                 ? (_shipRig.Autopilot.IsEngaged ? "ON" : "OFF")
                 : null;
 
-            // **警告は「整列が許容外」。** ドッキング要求が通らない理由がこれなので、
-            // 音 (Step 10-4) と同じ条件を灯にする。
-            bool warning = station != null && !_instruments.AlignmentInTolerance;
-
             _instruments.Tick(
                 Clock != null ? Clock.ElapsedSeconds : 0.0,
                 Ship.SpeedKmPerSec,
@@ -359,8 +355,7 @@ namespace SolarSystem.Unity
                 targetName,
                 dockingText,
                 dialText,
-                autopilotText,
-                warning);
+                autopilotText);
 
             // ポート正面からのずれ角 (Step 6)。整列の手がかりが無いと
             // Enter を押しても何が足りないのか分からない。

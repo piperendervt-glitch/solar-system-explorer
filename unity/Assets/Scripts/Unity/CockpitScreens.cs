@@ -20,9 +20,9 @@ namespace SolarSystem.Unity
     /// 5 面ぶんのカメラを毎フレーム回す必要は無い。`enabled = false` のままにして、
     /// ここから 10 Hz で `Render()` を呼ぶ（`InstrumentPanel` の更新周期と同じ）。
     ///
-    /// ■ **A / B は実機で見比べるための一時的な足場。**
-    /// 面ごとに 2 つの Canvas（案 A 用・案 B 用）を組んであり、選ばれている側だけを
-    /// 描く。決まったら選ばれなかった側ごと削除する。
+    /// ■ **割り当ては案 A で確定 (11-3c)。**
+    /// 見比べのために組んでいた案 B / C の Canvas は削除した。
+    /// 面ごとに残るのは「計器」と「テスト柄」の 2 つの描画元だけ。
     ///
     /// Update() を持たない。呼ぶのは UniverseRoot だけ (決定 D-1)。
     /// </summary>
@@ -42,10 +42,8 @@ namespace SolarSystem.Unity
             /// <summary>UV 矩形を 0..1 へ写す `_BaseMap_ST`。(scaleX, scaleY, offsetX, offsetY)</summary>
             public Vector4 BaseMapSt;
 
-            /// <summary>案 A / B / C の描画元。**どれも enabled = false のまま使う。**</summary>
+            /// <summary>計器の描画元。**enabled = false のまま使う。**</summary>
             public Camera CameraA;
-            public Camera CameraB;
-            public Camera CameraC;
 
             /// <summary>テスト柄の描画元 (Step 11-3b の切り分け道具)。</summary>
             public Camera CameraPattern;
@@ -71,26 +69,19 @@ namespace SolarSystem.Unity
             /// <summary>マテリアルが Transparent か。**鏡面反射の扱いを分ける。**</summary>
             public bool Transparent;
 
-            public Camera CameraFor(ScreenLayout layout)
-            {
-                switch (layout)
-                {
-                    case ScreenLayout.B: return CameraB;
-                    case ScreenLayout.C: return CameraC;
-                    default: return CameraA;
-                }
-            }
         }
 
         [SerializeField] List<Screen> _screens = new List<Screen>();
         [SerializeField] float _emission = (float)CockpitDefinition.DefaultScreenEmission;
-        [SerializeField] ScreenLayout _layout = ScreenLayout.A;
 
         /// <summary>テスト柄を出しているか (Step 11-3b)。</summary>
         [SerializeField] bool _pattern;
 
-        /// <summary>計器の見せ方 (Step 11-3c)。面に貼る / 正対 / 逆歪ませ。</summary>
-        [SerializeField] ScreenMode _mode = ScreenMode.OnFace;
+        /// <summary>
+        /// 計器の見せ方 (Step 11-3c)。面に貼る / 正対 / 逆歪ませ。
+        /// **既定は逆歪ませ（実機で見比べて確定）。**
+        /// </summary>
+        [SerializeField] ScreenMode _mode = ScreenMode.Prewarp;
 
         /// <summary>blit のシェーダが読む行列の名前。</summary>
         public const string WarpProperty = "_Warp";
@@ -106,7 +97,6 @@ namespace SolarSystem.Unity
 
         public IReadOnlyList<Screen> Screens => _screens;
 
-        public ScreenLayout Layout => _layout;
 
         public float Emission => _emission;
 
@@ -207,7 +197,7 @@ namespace SolarSystem.Unity
 
             foreach (Screen screen in _screens)
             {
-                Camera cam = _pattern ? screen?.CameraPattern : screen?.CameraFor(_layout);
+                Camera cam = _pattern ? screen?.CameraPattern : screen?.CameraA;
                 if (cam != null && screen.Texture != null)
                 {
                     cam.Render();
@@ -217,20 +207,6 @@ namespace SolarSystem.Unity
             }
         }
 
-        /// <summary>F4 から。**選ばれた案の Canvas だけを描く。**</summary>
-        public void SetLayout(ScreenLayout layout)
-        {
-            if (_layout == layout)
-            {
-                return;
-            }
-
-            _layout = layout;
-            ApplyLayout();
-
-            // 切り替えた瞬間に描き直す。次の 10 Hz を待つと古い絵が残る。
-            _nextUpdateAt = 0.0;
-        }
 
         /// <summary>F4 から。**アセットには書き戻さない**（MPB は実行時だけ）。</summary>
         public void SetEmission(float intensity)
@@ -244,14 +220,12 @@ namespace SolarSystem.Unity
             ApplyMaterials();
         }
 
-        /// <summary>選ばれていない側の Canvas を止める。**カメラは常に無効のまま。**</summary>
+        /// <summary>計器とテスト柄を入れ替える。**カメラは常に無効のまま。**</summary>
         void ApplyLayout()
         {
             foreach (Screen screen in _screens)
             {
-                SetActive(screen?.CameraA, !_pattern && _layout == ScreenLayout.A);
-                SetActive(screen?.CameraB, !_pattern && _layout == ScreenLayout.B);
-                SetActive(screen?.CameraC, !_pattern && _layout == ScreenLayout.C);
+                SetActive(screen?.CameraA, !_pattern);
                 SetActive(screen?.CameraPattern, _pattern);
             }
         }
@@ -283,6 +257,14 @@ namespace SolarSystem.Unity
             {
                 return;
             }
+
+            // **毎回入れ直す。値の出所は `Screen.Warp` ただ 1 つ。**
+            //
+            // 行列は .mat に保存されない。しかも**未設定の行列を読むと単位行列が
+            // 返る**ので、入れ忘れても blit は素通し（1:1 コピー）になって
+            // 「逆歪ませが効いていないのに絵は出ている」形で黙って失敗する。
+            // 実測: EditMode の撮影経路（Start() が走らない）でこれを踏んだ。
+            screen.WarpMaterial.SetMatrix(WarpProperty, screen.Warp);
 
             Graphics.Blit(screen.Texture, screen.Warped, screen.WarpMaterial);
             WarpCount++;

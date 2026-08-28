@@ -65,14 +65,19 @@ namespace SolarSystem.Tests.PlayMode
             var block = new MaterialPropertyBlock();
             foreach (CockpitScreens.Screen screen in _screens.Screens)
             {
+                // **既定は逆歪ませ (11-3c)。** 面が読むのは歪ませたほうの RT。
+                RenderTexture expected = _screens.Mode == ScreenMode.Prewarp
+                    ? screen.Warped
+                    : screen.Texture;
+
                 screen.Target.GetPropertyBlock(block);
 
-                Assert.That(block.GetTexture("_BaseMap"), Is.EqualTo(screen.Texture),
+                Assert.That(block.GetTexture("_BaseMap"), Is.EqualTo(expected),
                             screen.RendererName + ": _BaseMap に RT が入っていない");
 
                 // **_BaseMap と _EmissionMap の両方に差す。** 片方だけだと
                 // ベンダーの画面絵が発光側に残って二重写しになる（11-1c の実測）。
-                Assert.That(block.GetTexture("_EmissionMap"), Is.EqualTo(screen.Texture),
+                Assert.That(block.GetTexture("_EmissionMap"), Is.EqualTo(expected),
                             screen.RendererName + ": _EmissionMap に RT が入っていない");
             }
         }
@@ -101,34 +106,28 @@ namespace SolarSystem.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator 割り当てを切り替えると描画元が入れ替わる()
+        public IEnumerator テスト柄に切り替えると描画元が入れ替わる()
         {
             yield return null;
             RequireScreens();
 
-            _screens.SetLayout(ScreenLayout.A);
+            // **割り当ては案 A で確定 (11-3c)。** 入れ替わるのは計器とテスト柄だけ。
             foreach (CockpitScreens.Screen screen in _screens.Screens)
             {
-                Assert.That(Enabled(screen.CameraA), Is.True, "A の Canvas が止まっている");
-                Assert.That(Enabled(screen.CameraB), Is.False, "B の Canvas が動いている");
+                Assert.That(Enabled(screen.CameraA), Is.True, "計器の Canvas が止まっている");
+                Assert.That(Enabled(screen.CameraPattern), Is.False,
+                            "テスト柄の Canvas が動いている");
             }
 
-            _screens.SetLayout(ScreenLayout.B);
+            _screens.SetPattern(true);
             foreach (CockpitScreens.Screen screen in _screens.Screens)
             {
-                Assert.That(Enabled(screen.CameraA), Is.False, "A の Canvas が動いている");
-                Assert.That(Enabled(screen.CameraB), Is.True, "B の Canvas が止まっている");
-                Assert.That(Enabled(screen.CameraC), Is.False, "C の Canvas が動いている");
+                Assert.That(Enabled(screen.CameraA), Is.False, "計器の Canvas が動いている");
+                Assert.That(Enabled(screen.CameraPattern), Is.True,
+                            "テスト柄の Canvas が止まっている");
             }
 
-            _screens.SetLayout(ScreenLayout.C);
-            foreach (CockpitScreens.Screen screen in _screens.Screens)
-            {
-                Assert.That(Enabled(screen.CameraB), Is.False, "B の Canvas が動いている");
-                Assert.That(Enabled(screen.CameraC), Is.True, "C の Canvas が止まっている");
-            }
-
-            _screens.SetLayout(ScreenLayout.A);
+            _screens.SetPattern(false);
         }
 
         static bool Enabled(Camera cam)
@@ -142,9 +141,9 @@ namespace SolarSystem.Tests.PlayMode
 
             foreach (CockpitScreens.Screen screen in _screens.Screens)
             {
-                Assert.That(screen.CameraA.enabled, Is.False, "案 A のカメラが常時有効");
-                Assert.That(screen.CameraB.enabled, Is.False, "案 B のカメラが常時有効");
-                Assert.That(screen.CameraC.enabled, Is.False, "案 C のカメラが常時有効");
+                Assert.That(screen.CameraA.enabled, Is.False, "計器のカメラが常時有効");
+                Assert.That(screen.CameraPattern.enabled, Is.False,
+                            "テスト柄のカメラが常時有効");
             }
 
             int before = _screens.RenderCount;
@@ -208,7 +207,16 @@ namespace SolarSystem.Tests.PlayMode
             Assert.That(block.GetTexture("_BaseMap"), Is.EqualTo(screen.Warped),
                         "逆歪ませなのに元の RT を読んでいる");
 
-            // 行列は .mat に保存されないので、切り替えのたびに入れ直していること。
+            // **行列は .mat に保存されない。** しかも未設定の行列を読むと
+            // **単位行列**が返るので、入れ忘れると blit が素通し（1:1 コピー）に
+            // なり、「逆歪ませが効いていないのに絵は出ている」形で黙って失敗する
+            // （EditMode の撮影経路で実際に踏んだ / 11-3c）。
+            // 出所は `Screen.Warp` ただ 1 つで、blit のたびに入れ直す。
+            Assert.That(screen.Warp, Is.Not.EqualTo(Matrix4x4.identity),
+                        "行列が単位行列（未設定と見分けが付かない）");
+
+            _root.Tick(1.0);
+
             Assert.That(screen.WarpMaterial.GetMatrix(CockpitScreens.WarpProperty),
                         Is.EqualTo(screen.Warp), "blit の行列が入っていない");
         }

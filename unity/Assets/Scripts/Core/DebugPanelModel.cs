@@ -233,14 +233,6 @@ namespace SolarSystem.Core
         public const string ScreenEmissionId = "num.screenEmission";
 
         /// <summary>
-        /// 役割の割り当て A / B (Step 11-3a)。**実機で見比べるための一時的な項目。**
-        /// 決まったら選ばれなかった案ごと削除する。
-        /// </summary>
-        public const string ScreenLayoutId = "screen.layout";
-
-        public static readonly string[] ScreenLayoutOptions = { "A", "B", "C" };
-
-        /// <summary>
         /// **画面のテスト柄 (Step 11-3b の切り分け道具)。**
         /// ON にすると 5 面の RT の中身を計器の表示から生成したテスト柄へ差し替える。
         /// 枠線・格子・真円・四隅の印・基準線の文字が入っており、
@@ -280,6 +272,15 @@ namespace SolarSystem.Core
         public const string ScreenModeId = "screen.mode";
 
         public static readonly string[] ScreenModeOptions = { "面に貼る", "正対", "逆歪ませ" };
+
+        /// <summary>
+        /// 既定は**逆歪ませ**（平面モニタで実機確認のうえ確定 / 11-3c）。
+        ///
+        /// **3 択を残してあるのは PCVR のため。** VR では両眼視差があるので、
+        /// 傾いた盤は傾いた盤として正しく見える。逆歪ませは「片目・平面モニタ」
+        /// 専用の細工なので、**VR に入るときは「面に貼る」へ戻す。**
+        /// </summary>
+        public const int ScreenModeDefaultIndex = 2;
 
         /// <summary>エンジンの一次遅れの時定数 [秒] (Step 10-3)。**耳で決める値。**</summary>
         public const string EngineLagId = "num.engineLag";
@@ -403,8 +404,6 @@ namespace SolarSystem.Core
             // **発光は bloom のしきい値 0.90 の下が既定。** 文字が滲まないことを優先する。
             m._items.Add(DebugItem.MakeNumber(ScreenEmissionId, "画面の発光強度",
                 screenEmission, 0.0, 2.0, 0.05, "F2"));
-            m._items.Add(DebugItem.MakeChoice(ScreenLayoutId, "画面の割り当て",
-                ScreenLayoutOptions, 0));
 
             // **切り分けの道具 (11-3b)。** 歪みが直ったら消す。
             m._items.Add(DebugItem.MakeToggle(ScreenPatternId, "画面のテスト柄", false));
@@ -412,7 +411,7 @@ namespace SolarSystem.Core
             m._items.Add(DebugItem.MakeChoice(ScreenRtFaceId, "RT 表示の面",
                 ScreenRtFaceOptions, 0));
             m._items.Add(DebugItem.MakeChoice(ScreenModeId, "計器の向き",
-                ScreenModeOptions, 0));
+                ScreenModeOptions, ScreenModeDefaultIndex));
 
             // ---- 目の位置と画角 (Step 11-2b) ----
             // **範囲はコックピットの寸法いっぱい。** 座席がどこにあるかは

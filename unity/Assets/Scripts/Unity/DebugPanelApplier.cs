@@ -278,12 +278,6 @@ namespace SolarSystem.Unity
             {
                 _screens.SetEmission((float)model.NumberOf(DebugPanelModel.ScreenEmissionId));
 
-                DebugItem layout = model.Find(DebugPanelModel.ScreenLayoutId);
-                if (layout != null)
-                {
-                    _screens.SetLayout((ScreenLayout)Mathf.Clamp(layout.Index, 0, 2));
-                }
-
                 _screens.SetPattern(model.BoolOf(DebugPanelModel.ScreenPatternId));
 
                 DebugItem mode = model.Find(DebugPanelModel.ScreenModeId);

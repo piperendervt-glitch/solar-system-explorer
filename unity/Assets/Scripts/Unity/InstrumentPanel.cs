@@ -30,7 +30,7 @@ namespace SolarSystem.Unity
         /// </summary>
         public enum Field
         {
-            Speed, Distance, Eta, Target, Alignment, Docking, Dial, Autopilot, Warning,
+            Speed, Distance, Eta, Target, Alignment, Docking, Dial, Autopilot,
         }
 
         // **Dictionary は直列化できない**ので、2 本の List を添え字で対応させる。
@@ -54,13 +54,6 @@ namespace SolarSystem.Unity
         public string LastDockingText { get; private set; } = string.Empty;
         public string LastDialText { get; private set; } = string.Empty;
         public string LastAutopilotText { get; private set; } = string.Empty;
-        /// <summary>
-        /// 警告灯の直近の表記。**初期値は消灯そのもの。**
-        /// 空文字から始めると、警告が無くても初回の Tick で 1 回書き込みが走り、
-        /// 「値が変わったときだけ SetText」が崩れる（EditMode テストが検出した）。
-        /// </summary>
-        public string LastWarningText { get; private set; } = WarningOffText;
-
         /// <summary>
         /// 種類ごとの**起こりうる最長の表示**（Step 11-3b）。
         ///
@@ -90,7 +83,7 @@ namespace SolarSystem.Unity
                 case Field.Docking: return "APPROACHING";
                 case Field.Dial: return "8/8";
                 case Field.Autopilot: return "OFF";
-                case Field.Warning: return WarningOnText;
+
                 default: return "----------";
             }
         }
@@ -186,7 +179,7 @@ namespace SolarSystem.Unity
         public void Tick(double elapsedSeconds, double speedKmPerSec, double distanceUnits,
                          double etaSeconds, string targetName,
                          string dockingText = null, string dialText = null,
-                         string autopilotText = null, bool warning = false)
+                         string autopilotText = null)
         {
             if (elapsedSeconds < _nextUpdateAt)
             {
@@ -217,24 +210,7 @@ namespace SolarSystem.Unity
             {
                 LastAutopilotText = Apply(Field.Autopilot, LastAutopilotText, autopilotText);
             }
-
-            string warningText = warning ? WarningOnText : WarningOffText;
-            if (warningText != LastWarningText)
-            {
-                LastWarningText = Apply(Field.Warning, LastWarningText, warningText);
-                SetColor(Field.Warning, warning
-                    ? new Color(0.95f, 0.45f, 0.35f, 1f)
-                    : new Color(0.30f, 0.40f, 0.40f, 1f));
-            }
         }
-
-        /// <summary>
-        /// 警告灯の表記 (Step 11-3a の案 B)。整列が許容外のときに点く。
-        /// **飾りを外して 5 文字にした (11-3b)。** 幅で字の大きさが決まる面なので、
-        /// `!! ALIGN !!` だと 18.0px、`ALIGN` なら 28.6px（実測 1.59 倍）。
-        /// </summary>
-        public const string WarningOnText = "ALIGN";
-        public const string WarningOffText = "----";
 
         /// <summary>整列の表示だけを更新する。Tick と同じ 10 Hz。</summary>
         public void SetAlignment(double angleDegrees)

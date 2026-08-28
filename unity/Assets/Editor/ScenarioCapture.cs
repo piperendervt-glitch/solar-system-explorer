@@ -89,15 +89,6 @@ namespace SolarSystem.Editor
             var screens = Object.FindAnyObjectByType<CockpitScreens>();
             if (screens != null)
             {
-                // **どの割り当てで撮るかを選べるようにする (Step 11-3a)。**
-                // A / B / C を見比べるための一時的な口。決まったら消す。
-                string wanted = StandaloneCapture.ArgValue(LayoutArg);
-                if (!string.IsNullOrEmpty(wanted)
-                    && System.Enum.TryParse(wanted, true, out ScreenLayout layout))
-                {
-                    screens.SetLayout(layout);
-                    Debug.Log($"[ScenarioCapture] 画面の割り当て: {layout}");
-                }
 
                 // **テスト柄 (Step 11-3b の切り分け道具)。**
                 if (StandaloneCapture.HasArg("-screenPattern"))

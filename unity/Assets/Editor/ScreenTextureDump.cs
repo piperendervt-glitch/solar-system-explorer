@@ -30,7 +30,9 @@ namespace SolarSystem.Editor
                 return;
             }
 
-            screens.SetPattern(true);
+            // -noPattern を付けると、テスト柄ではなく**計器の絵**を読み戻す。
+            bool pattern = !SolarSystem.Unity.StandaloneCapture.HasArg("-noPattern");
+            screens.SetPattern(pattern);
             screens.ApplyMaterials();
 
             // **画面だけを回す。** `UniverseRoot.Tick` は船の入力まで通るので、

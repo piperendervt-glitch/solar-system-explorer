@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using SolarSystem.Core;
 using SolarSystem.Editor;
@@ -39,59 +40,24 @@ namespace SolarSystem.Tests.EditMode
             }
         }
 
-        static IReadOnlyList<CockpitScreen> ScreensOf(ScreenLayout layout)
-            => CockpitDefinition.HiRezSample.Screens(layout);
+        static IReadOnlyList<CockpitScreen> Screens()
+            => CockpitDefinition.HiRezSample.Screens;
 
         // ---- 割り当て (11-3a) ----
 
         [Test]
-        public void 三案とも同じ5面を覆う()
+        public void 五面それぞれに役割が1つずつ割り当たっている()
         {
-            string[] a = ScreensOf(ScreenLayout.A).Select(s => s.RendererName)
-                .OrderBy(n => n).ToArray();
+            IReadOnlyList<CockpitScreen> screens = Screens();
+            Assert.That(screens.Count, Is.EqualTo(5));
 
-            Assert.That(a.Length, Is.EqualTo(5));
+            string[] duplicated = screens
+                .GroupBy(s => s.RendererName)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key)
+                .ToArray();
 
-            foreach (ScreenLayout other in new[] { ScreenLayout.B, ScreenLayout.C })
-            {
-                string[] names = ScreensOf(other).Select(s => s.RendererName)
-                    .OrderBy(n => n).ToArray();
-
-                Assert.That(names, Is.EqualTo(a), $"案 {other} で対象の面が違う");
-            }
-        }
-
-        [Test]
-        public void 案Cの大画面は2行まで()
-        {
-            // **案 C の要点。** 大画面の字は行の高さで決まるので、3 行を 2 行に
-            // 減らすことでしか大きくできない（実測から）。
-            foreach (CockpitScreen screen in ScreensOf(ScreenLayout.C))
-            {
-                if (!screen.RendererName.Contains("Screen-"))
-                {
-                    continue;
-                }
-
-                Assert.That(screen.Role == ScreenRole.FlightShort
-                            || screen.Role == ScreenRole.Target, Is.True,
-                            $"{screen.RendererName} に 3 行の役割を割り当てている ({screen.Role})");
-            }
-        }
-
-        [Test]
-        public void 同じ面に2つの役割を割り当てていない()
-        {
-            foreach (ScreenLayout layout in new[] { ScreenLayout.A, ScreenLayout.B, ScreenLayout.C })
-            {
-                string[] duplicated = ScreensOf(layout)
-                    .GroupBy(s => s.RendererName)
-                    .Where(g => g.Count() > 1)
-                    .Select(g => g.Key)
-                    .ToArray();
-
-                Assert.That(duplicated, Is.Empty, $"{layout}: " + string.Join(", ", duplicated));
-            }
+            Assert.That(duplicated, Is.Empty, string.Join(", ", duplicated));
         }
 
         [Test]
@@ -106,7 +72,7 @@ namespace SolarSystem.Tests.EditMode
                 .Select(r => r.name)
                 .ToArray();
 
-            foreach (CockpitScreen screen in ScreensOf(ScreenLayout.A))
+            foreach (CockpitScreen screen in Screens())
             {
                 Assert.That(names, Does.Contain(screen.RendererName),
                             "**プレハブに無いレンダラー名を指している: " + screen.RendererName);
@@ -116,7 +82,7 @@ namespace SolarSystem.Tests.EditMode
         [Test]
         public void 箱には画面が無い()
         {
-            Assert.That(CockpitDefinition.Box.Screens(ScreenLayout.A), Is.Empty);
+            Assert.That(CockpitDefinition.Box.Screens, Is.Empty);
 
             // **画面が無くても組み立ては通る。**
             CockpitBuilder.Result box = CockpitBuilder.Build(_ship, 9, CockpitDefinition.Box);
@@ -139,16 +105,13 @@ namespace SolarSystem.Tests.EditMode
         [Test]
         public void RTの長辺が投影サイズの2倍以上()
         {
-            foreach (ScreenLayout layout in new[] { ScreenLayout.A, ScreenLayout.B, ScreenLayout.C })
+            foreach (CockpitScreen screen in Screens())
             {
-                foreach (CockpitScreen screen in ScreensOf(layout))
-                {
-                    Vector2Int projected = ProjectedPixels[screen.RendererName];
-                    int longest = Mathf.Max(projected.x, projected.y);
+                Vector2Int projected = ProjectedPixels[screen.RendererName];
+                int longest = Mathf.Max(projected.x, projected.y);
 
-                    Assert.That(screen.TextureLongSide, Is.GreaterThanOrEqualTo(longest * 2),
-                                $"{screen.RendererName} の RT が足りない");
-                }
+                Assert.That(screen.TextureLongSide, Is.GreaterThanOrEqualTo(longest * 2),
+                            $"{screen.RendererName} の RT が足りない");
             }
         }
 
@@ -268,13 +231,11 @@ namespace SolarSystem.Tests.EditMode
             {
                 Assert.That(screen.Target, Is.Not.Null, screen.RendererName + " のレンダラーが無い");
                 Assert.That(screen.CameraA, Is.Not.Null, "案 A の描画元が無い");
-                Assert.That(screen.CameraB, Is.Not.Null, "案 B の描画元が無い");
-                Assert.That(screen.CameraC, Is.Not.Null, "案 C の描画元が無い");
+
 
                 // **常時有効にしない。** 描くのは CockpitScreens が 10 Hz で呼ぶ。
                 Assert.That(screen.CameraA.enabled, Is.False, "案 A のカメラが有効のまま");
-                Assert.That(screen.CameraB.enabled, Is.False, "案 B のカメラが有効のまま");
-                Assert.That(screen.CameraC.enabled, Is.False, "案 C のカメラが有効のまま");
+
             }
         }
 
@@ -346,9 +307,7 @@ namespace SolarSystem.Tests.EditMode
                     yield return "OFF";
                     break;
 
-                case InstrumentPanel.Field.Warning:
-                    yield return InstrumentPanel.WarningOnText;
-                    yield return InstrumentPanel.WarningOffText;
+
                     break;
             }
 
@@ -370,14 +329,8 @@ namespace SolarSystem.Tests.EditMode
 
             foreach (CockpitScreens.Screen screen in hirez.Screens.Screens)
             {
-                foreach (ScreenLayout layout in
-                         new[] { ScreenLayout.A, ScreenLayout.B, ScreenLayout.C })
                 {
-                    Camera source = screen.CameraFor(layout);
-                    if (source == null)
-                    {
-                        continue;
-                    }
+                    Camera source = screen.CameraA;
 
                     foreach (TMPro.TextMeshProUGUI text in
                              source.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true))
@@ -396,7 +349,7 @@ namespace SolarSystem.Tests.EditMode
                             float w = text.GetPreferredValues(sample, 0f, 0f).x;
                             if (w > width)
                             {
-                                overflowed.Add($"{screen.RendererName}/{layout}/{field}"
+                                overflowed.Add($"{screen.RendererName}/{field}"
                                                + $" \"{sample}\" {w:F0}px > 枠 {width:F0}px");
                             }
                         }
@@ -408,20 +361,61 @@ namespace SolarSystem.Tests.EditMode
                         "枠から出る文字列がある: " + string.Join(" / ", overflowed));
         }
 
+        // ---- 撤去 (11-3c) ----
+
         [Test]
-        public void 帯はまだ残っている()
+        public void 帯は箱のときだけ出る()
         {
             RequireImported();
 
-            // **撤去は 11-3c で別コミット。** 先に消すと戻すのが面倒なので、
-            // 新しい 5 面と並存させて見比べる。
+            // **下端の帯は撤去した。** 計器はコックピットの画面に載る。
+            // ただし**箱には画面が無い**ので、箱のときだけ帯を残す
+            // （アセットを持たないクローンで計器が 1 つも出なくならないように）。
             CockpitBuilder.Result hirez =
                 CockpitBuilder.Build(_ship, 9, CockpitDefinition.HiRezSample);
 
-            bool found = hirez.Identity.GetComponentsInChildren<Transform>(true)
+            Assert.That(HasStrip(hirez), Is.False, "実アセットなのに帯が出ている");
+            Assert.That(hirez.Panel, Is.Not.Null, "計器そのものが消えている");
+
+            CockpitBuilder.Result box = CockpitBuilder.Build(_ship, 9, CockpitDefinition.Box);
+
+            Assert.That(HasStrip(box), Is.True, "箱なのに帯が出ていない（計器が 1 つも無い）");
+        }
+
+        static bool HasStrip(CockpitBuilder.Result result)
+            => result.Identity.GetComponentsInChildren<Transform>(true)
                 .Any(t => t.name == "InstrumentSurface");
 
-            Assert.That(found, Is.True, "帯が消えている（撤去は 11-3c のはず）");
+        [Test]
+        public void 案BとCが残っていない()
+        {
+            // **実機で見比べて案 A に確定した。選ばれなかったものを残さない。**
+            // 形は Demo 2 の EngineAudio 撤去と同じ（リフレクションで再発を縛る）。
+            Assembly core = typeof(CockpitDefinition).Assembly;
+            Assert.That(core.GetType("SolarSystem.Core.ScreenLayout"), Is.Null,
+                        "ScreenLayout が残っている");
+
+            string[] roles = System.Enum.GetNames(typeof(ScreenRole));
+            foreach (string gone in
+                     new[] { "Target", "Docking", "Warning", "FlightShort", "EtaDocking" })
+            {
+                Assert.That(roles, Does.Not.Contain(gone),
+                            $"案 B / C のためだけの役割 {gone} が残っている");
+            }
+
+            Assert.That(typeof(CockpitScreens).GetMethod("SetLayout"), Is.Null,
+                        "SetLayout が残っている");
+            Assert.That(typeof(CockpitScreens.Screen).GetField("CameraB"), Is.Null,
+                        "案 B の描画元が残っている");
+            Assert.That(typeof(CockpitScreens.Screen).GetField("CameraC"), Is.Null,
+                        "案 C の描画元が残っている");
+
+            Assert.That(typeof(DebugPanelModel).GetField("ScreenLayoutId"), Is.Null,
+                        "F4 の割り当ての項目 ID が残っている");
+
+            // 警告灯は案 B の小ゲージ専用だった。
+            Assert.That(typeof(InstrumentPanel).GetField("WarningOnText"), Is.Null,
+                        "警告灯の表記が残っている");
         }
         [Test]
         public void 正対クアッドは目の側から見える()
@@ -478,8 +472,7 @@ namespace SolarSystem.Tests.EditMode
             foreach (CockpitScreens.Screen screen in hirez.Screens.Screens)
             {
                 foreach (Camera cam in new[]
-                         { screen.CameraA, screen.CameraB, screen.CameraC,
-                           screen.CameraPattern })
+                         { screen.CameraA, screen.CameraPattern })
                 {
                     if (cam == null)
                     {

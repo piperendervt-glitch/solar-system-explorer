@@ -119,57 +119,30 @@ namespace SolarSystem.Editor
                 align * new Vector3((float)eye.X, (float)eye.Y, (float)eye.Z);
             camGo.transform.localRotation = Quaternion.identity;
 
-            // ---- 計器パネル ----
-            RenderTexture rt = GetOrCreateRenderTexture();
-            Material panelMaterial = GetOrCreatePanelMaterial(rt);
-
-            GameObject panelQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            panelQuad.name = "InstrumentSurface";
-            panelQuad.transform.SetParent(root.transform, false);
-            panelQuad.layer = cockpitLayer;
-            Object.DestroyImmediate(panelQuad.GetComponent<Collider>());
-            // 画面の下端へ寄せる (Step 7)。高さは従来の半分 (0.40 -> 0.20)。
-            // 中心は視線から約 20.9 度下、上下に約 5.4 度。垂直 FOV 60 度の
-            // 下半分 (30 度) の内側に収まり、上 3/4 は完全に空く。
-            // RT が 768x160 なのでアスペクトは 4.8 を保つ。
-            // 下枠 (Frame_Bottom) の上面は y = -halfH + bar/2 = -0.44*Size。
-            // パネルの下端 (中心 - 0.10*Size*cos18 = 0.095*Size) がそれより上に来る位置。
-            panelQuad.transform.localPosition = new Vector3(0f, -HalfHeight * 0.62f, Size * 1.05f);
-            panelQuad.transform.localRotation = Quaternion.Euler(18f, 0f, 0f);
-            panelQuad.transform.localScale = new Vector3(Size * 0.96f, Size * 0.20f, 1f);
-            panelQuad.GetComponent<Renderer>().sharedMaterial = panelMaterial;
-
-            InstrumentPanel panel = BuildInstrumentSource(root.transform, rt);
+            // ---- 計器 ----
+            // **下端の帯は撤去した (11-3c)。** 計器はコックピットの画面に載る。
+            //
+            // **箱コックピットのときだけ帯を残す。** 箱には画面が無いので、
+            // 帯まで消すと計器が 1 つも出ない。判定は**フォルダの有無ではなく
+            // `Definition.Screens` が空かどうか**（アセットを持たないクローンで
+            // シーンを組み直すと箱に落ちる → そこでは帯が出る）。
+            bool hasScreens = built.Screens.Count > 0;
+            InstrumentPanel panel = hasScreens
+                ? BuildPanelOnly(root.transform)
+                : BuildInstrumentStrip(root.transform, cockpitLayer);
 
             // ---- 計器の画面 (Step 11-3) ----
-            // **帯 (InstrumentSurface) は残したまま並存させる。** 撤去は 11-3c。
-            // 先に消すと「やっぱり読めない」となったときに戻すのが面倒なため。
             var screens = root.AddComponent<CockpitScreens>();
             screens.Bind(BuildScreens(root.transform, built, panel, camGo.transform));
 
-            // **既定（案 A）をシーンに焼く。** Start() が走らない EditMode の
-            // 撮影経路（ScenarioCapture）でも、選ばれていない側の Canvas が
-            // 同じ RT へ描き込まないようにするため。
+            // **テスト柄の Canvas はシーンに止めた状態で焼く (11-3b)。**
+            // Start() が走らない EditMode の撮影経路（ScenarioCapture）でも、
+            // 止めた側が同じ RT へ描き込まないようにするため。
             foreach (CockpitScreens.Screen screen in screens.Screens)
             {
-                if (screen.CameraB == null)
+                if (screen.CameraPattern == null)
                 {
                     continue;
-                }
-
-                foreach (Canvas canvas in screen.CameraB.GetComponentsInChildren<Canvas>(true))
-                {
-                    canvas.enabled = false;
-                }
-
-                if (screen.CameraC == null)
-                {
-                    continue;
-                }
-
-                foreach (Canvas canvas in screen.CameraC.GetComponentsInChildren<Canvas>(true))
-                {
-                    canvas.enabled = false;
                 }
 
                 foreach (Canvas canvas in
@@ -178,7 +151,6 @@ namespace SolarSystem.Editor
                     canvas.enabled = false;
                 }
             }
-
             // ---- 窓の物差し (Step 11-2b) ----
             // **箱には窓が無い**ので、そのときは空のまま。計測器は「測れない」を返す。
             var metrics = root.AddComponent<CockpitMetrics>();
@@ -197,12 +169,56 @@ namespace SolarSystem.Editor
         /// Orthographic カメラで撮る。カメラスタックには入れない。
         /// コックピットから遠く離れた場所に置いて、他のカメラに写らないようにする。
         /// </summary>
+        /// <summary>
+        /// 計器の本体だけを作る (Step 11-3c)。**帯もカメラも Canvas も作らない。**
+        /// 文字を出す先は `BuildScreens` がコックピットの画面に組む。
+        /// </summary>
+        static InstrumentPanel BuildPanelOnly(Transform parent)
+        {
+            var go = new GameObject("Instruments");
+            go.transform.SetParent(parent, false);
+            return go.AddComponent<InstrumentPanel>();
+        }
+
+        /// <summary>
+        /// 下端の帯 (Step 4〜7)。**箱コックピットのときだけ組む (11-3c)。**
+        ///
+        /// アセットを持たないクローンではコックピットが箱に落ち、画面が 1 枚も
+        /// 無い。そこで帯まで消すと計器が出なくなるので、**画面が空のときだけ**
+        /// 従来の帯を出す。実アセットのときは組まない。
+        /// </summary>
+        static InstrumentPanel BuildInstrumentStrip(Transform root, int cockpitLayer)
+        {
+            RenderTexture rt = GetOrCreateRenderTexture();
+            Material panelMaterial = GetOrCreatePanelMaterial(rt);
+
+            GameObject panelQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            panelQuad.name = "InstrumentSurface";
+            panelQuad.transform.SetParent(root, false);
+            panelQuad.layer = cockpitLayer;
+            Object.DestroyImmediate(panelQuad.GetComponent<Collider>());
+
+            // 画面の下端へ寄せる (Step 7)。高さは従来の半分 (0.40 -> 0.20)。
+            // 中心は視線から約 20.9 度下、上下に約 5.4 度。垂直 FOV 60 度の
+            // 下半分 (30 度) の内側に収まり、上 3/4 は完全に空く。
+            // RT が 768x160 なのでアスペクトは 4.8 を保つ。
+            panelQuad.transform.localPosition =
+                new Vector3(0f, -HalfHeight * 0.62f, Size * 1.05f);
+            panelQuad.transform.localRotation = Quaternion.Euler(18f, 0f, 0f);
+            panelQuad.transform.localScale = new Vector3(Size * 0.96f, Size * 0.20f, 1f);
+            panelQuad.GetComponent<Renderer>().sharedMaterial = panelMaterial;
+
+            return BuildInstrumentSource(root, rt);
+        }
+
         static InstrumentPanel BuildInstrumentSource(Transform parent, RenderTexture rt)
         {
             var sourceRoot = new GameObject("InstrumentSource");
             sourceRoot.transform.SetParent(parent, false);
-            // 計器用カメラの Culling Mask を UI だけにするので、位置は視界の外へ。
-            sourceRoot.transform.localPosition = new Vector3(0f, 1.0e5f, 0f);
+            // **原点の近くに置く (Step 11-3c)。** 他のカメラに写らないのは
+            // Culling Mask（UI レイヤーだけ）で決まっている。遠くへ置くと
+            // float の刻みが Canvas の 1 画素を超え、船を回すだけで絵が変わる。
+            sourceRoot.transform.localPosition = new Vector3(0f, SourceOffset, 0f);
 
             var camGo = new GameObject("Cam_Instrument");
             camGo.transform.SetParent(sourceRoot.transform, false);
@@ -468,14 +484,9 @@ namespace SolarSystem.Editor
             Transform eye)
         {
             var built = new List<CockpitScreens.Screen>();
-            IReadOnlyList<SolarSystem.Core.CockpitScreen> layoutA =
-                definition.Screens(SolarSystem.Core.ScreenLayout.A);
-            IReadOnlyList<SolarSystem.Core.CockpitScreen> layoutB =
-                definition.Screens(SolarSystem.Core.ScreenLayout.B);
-            IReadOnlyList<SolarSystem.Core.CockpitScreen> layoutC =
-                definition.Screens(SolarSystem.Core.ScreenLayout.C);
+            IReadOnlyList<SolarSystem.Core.CockpitScreen> layout = definition.Screens;
 
-            if (layoutA.Count == 0)
+            if (layout.Count == 0)
             {
                 return built; // 箱には画面が無い
             }
@@ -496,9 +507,9 @@ namespace SolarSystem.Editor
             sourceRoot.transform.SetParent(root, false);
             sourceRoot.transform.localPosition = new Vector3(0f, SourceOffset, 0f);
 
-            for (int i = 0; i < layoutA.Count; i++)
+            for (int i = 0; i < layout.Count; i++)
                 {
-                SolarSystem.Core.CockpitScreen a = layoutA[i];
+                SolarSystem.Core.CockpitScreen a = layout[i];
                 Renderer target = FindRenderer(root, a.RendererName);
                 if (target == null)
                 {
@@ -529,8 +540,6 @@ namespace SolarSystem.Editor
                           + $"倍率 {warp.TextureScale.x:F2} x {warp.TextureScale.y:F2} / "
                           + $"RT {size.x}x{size.y} -> {warpedSize.x}x{warpedSize.y}");
 
-                SolarSystem.Core.CockpitScreen b = FindByRenderer(layoutB, a.RendererName);
-                SolarSystem.Core.CockpitScreen c = FindByRenderer(layoutC, a.RendererName);
 
                 // **Canvas 同士が互いのカメラに写らないよう、組ごとに離して置く。**
                 // カメラは正射影で高さ 1 unit・幅は最大 2 unit なので、
@@ -547,17 +556,9 @@ namespace SolarSystem.Editor
                     Texture = texture,
                     BaseMapSt = BaseMapStFor(target),
                     Transparent = IsTransparent(target),
-                    CameraA = BuildScreenSource(slot.transform, "A", texture, a.Role, panel, 0f,
+                    CameraA = BuildScreenSource(slot.transform, texture, a.Role, panel, 0f,
                                                 IsTransparent(target)),
-                    CameraB = b == null
-                        ? null
-                        : BuildScreenSource(slot.transform, "B", texture, b.Role, panel, SourceSpacing,
-                                            IsTransparent(target)),
-                    CameraC = c == null
-                        ? null
-                        : BuildScreenSource(slot.transform, "C", texture, c.Role, panel, SourceSpacing * 2f,
-                                            IsTransparent(target)),
-                    CameraPattern = BuildPatternSource(slot.transform, texture, SourceSpacing * 3f),
+                    CameraPattern = BuildPatternSource(slot.transform, texture, SourceSpacing),
                     Facing = BuildFacingQuad(root, target, texture, eye, IsTransparent(target)),
                     Warped = warped,
                     Warp = warp.Warp,
@@ -566,20 +567,6 @@ namespace SolarSystem.Editor
             }
 
             return built;
-        }
-
-        static SolarSystem.Core.CockpitScreen FindByRenderer(
-            IReadOnlyList<SolarSystem.Core.CockpitScreen> screens, string rendererName)
-        {
-            foreach (SolarSystem.Core.CockpitScreen s in screens)
-            {
-                if (s.RendererName == rendererName)
-                {
-                    return s;
-                }
-            }
-
-            return null;
         }
 
         /// <summary>
@@ -955,11 +942,11 @@ namespace SolarSystem.Editor
         /// 1 つの面の描画元（カメラ + Canvas + TMP）を作る (Step 11-3)。
         /// **カメラは enabled = false のまま。** 描くのは `CockpitScreens` が 10 Hz で呼ぶ。
         /// </summary>
-        static Camera BuildScreenSource(Transform parent, string suffix, RenderTexture rt,
+        static Camera BuildScreenSource(Transform parent, RenderTexture rt,
                                         SolarSystem.Core.ScreenRole role, InstrumentPanel panel,
                                         float offsetY, bool transparent)
         {
-            var camGo = new GameObject("Cam_Screen" + suffix);
+            var camGo = new GameObject("Cam_Screen");
             camGo.transform.SetParent(parent, false);
             camGo.transform.localPosition = new Vector3(0f, offsetY, -2f);
 
@@ -1268,22 +1255,6 @@ namespace SolarSystem.Editor
                     });
                     break;
 
-                case SolarSystem.Core.ScreenRole.Target:
-                    AddRows(canvas, panel, heightPixels, new[]
-                    {
-                        ("TGT", InstrumentPanel.Field.Target),
-                        ("ALN", InstrumentPanel.Field.Alignment),
-                    });
-                    break;
-
-                case SolarSystem.Core.ScreenRole.Docking:
-                    AddRows(canvas, panel, heightPixels, new[]
-                    {
-                        ("DOCK", InstrumentPanel.Field.Docking),
-                        ("AP", InstrumentPanel.Field.Autopilot),
-                    });
-                    break;
-
                 case SolarSystem.Core.ScreenRole.Alignment:
                     AddRows(canvas, panel, heightPixels, new[]
                     {
@@ -1302,29 +1273,6 @@ namespace SolarSystem.Editor
                     AddRows(canvas, panel, heightPixels, new[]
                     {
                         ("AP", InstrumentPanel.Field.Autopilot),
-                    });
-                    break;
-
-                case SolarSystem.Core.ScreenRole.Warning:
-                    AddRows(canvas, panel, heightPixels, new[]
-                    {
-                        ("WARN", InstrumentPanel.Field.Warning),
-                    });
-                    break;
-
-                case SolarSystem.Core.ScreenRole.FlightShort:
-                    AddRows(canvas, panel, heightPixels, new[]
-                    {
-                        ("SPD", InstrumentPanel.Field.Speed),
-                        ("DST", InstrumentPanel.Field.Distance),
-                    });
-                    break;
-
-                case SolarSystem.Core.ScreenRole.EtaDocking:
-                    AddRows(canvas, panel, heightPixels, new[]
-                    {
-                        ("ETA", InstrumentPanel.Field.Eta),
-                        ("DOCK", InstrumentPanel.Field.Docking),
                     });
                     break;
             }
@@ -1353,12 +1301,7 @@ namespace SolarSystem.Editor
                               mid, top, pixels * 0.28f,
                               new Color(0.35f, 0.55f, 0.50f, 1f), null, panel);
 
-                // 警告灯だけは消灯の表記から始める（InstrumentPanel の初期値と揃える）。
-                string initial = rows[i].Field == InstrumentPanel.Field.Warning
-                    ? InstrumentPanel.WarningOffText
-                    : "---";
-
-                AddScreenText(canvas, rows[i].Field.ToString(), initial,
+                AddScreenText(canvas, rows[i].Field.ToString(), "---",
                               bottom, mid, pixels * 0.42f,
                               new Color(0.55f, 0.95f, 0.75f, 1f), rows[i].Field, panel);
             }

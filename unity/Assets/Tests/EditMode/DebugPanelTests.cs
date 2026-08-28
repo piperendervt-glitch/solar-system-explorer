@@ -63,9 +63,14 @@ namespace SolarSystem.Tests.EditMode
             Assert.That(m.NumberOf(DebugPanelModel.ScreenEmissionId),
                         Is.EqualTo(CockpitDefinition.DefaultScreenEmission).Within(1e-9));
 
-            DebugItem layout = m.Find(DebugPanelModel.ScreenLayoutId);
-            Assert.That(layout, Is.Not.Null);
-            Assert.That(layout.Index, Is.EqualTo(0), "既定は案 A のはず");
+            // **割り当ての 3 択は 11-3c で外した（案 A に確定）。**
+            Assert.That(m.Find("screen.layout"), Is.Null, "割り当ての項目が残っている");
+
+            DebugItem mode = m.Find(DebugPanelModel.ScreenModeId);
+            Assert.That(mode, Is.Not.Null);
+            Assert.That(mode.Index, Is.EqualTo(DebugPanelModel.ScreenModeDefaultIndex),
+                        "既定は「逆歪ませ」のはず (11-3c で確定)");
+            Assert.That(DebugPanelModel.ScreenModeOptions[mode.Index], Is.EqualTo("逆歪ませ"));
         }
 
         [Test]

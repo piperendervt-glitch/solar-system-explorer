@@ -159,25 +159,12 @@ namespace SolarSystem.Core
         public const double DefaultScreenEmission = 0.75;
 
         /// <summary>
-        /// この定義の画面の割り当て (Step 11-3a)。**箱は空。**
+        /// この定義の画面の割り当て (Step 11-3a / 11-3c で案 A に確定)。
         ///
-        /// **A と B の 2 案を実機で見比べるための一時的な足場。**
-        /// 決まったら選ばれなかったほうを削除する。
+        /// **箱は空。** 画面が空かどうかで、下端の帯を出すかが決まる。
         /// </summary>
-        public IReadOnlyList<CockpitScreen> Screens(ScreenLayout layout)
-        {
-            if (Id != HiRezSampleId)
-            {
-                return System.Array.Empty<CockpitScreen>();
-            }
-
-            switch (layout)
-            {
-                case ScreenLayout.B: return ScreensB;
-                case ScreenLayout.C: return ScreensC;
-                default: return ScreensA;
-            }
-        }
+        public IReadOnlyList<CockpitScreen> Screens =>
+            Id == HiRezSampleId ? ScreensA : System.Array.Empty<CockpitScreen>();
 
         // 投影サイズの実測 (基準 1920x1080 / 画角 60 度 / 目 (0, 0.43, -1.44)):
         //   Screen-1  351x119 / Screen-2  351x119 / HUD-2 188x188
@@ -186,37 +173,12 @@ namespace SolarSystem.Core
         //   Screen-1/-2 345.4 x 183.5 mm / HUD-2 189.2 x 189.2 / Gauge 76.5 x 76.5
         // **長辺だけを決め、短辺は実寸の比から CockpitBuilder が出す。**
 
-        /// <summary>案 A: 大画面に文字情報、HUD は最小限。**既定。**</summary>
+        /// <summary>大画面に文字情報、HUD は最小限。**実機で見比べて確定 (11-3c)。**</summary>
         static readonly CockpitScreen[] ScreensA =
         {
             new CockpitScreen("CockpitEquipments_Screen-2", ScreenRole.Flight, 1024),
             new CockpitScreen("CockpitEquipments_Screen-1", ScreenRole.TargetFull, 1024),
             new CockpitScreen("CockpitEquipments_HUD-2", ScreenRole.Alignment, 512),
-            new CockpitScreen("CockpitEquipments_Gauge2-Screen", ScreenRole.SpeedDial, 512),
-            new CockpitScreen("CockpitEquipments_Gauge1-Screen", ScreenRole.Autopilot, 256),
-        };
-
-        /// <summary>案 B: 中央の HUD を主役にする。</summary>
-        static readonly CockpitScreen[] ScreensB =
-        {
-            new CockpitScreen("CockpitEquipments_HUD-2", ScreenRole.Flight, 512),
-            new CockpitScreen("CockpitEquipments_Screen-2", ScreenRole.Target, 1024),
-            new CockpitScreen("CockpitEquipments_Screen-1", ScreenRole.Docking, 1024),
-            new CockpitScreen("CockpitEquipments_Gauge2-Screen", ScreenRole.SpeedDial, 512),
-            new CockpitScreen("CockpitEquipments_Gauge1-Screen", ScreenRole.Warning, 256),
-        };
-
-        /// <summary>
-        /// 案 C: **大画面は 2 行まで。** あふれた ETA とドッキング状態は HUD へ。
-        ///
-        /// 実測で「大画面の字は行の高さで決まる」と分かったので、3 行を 2 行に
-        /// 減らして字を大きくする（16.0px -> 23.9px の見込み）。
-        /// </summary>
-        static readonly CockpitScreen[] ScreensC =
-        {
-            new CockpitScreen("CockpitEquipments_Screen-2", ScreenRole.FlightShort, 1024),
-            new CockpitScreen("CockpitEquipments_Screen-1", ScreenRole.Target, 1024),
-            new CockpitScreen("CockpitEquipments_HUD-2", ScreenRole.EtaDocking, 512),
             new CockpitScreen("CockpitEquipments_Gauge2-Screen", ScreenRole.SpeedDial, 512),
             new CockpitScreen("CockpitEquipments_Gauge1-Screen", ScreenRole.Autopilot, 256),
         };

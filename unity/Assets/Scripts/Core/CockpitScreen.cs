@@ -3,42 +3,26 @@ namespace SolarSystem.Core
     /// <summary>
     /// 画面に出す役割 (Step 11-3a)。**UnityEngine 非依存。**
     ///
-    /// **A と B の 2 案を実機で見比べるための一時的な足場。**
-    /// 決まったら選ばれなかったほうの役割は削除する（見えないコードを残さない）。
+    /// **実機で見比べて案 A に確定した (11-3c)。** 案 B / C のためだけにあった役割
+    /// (Target / Docking / Warning / FlightShort / EtaDocking) は削除した。
     /// </summary>
     public enum ScreenRole
     {
-        /// <summary>SPD / DST / ETA。</summary>
+        /// <summary>SPD / DST / ETA（左の大画面）。</summary>
         Flight,
 
-        /// <summary>TGT / ALN / ドッキング状態（案 A の右下）。</summary>
+        /// <summary>TGT / ALN / ドッキング状態（右の大画面）。</summary>
         TargetFull,
 
-        /// <summary>TGT / ALN（案 B）。</summary>
-        Target,
-
-        /// <summary>ドッキング状態 + AP（案 B）。</summary>
-        Docking,
-
-        /// <summary>ALN の度数と可否だけ（案 A の HUD）。</summary>
+        /// <summary>ALN の度数だけ（中央の HUD）。</summary>
         Alignment,
 
-        /// <summary>速度ダイヤルの段。</summary>
+        /// <summary>速度ダイヤルの段（大きいほうのゲージ）。</summary>
         SpeedDial,
 
-        /// <summary>AP の ON/OFF（案 A の小ゲージ）。</summary>
+        /// <summary>AP の ON/OFF（小さいほうのゲージ）。</summary>
         Autopilot,
-
-        /// <summary>警告灯（案 B の小ゲージ）。整列が許容外のときに点く。</summary>
-        Warning,
-
-        /// <summary>SPD / DST の 2 行（案 C の大画面）。</summary>
-        FlightShort,
-
-        /// <summary>ETA / ドッキング状態の 2 行（案 C の HUD）。</summary>
-        EtaDocking,
     }
-
     /// <summary>
     /// 計器の見せ方 (Step 11-3c)。**実機で 3 つを見比べて 1 つに決める。**
     /// </summary>
@@ -55,24 +39,6 @@ namespace SolarSystem.Core
         /// 台形も縦横比の潰れも 1 枚のホモグラフィで消える (`ScreenWarpSolver`)。
         /// </summary>
         Prewarp,
-    }
-
-    /// <summary>役割の割り当て案 (Step 11-3a)。**実機で見比べて 1 つに決める。**</summary>
-    public enum ScreenLayout
-    {
-        /// <summary>大画面に文字情報、HUD は最小限。**既定。**</summary>
-        A,
-
-        /// <summary>中央の HUD を主役にする。</summary>
-        B,
-
-        /// <summary>
-        /// **大画面は 2 行まで**にして、あふれた項目を HUD とゲージへ逃がす。
-        ///
-        /// 大画面の字は**行の高さで決まっている**（実測）ので、文字列を短くしても
-        /// 大きくならない。行数を 3 -> 2 に減らすのが唯一の効く手。
-        /// </summary>
-        C,
     }
 
     /// <summary>
