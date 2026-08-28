@@ -215,8 +215,9 @@ namespace SolarSystem.Editor
                          MaterialLibrary.MeshMaterial(appearanceModel.Sun),
                          MaterialLibrary.PointMaterial(appearanceModel.Sun),
                          MaterialLibrary.CoronaMaterial(appearanceModel.Sun),
-                         audioRouting, cockpit.CockpitCamera.transform);
-            debugPanel.Bind(universeRoot, rig, applier, stack, overlay, cockpit.Metrics);
+                         audioRouting, cockpit.CockpitCamera.transform, cockpit.Screens);
+            debugPanel.Bind(universeRoot, rig, applier, stack, overlay, cockpit.Metrics,
+                            cockpit.Screens);
 
             // ---- exe からのスクショ用 (Step 7) ----
             // 引数が無ければ何もしない。見た目には影響しない。
@@ -231,7 +232,8 @@ namespace SolarSystem.Editor
 
             universeRoot.Configure(shiftDriver, shipGo.transform, solarSystemView, aimer, rig,
                                    cockpit.Panel, stationSet, preset, audioRouting,
-                                   overlay, scenarioRunner, shake, stack, sunFlare, debugPanel);
+                                   overlay, scenarioRunner, shake, stack, sunFlare, debugPanel,
+                                   cockpit.Screens);
 
             // 登録漏れの検査 (docs/01-architecture.md §2-5)。
             shiftDriver.CollectFromScene();

@@ -14,10 +14,12 @@ namespace SolarSystem.Tests.EditMode
         [Test]
         public void 許容角以内ならALIGNEDが付く()
         {
-            Assert.That(InstrumentPanel.FormatAlignment(0.0), Does.Contain("ALIGNED"));
-            Assert.That(InstrumentPanel.FormatAlignment(29.9), Does.Contain("ALIGNED"));
-            Assert.That(InstrumentPanel.FormatAlignment(30.0), Does.Contain("ALIGNED"));
+            // **11-3b で "ALIGNED" の文字は外した。** 許容内かどうかは色で出ており、
+            // 文字と重複していた。外したぶん字を大きくできる（HUD で実測 2.04 倍）。
+            // 判定そのものは AlignmentInTolerance に残っている。
+            Assert.That(InstrumentPanel.FormatAlignment(0.0), Does.Not.Contain("ALIGNED"));
             Assert.That(InstrumentPanel.FormatAlignment(30.1), Does.Not.Contain("ALIGNED"));
+            Assert.That(InstrumentPanel.FormatAlignment(12.3), Is.EqualTo("12.3 deg"));
 
             Debug.Log($"[Step6] 整列表示: 0 度 -> '{InstrumentPanel.FormatAlignment(0.0)}' / " +
                       $"45 度 -> '{InstrumentPanel.FormatAlignment(45.0)}'");

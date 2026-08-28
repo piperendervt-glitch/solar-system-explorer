@@ -23,6 +23,9 @@ namespace SolarSystem.Editor
     public static class ScenarioCapture
     {
         public const string ScenarioArg = "-scenario";
+
+        /// <summary>どの画面割り当てで撮るか (Step 11-3a の一時的な口)。</summary>
+        public const string LayoutArg = "-screenLayout";
         public const string HeroArg = "-hero";
 
         /// <summary>段ごとに切り分けたスクショも出す。何が写っているか分からないときに使う。</summary>
@@ -79,6 +82,41 @@ namespace SolarSystem.Editor
             }
 
             var overlay = Object.FindAnyObjectByType<DebugOverlay>();
+
+            // **計器の画面は MPB で貼っている (Step 11-3)。**
+            // MPB は実行時の状態で、EditMode では Start() が走らないので当たっていない。
+            // ここで当てないと、撮った絵にベンダーの画面絵が写る。
+            var screens = Object.FindAnyObjectByType<CockpitScreens>();
+            if (screens != null)
+            {
+                // **どの割り当てで撮るかを選べるようにする (Step 11-3a)。**
+                // A / B / C を見比べるための一時的な口。決まったら消す。
+                string wanted = StandaloneCapture.ArgValue(LayoutArg);
+                if (!string.IsNullOrEmpty(wanted)
+                    && System.Enum.TryParse(wanted, true, out ScreenLayout layout))
+                {
+                    screens.SetLayout(layout);
+                    Debug.Log($"[ScenarioCapture] 画面の割り当て: {layout}");
+                }
+
+                // **テスト柄 (Step 11-3b の切り分け道具)。**
+                if (StandaloneCapture.HasArg("-screenPattern"))
+                {
+                    screens.SetPattern(true);
+                    Debug.Log("[ScenarioCapture] テスト柄を有効化");
+                }
+
+                // **計器の向き (Step 11-3c)。** 面に貼る / 正対 / 逆歪ませ。
+                string wantedMode = StandaloneCapture.ArgValue("-screenMode");
+                if (!string.IsNullOrEmpty(wantedMode))
+                {
+                    var mode = (ScreenMode)DebugPanel.ModeIndex(wantedMode);
+                    screens.SetMode(mode);
+                    Debug.Log($"[ScenarioCapture] 計器の向き: {mode}");
+                }
+
+                screens.ApplyMaterials();
+            }
 
             string[] names = ScenarioNames(root.Model, only);
             if (names.Length == 0)
@@ -273,7 +311,30 @@ namespace SolarSystem.Editor
                     continue;
                 }
 
+                // **選ばれていない割り当ての描画元は飛ばす (Step 11-3)。**
+                // 計器の 5 面は案 A と案 B の Canvas を両方持っていて、同じ RT を
+                // 共有している。両方描くと**最後に描いたほうが残り**、実機と
+                // 違う絵が写る。止まっている Canvas のカメラは描かない。
+                Canvas canvas = cam.GetComponentInChildren<Canvas>(true);
+                if (canvas != null && !canvas.enabled)
+                {
+                    continue;
+                }
+
                 cam.Render();
+            }
+        }
+
+        static void SetCanvases(Camera cam, bool enabled)
+        {
+            if (cam == null)
+            {
+                return;
+            }
+
+            foreach (Canvas canvas in cam.GetComponentsInChildren<Canvas>(true))
+            {
+                canvas.enabled = enabled;
             }
         }
 

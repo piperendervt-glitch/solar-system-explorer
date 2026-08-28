@@ -33,16 +33,39 @@ namespace SolarSystem.Tests.EditMode
                 PlanetAppearance.BloomScatter,
                 PlanetAppearance.CoronaFalloff,
                 PlanetAppearance.FlareSpikeThickness,
-                AudioMix.MasterVolume,
-                AudioMix.EngineVolume,
-                AudioMix.CockpitVolume,
-                AudioMix.SfxVolume,
                 AudioMix.EngineLagSeconds,
+                CockpitDefinition.DefaultScreenEmission,
                 // 目の位置と画角 (Step 11-2b)。**本番はシーンに組まれた値を渡す**ので、
                 // ここは既定値の存在を確かめるためのダミー。
                 0.0, 0.0, 0.0,
                 new Vec3d(-1.0, -1.0, -1.0), new Vec3d(1.0, 1.0, 1.0),
                 CameraStackController.VerticalFovDegrees);
+        }
+
+        [Test]
+        public void 音量の項目がパネルに無い()
+        {
+            // **Step 10 で耳で決めて確定したので外した (11-3)。**
+            // 値は AudioMix の定数がそのまま効く（PlayMode で確認している）。
+            DebugPanelModel m = Make();
+            foreach (string id in new[]
+                     { "num.volMaster", "num.volEngine", "num.volCockpit", "num.volSfx" })
+            {
+                Assert.That(m.Find(id), Is.Null, id + " が残っている");
+            }
+        }
+
+        [Test]
+        public void 画面の項目がある()
+        {
+            DebugPanelModel m = Make();
+            Assert.That(m.Find(DebugPanelModel.ScreenEmissionId), Is.Not.Null);
+            Assert.That(m.NumberOf(DebugPanelModel.ScreenEmissionId),
+                        Is.EqualTo(CockpitDefinition.DefaultScreenEmission).Within(1e-9));
+
+            DebugItem layout = m.Find(DebugPanelModel.ScreenLayoutId);
+            Assert.That(layout, Is.Not.Null);
+            Assert.That(layout.Index, Is.EqualTo(0), "既定は案 A のはず");
         }
 
         [Test]

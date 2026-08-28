@@ -27,6 +27,9 @@ namespace SolarSystem.Unity
         [SerializeField] SunLightAimer _sunLightAimer;
         [SerializeField] ShipRig _shipRig;
         [SerializeField] InstrumentPanel _instruments;
+
+        /// <summary>計器を映す 5 面 (Step 11-3)。**10 Hz の描画をここから呼ぶ。**</summary>
+        [SerializeField] CockpitScreens _screens;
         [SerializeField] StationViewSet _stations;
         [SerializeField] PostProcessPreset _post;
         [SerializeField] AudioRouting _audio;
@@ -331,18 +334,45 @@ namespace SolarSystem.Unity
                 }
             }
 
+            // 11-3a で足した面ぶん。**書式は HUD (F1) と同じ出どころを使う。**
+            string dockingText = _shipRig != null && _shipRig.Docking != null
+                ? InstrumentPanel.FormatDocking(_shipRig.Docking.State)
+                : null;
+
+            string dialText = _shipRig != null && _shipRig.Dial != null
+                ? $"{_shipRig.Dial.Index}/{SpeedDial.Steps.Count - 1}"
+                : null;
+
+            string autopilotText = _shipRig != null && _shipRig.Autopilot != null
+                ? (_shipRig.Autopilot.IsEngaged ? "ON" : "OFF")
+                : null;
+
+            // **警告は「整列が許容外」。** ドッキング要求が通らない理由がこれなので、
+            // 音 (Step 10-4) と同じ条件を灯にする。
+            bool warning = station != null && !_instruments.AlignmentInTolerance;
+
             _instruments.Tick(
                 Clock != null ? Clock.ElapsedSeconds : 0.0,
                 Ship.SpeedKmPerSec,
                 distance,
                 eta,
-                targetName);
+                targetName,
+                dockingText,
+                dialText,
+                autopilotText,
+                warning);
 
             // ポート正面からのずれ角 (Step 6)。整列の手がかりが無いと
             // Enter を押しても何が足りないのか分からない。
             if (station != null)
             {
                 _instruments.SetAlignment(AlignmentAngleDegrees(station));
+            }
+
+            // **計器カメラは常時有効にしていない**ので、ここから 10 Hz で描かせる。
+            if (_screens != null)
+            {
+                _screens.Tick(Clock != null ? Clock.ElapsedSeconds : 0.0);
             }
         }
 
@@ -362,7 +392,8 @@ namespace SolarSystem.Unity
             CockpitShake shake = null,
             CameraStackController stack = null,
             SunFlareController sunFlare = null,
-            DebugPanel debugPanel = null)
+            DebugPanel debugPanel = null,
+            CockpitScreens screens = null)
         {
             _shiftDriver = shiftDriver;
             _shipTransform = shipTransform;
@@ -370,6 +401,7 @@ namespace SolarSystem.Unity
             _sunLightAimer = sunLightAimer;
             _shipRig = shipRig;
             _instruments = instruments;
+            _screens = screens;
             _stations = stations;
             _post = post;
             _audio = audio;

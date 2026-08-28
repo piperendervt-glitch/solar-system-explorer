@@ -36,6 +36,32 @@ namespace SolarSystem.Unity
         /// <summary>窓の投影面積比 (Step 11-2b)。**目の位置を振りながら見るため。**</summary>
         [SerializeField] CockpitMetrics _metrics;
 
+        /// <summary>計器の画面 (Step 11-3b)。**RT を直接見るために持つ。**</summary>
+        [SerializeField] CockpitScreens _screens;
+
+        /// <summary>テスト柄を最初から出す起動引数 (Step 11-3b の切り分け)。</summary>
+        public const string PatternArg = "-screenPattern";
+
+        /// <summary>RT の直接表示を最初から出す起動引数 (Step 11-3b の切り分け)。</summary>
+        public const string RtViewArg = "-screenRtView";
+
+        /// <summary>
+        /// 計器の向きを指定して始める起動引数 (Step 11-3c)。
+        /// `-screenMode onface | facing | prewarp`。
+        /// </summary>
+        public const string ModeArg = "-screenMode";
+
+        /// <summary>起動引数の綴りを 3 択の番号へ。**知らない綴りは 0（面に貼る）。**</summary>
+        public static int ModeIndex(string spelling)
+        {
+            switch ((spelling ?? string.Empty).ToLowerInvariant())
+            {
+                case "facing": return 1;
+                case "prewarp": return 2;
+                default: return 0;
+            }
+        }
+
         GUIStyle _style;
         GUIStyle _cursorStyle;
         GUIStyle _dimStyle;
@@ -52,7 +78,7 @@ namespace SolarSystem.Unity
 
         public void Bind(UniverseRoot root, ShipRig rig, DebugPanelApplier applier,
                          CameraStackController stack, DebugOverlay overlay,
-                         CockpitMetrics metrics)
+                         CockpitMetrics metrics, CockpitScreens screens)
         {
             _root = root;
             _rig = rig;
@@ -60,6 +86,7 @@ namespace SolarSystem.Unity
             _stack = stack;
             _overlay = overlay;
             _metrics = metrics;
+            _screens = screens;
         }
 
         /// <summary>既定値はコードの定数から取る。ここで数値を二重定義しない。</summary>
@@ -105,11 +132,8 @@ namespace SolarSystem.Unity
                 PlanetAppearance.BloomScatter,
                 PlanetAppearance.CoronaFalloff,
                 PlanetAppearance.FlareSpikeThickness,
-                AudioMix.MasterVolume,
-                AudioMix.EngineVolume,
-                AudioMix.CockpitVolume,
-                AudioMix.SfxVolume,
                 AudioMix.EngineLagSeconds,
+                CockpitDefinition.DefaultScreenEmission,
                 // **既定はシーンに組まれた値。** パネル側で数値を二重定義しない
                 // （目の位置は CockpitDefinition か bounds から来ている）。
                 eye.x, eye.y, eye.z, eyeMin, eyeMax, fov);
@@ -118,6 +142,26 @@ namespace SolarSystem.Unity
             {
                 Model.ToggleOpen();
             }
+
+            // **切り分けの道具を起動引数から立てられるようにする (Step 11-3b)。**
+            // batchmode のスクショでは F4 を押せないため。
+            bool pattern = StandaloneCapture.HasArg(PatternArg);
+            bool rtView = StandaloneCapture.HasArg(RtViewArg);
+            string wantedMode = StandaloneCapture.ArgValue(ModeArg);
+            bool facing = !string.IsNullOrEmpty(wantedMode);
+            if (pattern) { Model.Find(DebugPanelModel.ScreenPatternId).BoolValue = true; }
+            if (rtView) { Model.Find(DebugPanelModel.ScreenRtViewId).BoolValue = true; }
+            if (facing)
+            {
+                Model.Find(DebugPanelModel.ScreenModeId).Index = ModeIndex(wantedMode);
+            }
+
+            // パネルが閉じていても、道具を指定されたときは 1 度だけ反映する。
+            if ((pattern || rtView || facing) && _applier != null)
+            {
+                _applier.Apply(Model);
+            }
+
         }
 
         public static bool HasDebugPanelArg()
@@ -446,7 +490,20 @@ namespace SolarSystem.Unity
 
         void OnGUI()
         {
-            if (Model == null || !Model.IsOpen)
+            if (Model == null)
+            {
+                return;
+            }
+
+            // **RT の直接表示はパネルを閉じていても描く (Step 11-3b)。**
+            // 面に貼る前の中身を、パネルに隠されずに見るため。既定は OFF なので
+            // 「F4 を押さなければ既存動作と同一」は保たれる。
+            if (Model.BoolOf(DebugPanelModel.ScreenRtViewId))
+            {
+                DrawRenderTextures();
+            }
+
+            if (!Model.IsOpen)
             {
                 return;
             }
@@ -551,6 +608,74 @@ namespace SolarSystem.Unity
                 DrawRow(x, y, k, colW, rows[i], _style, lh);
                 y += lh;
             }
+        }
+
+        /// <summary>
+        /// 計器の RT を**等倍・フィルタ無し**で左上へ並べる (Step 11-3b の切り分け道具)。
+        ///
+        /// 面に貼る前の中身がそのまま見えるので、**RT が既におかしいのか、
+        /// 貼るときに崩れるのか**を分けられる。横に入らなければ次の行へ折り返す。
+        /// </summary>
+        /// <summary>
+        /// **RT を 1 面ずつ画面中央に等倍で出す (Step 11-3c)。**
+        ///
+        /// 5 面を並べる形は、重なりと F4 パネルで端が切れて判定に使えなかった
+        /// （実機で確認）。**何倍で描いているかを画面に出す**ので、
+        /// 1:1 で見えていることを目で確かめられる。
+        /// 枠は 1 px の白線。**枠が 4 辺とも見えていれば切れていない。**
+        /// </summary>
+        void DrawRenderTextures()
+        {
+            if (_screens == null || _screens.Screens.Count == 0)
+            {
+                return;
+            }
+
+            DebugItem face = Model.Find(DebugPanelModel.ScreenRtFaceId);
+            int index = Mathf.Clamp(face != null ? face.Index : 0,
+                                    0, _screens.Screens.Count - 1);
+            CockpitScreens.Screen target = _screens.Screens[index];
+            if (target == null)
+            {
+                return;
+            }
+
+            // **いま面が実際に読んでいるほう**を出す（逆歪ませなら歪ませたほう）。
+            bool warped = _screens.Mode == ScreenMode.Prewarp && target.Warped != null;
+            RenderTexture rt = warped ? target.Warped : target.Texture;
+            if (rt == null)
+            {
+                return;
+            }
+
+            // 等倍で入らないときだけ 1/2、1/4 と落とす。**半端な倍率にしない。**
+            const float margin = 90f;
+            float scale = 1f;
+            while ((rt.width * scale > Screen.width - margin
+                    || rt.height * scale > Screen.height - margin) && scale > 0.13f)
+            {
+                scale *= 0.5f;
+            }
+
+            float w = rt.width * scale;
+            float h = rt.height * scale;
+            float x = Mathf.Round((Screen.width - w) * 0.5f);
+            float y = Mathf.Round((Screen.height - h) * 0.5f);
+
+            GUI.DrawTexture(new Rect(x, y, w, h), rt, ScaleMode.StretchToFill, false);
+
+            // 1 px の枠。**4 辺とも見えていれば、切れずに全部出ている。**
+            GUI.DrawTexture(new Rect(x - 1f, y - 1f, w + 2f, 1f), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(x - 1f, y + h, w + 2f, 1f), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(x - 1f, y - 1f, 1f, h + 2f), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(x + w, y - 1f, 1f, h + 2f), Texture2D.whiteTexture);
+
+            string kind = warped ? "逆歪ませ後" : "描いたまま";
+            GUI.Label(new Rect(x, y - 24f, Screen.width - x, 22f),
+                      $"[{index + 1}/{_screens.Screens.Count}] {target.RendererName}"
+                      + $" / RT {rt.width}x{rt.height} ({kind})"
+                      + $" / 画面上 {w:F0}x{h:F0} = 倍率 {scale:F3}",
+                      _dimStyle ?? GUI.skin.label);
         }
 
         void DrawRow(float x, float y, float k, float[] colW, string[] cells, GUIStyle s, float lh)

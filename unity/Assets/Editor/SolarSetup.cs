@@ -88,6 +88,17 @@ public static class SolarSetup
     /// **取り込み先を書き換えてから取り込む。** ImportPackageImmediately は
     /// 宛先の引数を持たず、素のままだと .gitignore の外へ展開されるため。
     /// </summary>
+    /// <summary>
+    /// 計器の RT を CPU へ読み戻して PNG と寸法を出す (Step 11-3c)。
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.DumpScreenTextures
+    /// </summary>
+    public static void DumpScreenTextures()
+    {
+        SolarSystem.Editor.ScreenTextureDump.Run();
+        Debug.Log("[SolarSetup] DumpScreenTextures OK");
+    }
+
     public static void ImportCockpit()
     {
         SolarSystem.Editor.CockpitImporter.Run();

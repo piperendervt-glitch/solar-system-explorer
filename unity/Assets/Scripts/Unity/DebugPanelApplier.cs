@@ -33,8 +33,11 @@ namespace SolarSystem.Unity
         /// <summary>コロナ (Step 9-2)。太陽のみ。</summary>
         [SerializeField] Material _sunCorona;
 
-        /// <summary>音量の反映先 (Step 10-2)。</summary>
+        /// <summary>音の反映先 (Step 10-2)。**音量はパネルから外した (11-3)。**</summary>
         [SerializeField] AudioRouting _audio;
+
+        /// <summary>計器の画面 (Step 11-3)。発光の強さと A/B の割り当てを流す。</summary>
+        [SerializeField] CockpitScreens _screens;
 
         /// <summary>
         /// 目の位置を動かす先 (Step 11-2b)。`Cam_Cockpit` の Transform。
@@ -47,7 +50,7 @@ namespace SolarSystem.Unity
                          CockpitShake shake, PostProcessPreset post, StationViewSet stations,
                          Material earthSurface, Material marsSurface, Material clouds,
                          Material sunMesh, Material sunPoint, Material sunCorona,
-                         AudioRouting audio, Transform cockpitEye)
+                         AudioRouting audio, Transform cockpitEye, CockpitScreens screens)
         {
             _root = root;
             _stack = stack;
@@ -63,6 +66,7 @@ namespace SolarSystem.Unity
             _sunCorona = sunCorona;
             _audio = audio;
             _cockpitEye = cockpitEye;
+            _screens = screens;
         }
 
         /// <summary>1 フレームぶん反映する。</summary>
@@ -264,11 +268,29 @@ namespace SolarSystem.Unity
 
             if (_audio != null)
             {
-                _audio.SetVolume(AudioGroup.Master, model.NumberOf(DebugPanelModel.MasterVolumeId));
-                _audio.SetVolume(AudioGroup.Engine, model.NumberOf(DebugPanelModel.EngineVolumeId));
-                _audio.SetVolume(AudioGroup.Cockpit, model.NumberOf(DebugPanelModel.CockpitVolumeId));
-                _audio.SetVolume(AudioGroup.Sfx, model.NumberOf(DebugPanelModel.SfxVolumeId));
+                // **音量の 4 項目は 11-3 でパネルから外した。** Step 10 で耳で決めて
+                // 確定しており、値は AudioMix の定数がそのまま効く。
+                // 追従の時定数だけは Demo 3 でも触れるように残す。
                 _audio.EngineLagSeconds = model.NumberOf(DebugPanelModel.EngineLagId);
+            }
+
+            if (_screens != null)
+            {
+                _screens.SetEmission((float)model.NumberOf(DebugPanelModel.ScreenEmissionId));
+
+                DebugItem layout = model.Find(DebugPanelModel.ScreenLayoutId);
+                if (layout != null)
+                {
+                    _screens.SetLayout((ScreenLayout)Mathf.Clamp(layout.Index, 0, 2));
+                }
+
+                _screens.SetPattern(model.BoolOf(DebugPanelModel.ScreenPatternId));
+
+                DebugItem mode = model.Find(DebugPanelModel.ScreenModeId);
+                if (mode != null)
+                {
+                    _screens.SetMode((ScreenMode)Mathf.Clamp(mode.Index, 0, 2));
+                }
             }
 
             var coronaSize = (float)model.NumberOf(DebugPanelModel.CoronaSizeId);

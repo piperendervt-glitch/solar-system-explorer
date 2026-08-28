@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using SolarSystem.Unity;
 using TMPro;
 using UnityEditor;
@@ -61,6 +62,9 @@ namespace SolarSystem.Editor
 
             /// <summary>窓の投影面積比の計測器 (Step 11-2b)。F4 とテストが読む。</summary>
             public CockpitMetrics Metrics;
+
+            /// <summary>計器を映す 5 面 (Step 11-3)。箱では空。</summary>
+            public CockpitScreens Screens;
         }
 
         /// <summary>既定の定義（`CockpitCatalog.Requested`）で組む。</summary>
@@ -137,6 +141,44 @@ namespace SolarSystem.Editor
 
             InstrumentPanel panel = BuildInstrumentSource(root.transform, rt);
 
+            // ---- 計器の画面 (Step 11-3) ----
+            // **帯 (InstrumentSurface) は残したまま並存させる。** 撤去は 11-3c。
+            // 先に消すと「やっぱり読めない」となったときに戻すのが面倒なため。
+            var screens = root.AddComponent<CockpitScreens>();
+            screens.Bind(BuildScreens(root.transform, built, panel, camGo.transform));
+
+            // **既定（案 A）をシーンに焼く。** Start() が走らない EditMode の
+            // 撮影経路（ScenarioCapture）でも、選ばれていない側の Canvas が
+            // 同じ RT へ描き込まないようにするため。
+            foreach (CockpitScreens.Screen screen in screens.Screens)
+            {
+                if (screen.CameraB == null)
+                {
+                    continue;
+                }
+
+                foreach (Canvas canvas in screen.CameraB.GetComponentsInChildren<Canvas>(true))
+                {
+                    canvas.enabled = false;
+                }
+
+                if (screen.CameraC == null)
+                {
+                    continue;
+                }
+
+                foreach (Canvas canvas in screen.CameraC.GetComponentsInChildren<Canvas>(true))
+                {
+                    canvas.enabled = false;
+                }
+
+                foreach (Canvas canvas in
+                         screen.CameraPattern.GetComponentsInChildren<Canvas>(true))
+                {
+                    canvas.enabled = false;
+                }
+            }
+
             // ---- 窓の物差し (Step 11-2b) ----
             // **箱には窓が無い**ので、そのときは空のまま。計測器は「測れない」を返す。
             var metrics = root.AddComponent<CockpitMetrics>();
@@ -146,6 +188,7 @@ namespace SolarSystem.Editor
             {
                 CockpitCamera = cockpitCam, Panel = panel,
                 ShakeRig = rig.transform, Identity = identity, Metrics = metrics,
+                Screens = screens,
             };
         }
 
@@ -403,28 +446,716 @@ namespace SolarSystem.Editor
         }
 
         /// <summary>
-        /// 窓（ガラス）のレンダラーを集める (Step 11-2b)。
+        /// 計器を映す面を組む (Step 11-3)。
         ///
-        /// **マテリアル名で引く。** 子の順番や階層の形に依存すると、別のアセットへ
-        /// 差し替えたときに黙って壊れる。実測では `Cockpit3Grey_Glass` が 1 枚。
+        /// **面ごとに RenderTexture を 1 枚ずつ。** アトラスにしない理由は、ベンダーの
+        /// UV 配置が画面上の必要解像度と釣り合っていないため（小さいゲージほど目に近い）。
+        /// 実測ではアトラスだと 3072x2400 必要になるが、面ごとなら合計 1.31M px で足りる。
+        ///
+        /// **案 A と案 B の Canvas を両方組む。** 実機で見比べて決めるための一時的な足場。
         /// </summary>
-        static List<Renderer> CollectGlass(Transform root)
+        static List<CockpitScreens.Screen> BuildScreens(
+            Transform root, SolarSystem.Core.CockpitDefinition definition, InstrumentPanel panel,
+            Transform eye)
         {
-            var found = new List<Renderer>();
-            foreach (Renderer renderer in root.GetComponentsInChildren<Renderer>(true))
+            var built = new List<CockpitScreens.Screen>();
+            IReadOnlyList<SolarSystem.Core.CockpitScreen> layoutA =
+                definition.Screens(SolarSystem.Core.ScreenLayout.A);
+            IReadOnlyList<SolarSystem.Core.CockpitScreen> layoutB =
+                definition.Screens(SolarSystem.Core.ScreenLayout.B);
+            IReadOnlyList<SolarSystem.Core.CockpitScreen> layoutC =
+                definition.Screens(SolarSystem.Core.ScreenLayout.C);
+
+            if (layoutA.Count == 0)
             {
-                foreach (Material material in renderer.sharedMaterials)
+                return built; // 箱には画面が無い
+            }
+
+            // 描画元はコックピットから遠く離す。**他のカメラに写らないように。**
+            var sourceRoot = new GameObject("ScreenSources");
+            sourceRoot.transform.SetParent(root, false);
+            sourceRoot.transform.localPosition = new Vector3(1.0e5f, 1.0e5f, 0f);
+
+            for (int i = 0; i < layoutA.Count; i++)
                 {
-                    if (material != null
-                        && material.name.Contains(CockpitMetrics.GlassMaterialKeyword))
-                    {
-                        found.Add(renderer);
-                        break;
-                    }
+                SolarSystem.Core.CockpitScreen a = layoutA[i];
+                Renderer target = FindRenderer(root, a.RendererName);
+                if (target == null)
+                {
+                    Debug.LogWarning($"[CockpitBuilder] 画面のレンダラーが無い: {a.RendererName}");
+                    continue;
+                }
+
+                Vector2Int size = TextureSizeFor(target, a.TextureLongSide);
+                RenderTexture texture = GetOrCreateScreenTexture(a.RendererName, size.x, size.y);
+
+                // ---- 逆歪ませ (Step 11-3c) ----
+                // **行列はメッシュと目の姿勢から自動で出す。** 手で数値を入れない。
+                // 平面でなければここで例外になる（11-6 で曲面が来たときに黙って
+                // 崩れないように）。
+                CockpitWarp.Face warp =
+                    CockpitWarp.Solve(target, eye, size.x / (float)size.y);
+
+                // **圧縮される軸にだけ積む。** 逆歪ませた中身は RT の一部しか
+                // 使わないので、そのぶん解像度が落ちる。歪ませたほうの RT は
+                // 中身が歪んでいるので、比が面の実寸と違っていて構わない。
+                var warpedSize = new Vector2Int(Round4(size.x * warp.TextureScale.x),
+                                                Round4(size.y * warp.TextureScale.y));
+                RenderTexture warped = GetOrCreateScreenTexture(
+                    a.RendererName + "_Warped", warpedSize.x, warpedSize.y);
+
+                Debug.Log($"[CockpitBuilder] 逆歪ませ {a.RendererName}: "
+                          + $"平面からのずれ {warp.PlanarDeviation:P3} / "
+                          + $"倍率 {warp.TextureScale.x:F2} x {warp.TextureScale.y:F2} / "
+                          + $"RT {size.x}x{size.y} -> {warpedSize.x}x{warpedSize.y}");
+
+                SolarSystem.Core.CockpitScreen b = FindByRenderer(layoutB, a.RendererName);
+                SolarSystem.Core.CockpitScreen c = FindByRenderer(layoutC, a.RendererName);
+
+                // **Canvas 同士が互いのカメラに写らないよう、組ごとに離して置く。**
+                var slot = new GameObject("Screen_" + a.RendererName);
+                slot.transform.SetParent(sourceRoot.transform, false);
+                slot.transform.localPosition = new Vector3(i * 100f, 0f, 0f);
+
+                built.Add(new CockpitScreens.Screen
+                {
+                    RendererName = a.RendererName,
+                    Target = target,
+                    Texture = texture,
+                    BaseMapSt = BaseMapStFor(target),
+                    Transparent = IsTransparent(target),
+                    CameraA = BuildScreenSource(slot.transform, "A", texture, a.Role, panel, 0f,
+                                                IsTransparent(target)),
+                    CameraB = b == null
+                        ? null
+                        : BuildScreenSource(slot.transform, "B", texture, b.Role, panel, 50f,
+                                            IsTransparent(target)),
+                    CameraC = c == null
+                        ? null
+                        : BuildScreenSource(slot.transform, "C", texture, c.Role, panel, 100f,
+                                            IsTransparent(target)),
+                    CameraPattern = BuildPatternSource(slot.transform, texture, 150f),
+                    Facing = BuildFacingQuad(root, target, texture, eye, IsTransparent(target)),
+                    Warped = warped,
+                    Warp = warp.Warp,
+                    WarpMaterial = GetOrCreateWarpMaterial(a.RendererName),
+                });
+            }
+
+            return built;
+        }
+
+        static SolarSystem.Core.CockpitScreen FindByRenderer(
+            IReadOnlyList<SolarSystem.Core.CockpitScreen> screens, string rendererName)
+        {
+            foreach (SolarSystem.Core.CockpitScreen s in screens)
+            {
+                if (s.RendererName == rendererName)
+                {
+                    return s;
                 }
             }
 
-            return found;
+            return null;
+        }
+
+        /// <summary>
+        /// **視線に正対するクアッドを、元の面の位置に置く (Step 11-3b)。**
+        ///
+        /// ■ なぜ成立するか
+        /// このゲームは**目がコックピットに固定**されていて、船が回っても目と計器盤の
+        /// 位置関係が変わらない。**見る角度が 1 つに決まる**ので、組み立て時に正対
+        /// させておけば実行時も正対のまま（毎フレームの向き直しが要らない）。
+        ///
+        /// ■ 大きさと位置
+        /// 元の面の頂点を目から見た視線方向の平面へ投影し、その外接矩形を覆う
+        /// 大きさにする。**画面上で元の面をちょうど覆う。**
+        /// 奥行きは元の面の最も近い頂点よりわずかに手前（2 %）に置く。
+        ///
+        /// **既定では無効。** F4 の「計器の向き」で出す。
+        /// </summary>
+        static Renderer BuildFacingQuad(Transform root, Renderer source, RenderTexture texture,
+                                        Transform eye, bool transparent)
+        {
+            Mesh mesh = source.GetComponent<MeshFilter>().sharedMesh;
+            if (mesh == null || eye == null)
+            {
+                return null;
+            }
+
+            // 目から見た座標へ。カメラは回っていないので、これがそのまま視線座標。
+            float near = float.MaxValue;
+            var points = new List<Vector3>();
+            foreach (Vector3 v in mesh.vertices)
+            {
+                Vector3 view = eye.InverseTransformPoint(source.transform.TransformPoint(v));
+                if (view.z <= 0f)
+                {
+                    continue;
+                }
+
+                points.Add(view);
+                near = Mathf.Min(near, view.z);
+            }
+
+            if (points.Count < 3)
+            {
+                return null;
+            }
+
+            // 手前 2 % の平面へ、各頂点の視線を延ばして写す（画面上の位置は変わらない）。
+            float plane = near * 0.98f;
+            float minX = float.MaxValue, maxX = float.MinValue;
+            float minY = float.MaxValue, maxY = float.MinValue;
+            foreach (Vector3 v in points)
+            {
+                float x = v.x * plane / v.z;
+                float y = v.y * plane / v.z;
+                minX = Mathf.Min(minX, x); maxX = Mathf.Max(maxX, x);
+                minY = Mathf.Min(minY, y); maxY = Mathf.Max(maxY, y);
+            }
+
+            // **RT の縦横比に合わせて内接させる (Step 11-3b)。**
+            // 外接のままだと、投影の外接矩形の比（実測 351:119 = 2.95）と
+            // RT の比（1024:544 = 1.88）の差で**横に 1.57 倍伸びる**（実測で楕円になった）。
+            // 正対させる目的は歪みを消すことなので、覆う面積より比を優先する。
+            float boxWidth = maxX - minX;
+            float boxHeight = maxY - minY;
+            float centerX = (minX + maxX) * 0.5f;
+            float centerY = (minY + maxY) * 0.5f;
+            float textureAspect = texture.width / (float)texture.height;
+
+            if (boxWidth / boxHeight > textureAspect)
+            {
+                boxWidth = boxHeight * textureAspect;
+            }
+            else
+            {
+                boxHeight = boxWidth / textureAspect;
+            }
+
+            var go = new GameObject("FacingQuad_" + source.name);
+            go.transform.SetParent(root, false);
+            go.layer = source.gameObject.layer;
+
+            // 目のローカル座標で置いてから、コックピットの下へ付け替える。
+            go.transform.position = eye.TransformPoint(new Vector3(centerX, centerY, plane));
+            go.transform.rotation = eye.rotation;
+
+            var filter = go.AddComponent<MeshFilter>();
+            filter.sharedMesh = CreateQuadMesh(boxWidth, boxHeight);
+
+            Debug.Log($"[CockpitBuilder] 正対クアッド {source.name}: 目からの距離 {plane:F3} m"
+                      + $" / 大きさ {boxWidth:F3} x {boxHeight:F3} m"
+                      + $" / 中心 ({centerX:F3}, {centerY:F3})"
+                      + $" / 外接 {maxX - minX:F3} x {maxY - minY:F3}");
+
+            var renderer = go.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = GetOrCreateFacingMaterial(transparent);
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            renderer.enabled = false; // 既定は「面に貼る」
+
+            return renderer;
+        }
+
+        /// <summary>XY 平面の四角。**法線は +Z（目の側）**、UV は 0..1。</summary>
+        static Mesh CreateQuadMesh(float width, float height)
+        {
+            float hw = width * 0.5f;
+            float hh = height * 0.5f;
+
+            var mesh = new Mesh { name = "FacingQuad" };
+            mesh.vertices = new[]
+            {
+                new Vector3(-hw, -hh, 0f), new Vector3(-hw, hh, 0f),
+                new Vector3(hw, hh, 0f), new Vector3(hw, -hh, 0f),
+            };
+
+            mesh.uv = new[]
+            {
+                new Vector2(0f, 0f), new Vector2(0f, 1f),
+                new Vector2(1f, 1f), new Vector2(1f, 0f),
+            };
+
+            // **両面にする。**
+            // 片面だと、巻き順を取り違えたときに「有効で、位置も正しいのに
+            // 1 画素も出ない」という分かりにくい形で失敗する（実測でそうなった）。
+            // 切り分けの道具なので、三角形 2 枚ぶんのコストより確実さを取る。
+            mesh.triangles = new[] { 0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2 };
+            mesh.normals = new[] { -Vector3.forward, -Vector3.forward,
+                                   -Vector3.forward, -Vector3.forward };
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        /// <summary>正対クアッド用の Unlit。**RT は MPB で面ごとに差す。**</summary>
+        static Material GetOrCreateFacingMaterial(bool transparent)
+        {
+            string path = transparent
+                ? "Assets/Materials/FacingScreenTransparent.mat"
+                : "Assets/Materials/FacingScreen.mat";
+
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            var material = new Material(Shader.Find("Universal Render Pipeline/Unlit"))
+            {
+                name = Path.GetFileNameWithoutExtension(path),
+            };
+
+            if (transparent)
+            {
+                material.SetFloat("_Surface", 1f);
+                material.SetFloat("_Blend", 0f);
+                material.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                material.SetFloat("_DstBlend",
+                    (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                material.SetFloat("_ZWrite", 0f);
+                material.renderQueue = 3000;
+                material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            }
+
+            AssetDatabase.CreateAsset(material, path);
+            return material;
+        }
+
+        /// <summary>
+        /// その面のマテリアルが Transparent か (Step 11-3b)。
+        ///
+        /// **透明な面には透明な RT を描く。** HUD (`CockpitEquipments_TargetScreens`) は
+        /// Transparent で、キャノピー越しに外が見える位置にある。RT の背景を不透明にすると
+        /// **黒い板が視界の中央を塞ぐ**（実機で確認）。
+        /// </summary>
+        static bool IsTransparent(Renderer renderer)
+        {
+            Material material = renderer.sharedMaterial;
+            return material != null && material.HasProperty("_Surface")
+                   && material.GetFloat("_Surface") > 0.5f;
+        }
+
+        static Renderer FindRenderer(Transform root, string name)
+        {
+            foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                if (r.name == name)
+                {
+                    return r;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// メッシュの UV 矩形を 0..1 へ写す `_BaseMap_ST` (Step 11-3b)。
+        /// **ここで焼き込む。** 実行時にメッシュを読み直さない。
+        /// </summary>
+        static Vector4 BaseMapStFor(Renderer renderer)
+        {
+            var filter = renderer.GetComponent<MeshFilter>();
+            Mesh mesh = filter != null ? filter.sharedMesh : null;
+            if (mesh == null)
+            {
+                return new Vector4(1f, 1f, 0f, 0f);
+            }
+
+            Vector2[] uv = mesh.uv;
+            float u0 = 1f, u1 = 0f, v0 = 1f, v1 = 0f;
+            foreach (Vector2 t in uv)
+            {
+                u0 = Mathf.Min(u0, t.x); u1 = Mathf.Max(u1, t.x);
+                v0 = Mathf.Min(v0, t.y); v1 = Mathf.Max(v1, t.y);
+            }
+
+            SolarSystem.Core.UvRemap.ToUnit(u0, u1, out double sx, out double ox);
+            SolarSystem.Core.UvRemap.ToUnit(v0, v1, out double sy, out double oy);
+            return new Vector4((float)sx, (float)sy, (float)ox, (float)oy);
+        }
+
+        /// <summary>
+        /// 面の実寸から RT の寸法を出す (Step 11-3b)。
+        ///
+        /// **UV の勾配（u/v 1 単位あたり面上で何 m 進むか）から実寸を出す。**
+        /// UV は面上の位置に対して厳密に線形であることを実測済みなので、
+        /// 一次独立な 3 頂点から勾配が一意に決まる。
+        ///
+        /// **投影サイズから決めてはいけない。** 見かけの大きさは目の位置と面の傾きで
+        /// 変わるが、RT が貼られるのは面そのものなので、比が合わないと文字がつぶれる。
+        /// </summary>
+        static Vector2Int TextureSizeFor(Renderer renderer, int longSide)
+        {
+            var filter = renderer.GetComponent<MeshFilter>();
+            Mesh mesh = filter != null ? filter.sharedMesh : null;
+            if (mesh == null || mesh.uv.Length < 3)
+            {
+                return new Vector2Int(longSide, longSide);
+            }
+
+            Vector3[] p = mesh.vertices;
+            Vector2[] uv = mesh.uv;
+
+            // uv が一次独立になる 3 点を探す。
+            int i1 = -1, i2 = -1;
+            for (int i = 1; i < uv.Length && i2 < 0; i++)
+            {
+                Vector2 d1 = uv[i] - uv[0];
+                if (d1.sqrMagnitude < 1e-10f)
+                {
+                    continue;
+                }
+
+                if (i1 < 0)
+                {
+                    i1 = i;
+                    continue;
+                }
+
+                Vector2 a1 = uv[i1] - uv[0];
+                if (Mathf.Abs((a1.x * d1.y) - (a1.y * d1.x)) > 1e-6f)
+                {
+                    i2 = i;
+                }
+            }
+
+            if (i1 < 0 || i2 < 0)
+            {
+                return new Vector2Int(longSide, longSide);
+            }
+
+            Vector2 e1 = uv[i1] - uv[0];
+            Vector2 e2 = uv[i2] - uv[0];
+            Vector3 f1 = p[i1] - p[0];
+            Vector3 f2 = p[i2] - p[0];
+
+            float det = (e1.x * e2.y) - (e1.y * e2.x);
+            Vector3 dpdu = ((f1 * e2.y) - (f2 * e1.y)) / det;
+            Vector3 dpdv = ((f2 * e1.x) - (f1 * e2.x)) / det;
+
+            float u0 = float.MaxValue, u1 = float.MinValue;
+            float v0 = float.MaxValue, v1 = float.MinValue;
+            foreach (Vector2 t in uv)
+            {
+                u0 = Mathf.Min(u0, t.x); u1 = Mathf.Max(u1, t.x);
+                v0 = Mathf.Min(v0, t.y); v1 = Mathf.Max(v1, t.y);
+            }
+
+            float widthMeters = dpdu.magnitude * (u1 - u0);
+            float heightMeters = dpdv.magnitude * (v1 - v0);
+            if (widthMeters <= 0f || heightMeters <= 0f)
+            {
+                return new Vector2Int(longSide, longSide);
+            }
+
+            float aspect = widthMeters / heightMeters;
+            int w = aspect >= 1f ? longSide : Round4(longSide * aspect);
+            int h = aspect >= 1f ? Round4(longSide / aspect) : longSide;
+
+            Debug.Log($"[CockpitBuilder] {renderer.name} 実寸 {widthMeters * 1000f:F1} x "
+                      + $"{heightMeters * 1000f:F1} mm (比 {aspect:F3}) -> RT {w}x{h}");
+
+            return new Vector2Int(w, h);
+        }
+
+        static int Round4(float value) => Mathf.Max(4, Mathf.RoundToInt(value / 4f) * 4);
+
+        /// <summary>
+        /// 逆歪ませの blit に使うマテリアル (Step 11-3c)。**面ごとに 1 枚。**
+        ///
+        /// 行列は面ごとに違うが、**行列のプロパティは .mat に保存されない**
+        /// （保存できるのは float / color / vector / texture だけ）。
+        /// 実行時に `CockpitScreens.ApplyMode` が入れ直す。
+        /// </summary>
+        static Material GetOrCreateWarpMaterial(string rendererName)
+        {
+            string path = "Assets/Materials/Warp_"
+                          + rendererName.Replace("CockpitEquipments_", string.Empty)
+                          + ".mat";
+
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            Shader shader = Shader.Find("SolarSystem/ScreenWarp");
+            if (shader == null)
+            {
+                throw new System.InvalidOperationException(
+                    "SolarSystem/ScreenWarp が見つからない");
+            }
+
+            var material = new Material(shader)
+            {
+                name = Path.GetFileNameWithoutExtension(path),
+            };
+
+            AssetDatabase.CreateAsset(material, path);
+            return material;
+        }
+
+        static RenderTexture GetOrCreateScreenTexture(string rendererName, int width, int height)
+        {
+            string path = "Assets/Materials/Screen_"
+                          + rendererName.Replace("CockpitEquipments_", string.Empty)
+                          + ".renderTexture";
+
+            var existing = AssetDatabase.LoadAssetAtPath<RenderTexture>(path);
+            if (existing != null)
+            {
+                if (existing.width != width || existing.height != height)
+                {
+                    existing.Release();
+                    existing.width = width;
+                    existing.height = height;
+                    EditorUtility.SetDirty(existing);
+                    AssetDatabase.SaveAssets();
+                }
+
+                return existing;
+            }
+
+            var rt = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32)
+            {
+                name = "Screen_" + rendererName,
+                antiAliasing = 1,
+            };
+
+            AssetDatabase.CreateAsset(rt, path);
+            return rt;
+        }
+
+        /// <summary>
+        /// 1 つの面の描画元（カメラ + Canvas + TMP）を作る (Step 11-3)。
+        /// **カメラは enabled = false のまま。** 描くのは `CockpitScreens` が 10 Hz で呼ぶ。
+        /// </summary>
+        static Camera BuildScreenSource(Transform parent, string suffix, RenderTexture rt,
+                                        SolarSystem.Core.ScreenRole role, InstrumentPanel panel,
+                                        float offsetY, bool transparent)
+        {
+            var camGo = new GameObject("Cam_Screen" + suffix);
+            camGo.transform.SetParent(parent, false);
+            camGo.transform.localPosition = new Vector3(0f, offsetY, -2f);
+
+            Camera cam = camGo.AddComponent<Camera>();
+            cam.orthographic = true;
+            cam.orthographicSize = 0.5f;
+            cam.nearClipPlane = 0.01f;
+            cam.farClipPlane = 10f;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            // 透明な面は背景も透明にする。不透明な面は暗い下地を敷いて文字を読みやすくする。
+            cam.backgroundColor = transparent
+                ? new Color(0f, 0f, 0f, 0f)
+                : new Color(0.02f, 0.03f, 0.04f, 1f);
+            cam.cullingMask = 1 << 5; // UI レイヤーのみ
+            cam.targetTexture = rt;
+            cam.enabled = false;
+
+            var canvasGo = new GameObject("Canvas");
+            canvasGo.transform.SetParent(camGo.transform, false);
+            canvasGo.layer = 5;
+            var canvas = canvasGo.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = cam;
+            canvas.planeDistance = 1f;
+            canvasGo.AddComponent<UnityEngine.UI.CanvasScaler>().dynamicPixelsPerUnit = 4f;
+            canvasGo.GetComponent<RectTransform>().sizeDelta = new Vector2(rt.width, rt.height);
+
+            BuildRole(canvasGo.transform, role, panel, rt.height);
+            return cam;
+        }
+
+        /// <summary>
+        /// **テスト柄の描画元 (Step 11-3b の切り分け道具)。**
+        ///
+        /// 計器の表示ではなく、貼り方を見るための柄を描く:
+        ///   - 最外周 1 px の枠線 … 面の端まで貼れているか
+        ///   - 等間隔の格子 … 等間隔が崩れていれば貼り方の歪み
+        ///   - 中心の真円 … 楕円に見えれば縦横比の問題
+        ///   - 四隅の別々の印 (TL/TR/BL/BR) … 反転・回転
+        ///   - 基準線に沿った "ABC 123" … 傾いていれば文字側の問題
+        ///
+        /// **柄は白の矩形だけで作る**（画像アセットを増やさない）。円は小さな点を
+        /// 円周に並べて表す。
+        /// </summary>
+        static Camera BuildPatternSource(Transform parent, RenderTexture rt, float offsetY)
+        {
+            var camGo = new GameObject("Cam_ScreenPattern");
+            camGo.transform.SetParent(parent, false);
+            camGo.transform.localPosition = new Vector3(0f, offsetY, -2f);
+
+            Camera cam = camGo.AddComponent<Camera>();
+            cam.orthographic = true;
+            cam.orthographicSize = 0.5f;
+            cam.nearClipPlane = 0.01f;
+            cam.farClipPlane = 10f;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.02f, 0.02f, 0.04f, 1f);
+            cam.cullingMask = 1 << 5;
+            cam.targetTexture = rt;
+            cam.enabled = false;
+
+            var canvasGo = new GameObject("Canvas");
+            canvasGo.transform.SetParent(camGo.transform, false);
+            canvasGo.layer = 5;
+            var canvas = canvasGo.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = cam;
+            canvas.planeDistance = 1f;
+            canvasGo.AddComponent<UnityEngine.UI.CanvasScaler>().dynamicPixelsPerUnit = 4f;
+            canvasGo.GetComponent<RectTransform>().sizeDelta = new Vector2(rt.width, rt.height);
+
+            BuildPattern(canvasGo.transform, rt.width, rt.height);
+            return cam;
+        }
+
+        /// <summary>
+        /// テスト柄の中身 (Step 11-3b)。
+        ///
+        /// ■ **線は UI の矩形ではなく、画素を自分で置いたテクスチャで描く。**
+        /// 1 px の `Image` を並べた最初の版では、実測で**縦線が 2 本（幅 4 px / 位置も
+        /// 12 px ずれ）しか出ず、外周と横線が 1 本も出なかった。** UI のレイアウトを
+        /// 経由するかぎり「1 px を確実に置く」を保証できないので、テクスチャを
+        /// 自前で作って貼る形にした。**切り分けの土台なので、ここは確実さを取る。**
+        ///
+        /// 文字だけは TMP（計器と同じ経路）で載せる。文字側の傾きを見るため。
+        /// </summary>
+        static void BuildPattern(Transform canvas, int width, int height)
+        {
+            var raw = new GameObject("PatternTexture");
+            raw.transform.SetParent(canvas, false);
+            raw.layer = 5;
+
+            var image = raw.AddComponent<UnityEngine.UI.RawImage>();
+            image.texture = GetOrCreatePatternTexture(width, height);
+
+            var rect = raw.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
+            // 四隅の印。**それぞれ違う文字**で反転・回転が分かる。
+            float corner = Mathf.Min(width, height) * 0.18f;
+            AddPatternText(canvas, "TL", "TL", 0.03f, 0.35f, 0.75f, 0.97f, corner);
+            AddPatternText(canvas, "TR", "TR", 0.65f, 0.97f, 0.75f, 0.97f, corner);
+            AddPatternText(canvas, "BL", "BL", 0.03f, 0.35f, 0.03f, 0.25f, corner);
+            AddPatternText(canvas, "BR", "BR", 0.65f, 0.97f, 0.03f, 0.25f, corner);
+
+            // 基準線（テクスチャ側に引いてある）に載る文字。
+            AddPatternText(canvas, "Sample", "ABC 123", 0.05f, 0.95f, 0.5f, 0.72f,
+                           Mathf.Min(width, height) * 0.16f);
+        }
+
+        /// <summary>
+        /// テスト柄のテクスチャを作る（無ければ）。**画素を 1 つずつ置く。**
+        ///
+        ///   - 最外周 1 px の白枠 … 面の端まで貼れているか
+        ///   - 1 px の格子（8 分割）… 等間隔が崩れていれば貼り方の歪み
+        ///   - 中心の真円（1 px の輪）… 楕円に見えれば縦横比の問題
+        ///   - 中央の基準線 … 文字の傾きを見る基準
+        /// </summary>
+        static Texture2D GetOrCreatePatternTexture(int width, int height)
+        {
+            string path = $"Assets/Materials/ScreenTestPattern_{width}x{height}.png";
+            var existing = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false, true);
+            var background = new Color32(5, 5, 10, 255);
+            var frame = new Color32(220, 245, 235, 255);
+            var grid = new Color32(90, 140, 130, 255);
+            var circle = new Color32(240, 180, 100, 255);
+            var baseline = new Color32(140, 240, 190, 255);
+
+            var pixels = new Color32[width * height];
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                pixels[i] = background;
+            }
+
+            // **格子は正方形にする (Step 11-3c)。**
+            // 軸ごとに 8 分割すると、1024x544 の RT では 128x68 の長方形になり、
+            // **RT を直接見たときに「中身が横に伸びている」ように見える**
+            // （実機で報告された）。間隔を両軸そろえれば、目で見て正方形かどうかが
+            // そのまま歪みの判定になる。中心から外へ引く。
+            int step = Mathf.Max(8, Mathf.Min(width, height) / 8);
+            for (int gx = width / 2; gx < width; gx += step)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    pixels[(y * width) + gx] = grid;
+                    pixels[(y * width) + width - 1 - gx] = grid;
+                }
+            }
+
+            for (int gy = height / 2; gy < height; gy += step)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    pixels[(gy * width) + x] = grid;
+                    pixels[((height - 1 - gy) * width) + x] = grid;
+                }
+            }
+
+            // 中心の基準線。
+            for (int x = 0; x < width; x++)
+            {
+                pixels[((height / 2) * width) + x] = baseline;
+            }
+
+            // 真円（1 px の輪）。**画素の縦横は等倍なので、貼って楕円なら貼り方の問題。**
+            float radius = Mathf.Min(width, height) * 0.35f;
+            int steps = Mathf.CeilToInt(radius * 8f);
+            for (int i = 0; i < steps; i++)
+            {
+                float a = (i / (float)steps) * Mathf.PI * 2f;
+                int cx = Mathf.RoundToInt((width * 0.5f) + (Mathf.Cos(a) * radius));
+                int cy = Mathf.RoundToInt((height * 0.5f) + (Mathf.Sin(a) * radius));
+                if (cx >= 0 && cx < width && cy >= 0 && cy < height)
+                {
+                    pixels[(cy * width) + cx] = circle;
+                }
+            }
+
+            // 最外周 1 px の枠。
+            for (int x = 0; x < width; x++)
+            {
+                pixels[x] = frame;
+                pixels[((height - 1) * width) + x] = frame;
+            }
+
+            for (int y = 0; y < height; y++)
+            {
+                pixels[y * width] = frame;
+                pixels[(y * width) + width - 1] = frame;
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply();
+
+            File.WriteAllBytes(Path.GetFullPath(Path.Combine(Application.dataPath, "..", path)),
+                               texture.EncodeToPNG());
+            Object.DestroyImmediate(texture);
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+
+            // **拡大縮小もフィルタも掛けない設定にする。** 1 px の線が消えては意味が無い。
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            importer.textureType = TextureImporterType.Default;
+            importer.mipmapEnabled = false;
+            importer.filterMode = FilterMode.Point;
+            importer.textureCompression = TextureImporterCompression.Uncompressed;
+            importer.maxTextureSize = 2048;
+            importer.sRGBTexture = true;
+            importer.SaveAndReimport();
+
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         }
 
         /// <summary>箱の枠と外殻を組む。**取り込みが無いときのフォールバック。**</summary>
@@ -456,6 +1187,31 @@ namespace SolarSystem.Editor
             return SolarSystem.Core.Vec3d.Zero;
         }
 
+        /// <summary>
+        /// 窓（ガラス）のレンダラーを集める (Step 11-2b)。
+        ///
+        /// **マテリアル名で引く。** 子の順番や階層の形に依存すると、別のアセットへ
+        /// 差し替えたときに黙って壊れる。実測では `Cockpit3Grey_Glass` が 1 枚。
+        /// </summary>
+        static List<Renderer> CollectGlass(Transform root)
+        {
+            var found = new List<Renderer>();
+            foreach (Renderer renderer in root.GetComponentsInChildren<Renderer>(true))
+            {
+                foreach (Material material in renderer.sharedMaterials)
+                {
+                    if (material != null
+                        && material.name.Contains(CockpitMetrics.GlassMaterialKeyword))
+                    {
+                        found.Add(renderer);
+                        break;
+                    }
+                }
+            }
+
+            return found;
+        }
+
         static void SetLayerRecursive(GameObject go, int layer)
         {
             go.layer = layer;
@@ -463,6 +1219,218 @@ namespace SolarSystem.Editor
             {
                 SetLayerRecursive(child.gameObject, layer);
             }
+        }
+
+        /// <summary>役割ごとの中身。**行の並びだけを決め、値は InstrumentPanel が流す。**</summary>
+        static void BuildRole(Transform canvas, SolarSystem.Core.ScreenRole role,
+                              InstrumentPanel panel, int heightPixels)
+        {
+            switch (role)
+            {
+                case SolarSystem.Core.ScreenRole.Flight:
+                    AddRows(canvas, panel, heightPixels, new[]
+                    {
+                        ("SPD", InstrumentPanel.Field.Speed),
+                        ("DST", InstrumentPanel.Field.Distance),
+                        ("ETA", InstrumentPanel.Field.Eta),
+                    });
+                    break;
+
+                case SolarSystem.Core.ScreenRole.TargetFull:
+                    AddRows(canvas, panel, heightPixels, new[]
+                    {
+                        ("TGT", InstrumentPanel.Field.Target),
+                        ("ALN", InstrumentPanel.Field.Alignment),
+                        ("DOCK", InstrumentPanel.Field.Docking),
+                    });
+                    break;
+
+                case SolarSystem.Core.ScreenRole.Target:
+                    AddRows(canvas, panel, heightPixels, new[]
+                    {
+                        ("TGT", InstrumentPanel.Field.Target),
+                        ("ALN", InstrumentPanel.Field.Alignment),
+                    });
+                    break;
+
+                case SolarSystem.Core.ScreenRole.Docking:
+                    AddRows(canvas, panel, heightPixels, new[]
+                    {
+                        ("DOCK", InstrumentPanel.Field.Docking),
+                        ("AP", InstrumentPanel.Field.Autopilot),
+                    });
+                    break;
+
+                case SolarSystem.Core.ScreenRole.Alignment:
+                    AddRows(canvas, panel, heightPixels, new[]
+                    {
+                        ("ALN", InstrumentPanel.Field.Alignment),
+                    });
+                    break;
+
+                case SolarSystem.Core.ScreenRole.SpeedDial:
+                    AddRows(canvas, panel, heightPixels, new[]
+                    {
+                        ("DIAL", InstrumentPanel.Field.Dial),
+                    });
+                    break;
+
+                case SolarSystem.Core.ScreenRole.Autopilot:
+                    AddRows(canvas, panel, heightPixels, new[]
+                    {
+                        ("AP", InstrumentPanel.Field.Autopilot),
+                    });
+                    break;
+
+                case SolarSystem.Core.ScreenRole.Warning:
+                    AddRows(canvas, panel, heightPixels, new[]
+                    {
+                        ("WARN", InstrumentPanel.Field.Warning),
+                    });
+                    break;
+
+                case SolarSystem.Core.ScreenRole.FlightShort:
+                    AddRows(canvas, panel, heightPixels, new[]
+                    {
+                        ("SPD", InstrumentPanel.Field.Speed),
+                        ("DST", InstrumentPanel.Field.Distance),
+                    });
+                    break;
+
+                case SolarSystem.Core.ScreenRole.EtaDocking:
+                    AddRows(canvas, panel, heightPixels, new[]
+                    {
+                        ("ETA", InstrumentPanel.Field.Eta),
+                        ("DOCK", InstrumentPanel.Field.Docking),
+                    });
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 見出しと値を N 行に並べる。**行の高さから文字の大きさを決める**ので、
+        /// 256x256 の小さいゲージでも 1024x544 の大画面でも同じ手順で組める。
+        /// </summary>
+        static void AddRows(Transform canvas, InstrumentPanel panel, int heightPixels,
+                            (string Caption, InstrumentPanel.Field Field)[] rows)
+        {
+            float rowHeight = 1f / rows.Length;
+            float pixels = heightPixels * rowHeight;
+
+            for (int i = 0; i < rows.Length; i++)
+            {
+                float top = 1f - (i * rowHeight);
+                float bottom = top - rowHeight;
+
+                // 見出しは行の上寄り、値は下寄り。1 行しかない役割では大きく出る。
+                float split = rows.Length == 1 ? 0.55f : 0.45f;
+                float mid = bottom + (rowHeight * split);
+
+                AddScreenText(canvas, rows[i].Caption + "Caption", rows[i].Caption,
+                              mid, top, pixels * 0.28f,
+                              new Color(0.35f, 0.55f, 0.50f, 1f), null, panel);
+
+                // 警告灯だけは消灯の表記から始める（InstrumentPanel の初期値と揃える）。
+                string initial = rows[i].Field == InstrumentPanel.Field.Warning
+                    ? InstrumentPanel.WarningOffText
+                    : "---";
+
+                AddScreenText(canvas, rows[i].Field.ToString(), initial,
+                              bottom, mid, pixels * 0.42f,
+                              new Color(0.55f, 0.95f, 0.75f, 1f), rows[i].Field, panel);
+            }
+        }
+
+        static void AddScreenText(Transform parent, string name, string initial,
+                                  float yMin, float yMax, float fontSize, Color color,
+                                  InstrumentPanel.Field? field, InstrumentPanel panel)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.layer = 5;
+
+            var text = go.AddComponent<TextMeshProUGUI>();
+
+            // **自動縮小は使わない (Step 11-3b で撤去)。**
+            // 文字列ごとに大きさが跳ね、視線を動かすたびに文字が波打っていた
+            // （実測: HUD の整列表示が 64.5px と 146.8px の間で 2.3 倍動いていた）。
+            // 代わりに**起こりうる最長の文字列が入る大きさに固定する。**
+            text.enableAutoSizing = false;
+            text.fontSize = fontSize;
+            text.alignment = TextAlignmentOptions.Center;
+            text.color = color;
+            text.enableWordWrapping = false;
+            text.overflowMode = TextOverflowModes.Overflow;
+            text.text = initial;
+
+            var rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.02f, yMin);
+            rect.anchorMax = new Vector2(0.98f, yMax);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
+            if (field.HasValue)
+            {
+                FitToLongest(text, field.Value, fontSize);
+                panel.Register(field.Value, text);
+            }
+        }
+
+        /// <summary>
+        /// **起こりうる最長の文字列が枠に入る大きさへ縮める (Step 11-3b)。**
+        ///
+        /// TMP の `GetPreferredValues` で実測してから決めるので、書式が変わっても
+        /// 追従する。**実行時には縮めない**（跳ねの原因になる）。
+        /// </summary>
+        static void FitToLongest(TMP_Text text, InstrumentPanel.Field field, float fontSize)
+        {
+            string longest = InstrumentPanel.LongestSample(field);
+
+            var rect = text.rectTransform;
+            var canvasRect = rect.parent as RectTransform;
+            float width = canvasRect.sizeDelta.x * (rect.anchorMax.x - rect.anchorMin.x);
+            float height = canvasRect.sizeDelta.y * (rect.anchorMax.y - rect.anchorMin.y);
+
+            Vector2 preferred = text.GetPreferredValues(longest, 0f, 0f);
+            if (preferred.x <= 0f || preferred.y <= 0f)
+            {
+                return;
+            }
+
+            // **余白を 15 % 取る (Step 11-3b)。**
+            // 「ちょうど入る」設計だと、想定した文字列と実際の文字列の幅の差
+            // （数字の字送りの違いなど）で枠から出る。実測では `90.0 deg` が
+            // 幅 491 px のうち 421 px を使っており、9 文字で余白 18 px しか無かった。
+            const float margin = 0.85f;
+            float scale = Mathf.Min(width * margin / preferred.x, height * margin / preferred.y);
+            if (scale < 1f)
+            {
+                text.fontSize = Mathf.Floor(fontSize * scale);
+            }
+        }
+
+        /// <summary>テスト柄の文字 (Step 11-3b)。**計器と同じ TMP の経路で載せる。**</summary>
+        static void AddPatternText(Transform parent, string name, string text,
+                                   float xMin, float xMax, float yMin, float yMax, float size)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.layer = 5;
+
+            var tmp = go.AddComponent<TextMeshProUGUI>();
+            tmp.enableAutoSizing = false;
+            tmp.fontSize = size;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.color = new Color(0.95f, 0.95f, 0.95f, 1f);
+            tmp.enableWordWrapping = false;
+            tmp.overflowMode = TextOverflowModes.Overflow;
+            tmp.text = text;
+
+            var rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(xMin, yMin);
+            rect.anchorMax = new Vector2(xMax, yMax);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
         }
     }
 }

@@ -222,11 +222,64 @@ namespace SolarSystem.Core
         /// <summary>光条の太さ (Step 9-4)。</summary>
         public const string SpikeThicknessId = "num.spikeThickness";
 
-        /// <summary>音量 (Step 10-2)。**耳で決める値なので実機で振る。**</summary>
-        public const string MasterVolumeId = "num.volMaster";
-        public const string EngineVolumeId = "num.volEngine";
-        public const string CockpitVolumeId = "num.volCockpit";
-        public const string SfxVolumeId = "num.volSfx";
+        /// <summary>
+        /// **音量の 4 項目は外した (Step 11-3)。**
+        /// Step 10 で耳で決めて確定しており、Demo 3 では触らない。値は
+        /// `AudioMix` の定数がそのまま効く。項目数が 1080p の上限（43）に
+        /// 張り付いていたので、画面の項目を足す枠を作るために外した。
+        /// </summary>
+
+        /// <summary>画面の発光強度 (Step 11-3b)。**目で決める値。**</summary>
+        public const string ScreenEmissionId = "num.screenEmission";
+
+        /// <summary>
+        /// 役割の割り当て A / B (Step 11-3a)。**実機で見比べるための一時的な項目。**
+        /// 決まったら選ばれなかった案ごと削除する。
+        /// </summary>
+        public const string ScreenLayoutId = "screen.layout";
+
+        public static readonly string[] ScreenLayoutOptions = { "A", "B", "C" };
+
+        /// <summary>
+        /// **画面のテスト柄 (Step 11-3b の切り分け道具)。**
+        /// ON にすると 5 面の RT の中身を計器の表示から生成したテスト柄へ差し替える。
+        /// 枠線・格子・真円・四隅の印・基準線の文字が入っており、
+        /// **貼り方の歪み・縦横比・反転・文字側の傾き**を目で切り分けられる。
+        /// </summary>
+        public const string ScreenPatternId = "screen.pattern";
+
+        /// <summary>
+        /// **RT を直接表示 (Step 11-3b の切り分け道具)。**
+        /// 5 面の RT を画面左上へ 1:1・フィルタ無しで重ねて描く。
+        /// **面に貼る前の中身**が見えるので、RT が既におかしいのか、
+        /// 貼るときに崩れるのかを分けられる。
+        /// </summary>
+        public const string ScreenRtViewId = "screen.rtView";
+
+        /// <summary>
+        /// **RT 直接表示の対象面 (Step 11-3c)。**
+        /// 5 面を並べると重なって端が切れ、F4 パネルにも覆われて
+        /// 判定に使えなかった（実機で確認）。**1 面ずつ画面中央に等倍で出す。**
+        /// 面の名前は実行時にしか分からないので、ここでは番号だけ持つ。
+        /// </summary>
+        public const string ScreenRtFaceId = "screen.rtFace";
+
+        public static readonly string[] ScreenRtFaceOptions =
+            { "面 1", "面 2", "面 3", "面 4", "面 5" };
+
+        /// <summary>
+        /// **計器の向き (Step 11-3c)。3 択。**
+        ///   面に貼る … ベンダーの面にそのまま貼る（斜めなので遠近で歪む）
+        ///   正対     … 面の位置に**視線へ正対するクアッド**を置いて貼る
+        ///   逆歪ませ … 面に貼ったまま、**RT の中身を先に逆へ歪ませる**
+        ///
+        /// **どれも目がコックピットに固定されているから成立する。** 船が回っても
+        /// 目と計器盤の位置関係が変わらないので、見る角度が 1 つに決まり、
+        /// 組み立て時に解いた姿勢・行列が実行時もそのまま効く。
+        /// </summary>
+        public const string ScreenModeId = "screen.mode";
+
+        public static readonly string[] ScreenModeOptions = { "面に貼る", "正対", "逆歪ませ" };
 
         /// <summary>エンジンの一次遅れの時定数 [秒] (Step 10-3)。**耳で決める値。**</summary>
         public const string EngineLagId = "num.engineLag";
@@ -278,11 +331,8 @@ namespace SolarSystem.Core
             double bloomScatter,
             double coronaFalloff,
             double spikeThickness,
-            double masterVolume,
-            double engineVolume,
-            double cockpitVolume,
-            double sfxVolume,
             double engineLagSeconds,
+            double screenEmission,
             double eyeX,
             double eyeY,
             double eyeZ,
@@ -349,15 +399,20 @@ namespace SolarSystem.Core
                 bloomThreshold, 0.0, 3.0, 0.05, "F2"));
             m._items.Add(DebugItem.MakeNumber(BloomScatterId, "bloom 拡散",
                 bloomScatter, 0.0, 1.0, 0.05, "F2"));
-            // ---- 音量 (Step 10-2) ----
-            m._items.Add(DebugItem.MakeNumber(MasterVolumeId, "音量 Master",
-                masterVolume, AudioMix.MinVolume, AudioMix.MaxVolume, 0.05, "F2"));
-            m._items.Add(DebugItem.MakeNumber(EngineVolumeId, "音量 Engine",
-                engineVolume, AudioMix.MinVolume, AudioMix.MaxVolume, 0.05, "F2"));
-            m._items.Add(DebugItem.MakeNumber(CockpitVolumeId, "音量 Cockpit",
-                cockpitVolume, AudioMix.MinVolume, AudioMix.MaxVolume, 0.05, "F2"));
-            m._items.Add(DebugItem.MakeNumber(SfxVolumeId, "音量 SFX",
-                sfxVolume, AudioMix.MinVolume, AudioMix.MaxVolume, 0.05, "F2"));
+            // ---- 計器の画面 (Step 11-3) ----
+            // **発光は bloom のしきい値 0.90 の下が既定。** 文字が滲まないことを優先する。
+            m._items.Add(DebugItem.MakeNumber(ScreenEmissionId, "画面の発光強度",
+                screenEmission, 0.0, 2.0, 0.05, "F2"));
+            m._items.Add(DebugItem.MakeChoice(ScreenLayoutId, "画面の割り当て",
+                ScreenLayoutOptions, 0));
+
+            // **切り分けの道具 (11-3b)。** 歪みが直ったら消す。
+            m._items.Add(DebugItem.MakeToggle(ScreenPatternId, "画面のテスト柄", false));
+            m._items.Add(DebugItem.MakeToggle(ScreenRtViewId, "RT を直接表示", false));
+            m._items.Add(DebugItem.MakeChoice(ScreenRtFaceId, "RT 表示の面",
+                ScreenRtFaceOptions, 0));
+            m._items.Add(DebugItem.MakeChoice(ScreenModeId, "計器の向き",
+                ScreenModeOptions, 0));
 
             // ---- 目の位置と画角 (Step 11-2b) ----
             // **範囲はコックピットの寸法いっぱい。** 座席がどこにあるかは
@@ -496,10 +551,25 @@ namespace SolarSystem.Core
         /// earth-close-day で決めた値を terminator や night でも確かめたいので、
         /// 切り替えるたびに叩き直しになると目的を果たせない。
         /// </summary>
+        /// <summary>
+        /// シナリオ切替のときにトグルと選択を既定へ戻す。**数値は保持する。**
+        ///
+        /// ■ **切り分けの道具は戻さない (Step 11-3b)。**
+        /// テスト柄と RT の直接表示は「場面の見え方」ではなく**調べるための道具**で、
+        /// 場面を送るたびに消えると使い物にならない。
+        /// （実機で踏んだ: 起動引数で立てた RT 直接表示が、シナリオ適用の
+        /// 既定化で即座に落ちていた）
+        /// </summary>
         public void ResetToggles()
         {
             foreach (DebugItem item in _items)
             {
+                if (item.Id == ScreenPatternId || item.Id == ScreenRtViewId
+                    || item.Id == ScreenModeId || item.Id == ScreenRtFaceId)
+                {
+                    continue;
+                }
+
                 if (item.Kind != DebugItemKind.Number)
                 {
                     item.Reset();

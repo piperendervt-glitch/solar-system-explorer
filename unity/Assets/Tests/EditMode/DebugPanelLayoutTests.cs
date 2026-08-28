@@ -20,16 +20,34 @@ namespace SolarSystem.Tests.EditMode
         static int RealItemCount()
         {
             DebugPanelModel m = DebugPanelModel.Create(
-                new[] { "Sun", "Earth", "Mars" }, 5.0, 1.15, 0.6, 1.5e-3, 6.0, 2.5, 1.5, 6.0, 0.4, 0.8, 1.05, 0.6, 3.0, 0.10, 1.0, 0.55, 0.30, 0.70, 0.50, 0.0, 0.0, 0.0,
+                new[] { "Sun", "Earth", "Mars" }, 5.0, 1.15, 0.6, 1.5e-3, 6.0, 2.5, 1.5, 6.0, 0.4, 0.8, 1.05, 0.6, 3.0, 0.10, 0.50, 0.75, 0.0, 0.0, 0.0,
                 new Vec3d(-1.0, -1.0, -1.0), new Vec3d(1.0, 1.0, 1.0), 60.0);
             return m.Items.Count;
         }
 
         [Test]
-        public void 項目数は43件()
+        public void 項目数は45件()
         {
-            // 39 + 目の位置 3 + 画角 1 = 43 (Step 11-2b)。
-            Assert.That(RealItemCount(), Is.EqualTo(43));
+            // 43 - 音量 4 + 画面の発光 1 + 割り当て 1 = 41 (Step 11-3)。
+            // さらに**切り分けの道具 4 つ**（テスト柄 / RT 直接表示 / RT 表示の面 /
+            // 計器の向き）で 45。**道具を外せば 41 に戻り、フォントも 14 に戻る。**
+            Assert.That(RealItemCount(), Is.EqualTo(45));
+        }
+
+        [Test]
+        public void フルHDのフォントは13()
+        {
+            // **項目を増やすとフォントが落ちる。** 1080p の利用可能高 1056 px に対し、
+            // 行数 = 見出し 4 + 項目 N + 空行 1 + 天体 4。フォント 14 (行高 20) で
+            // 収まるのは N <= 43 まで、13 (行高 19) なら N <= 45。
+            //
+            // **いまは切り分けの道具 4 つで 45 項目なので 13。**
+            // 道具を外して 41 に戻れば 14 に戻る。**期待値を書き換えたのは意図した変更。**
+            DebugPanelLayout l = DebugPanelLayoutSolver.Solve(
+                1920, 1080, HeaderLines, RealItemCount(), BodyLines, 620f, 0);
+
+            Assert.That(l.FontSize, Is.EqualTo(13), "フォントの段が想定と違う");
+            Assert.That(l.Windowed, Is.False, "窓表示に落ちている");
         }
 
         [Test]

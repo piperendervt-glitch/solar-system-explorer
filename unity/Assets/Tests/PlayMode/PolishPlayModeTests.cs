@@ -338,14 +338,18 @@ namespace SolarSystem.Tests.PlayMode
             Assert.That(_rig.Docking.State, Is.EqualTo(DockingState.DockRequested),
                 "要求は受理されるが、姿勢が合うまで Docking へ進まない");
 
-            // 正面へ向ける -> ALIGNED
+            // 正面へ向ける -> 許容内
             AimShip(-mars.PortDirection);
             Settle();
             yield return null;
 
             string aligned = _root.Instruments.LastAlignmentText;
             Debug.Log($"[Step6] 正面: ALN={aligned} / 角度 {_rig.LastAlignmentAngle:F1} 度");
-            Assert.That(aligned, Does.Contain("ALIGNED"));
+
+            // **11-3b で "ALIGNED" の文字は外した。** 許容内かどうかは色で出しており、
+            // 文字と重複していた（外したぶん HUD の字を 2.04 倍にできた）。
+            // 判定は AlignmentInTolerance で見る。
+            Assert.That(aligned, Does.Not.Contain("ALIGNED"));
             Assert.That(_root.Instruments.AlignmentInTolerance, Is.True);
 
             // 姿勢が合ったので Docking へ進み、理由も消える。

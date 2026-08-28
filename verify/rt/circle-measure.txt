@@ -1,0 +1,6 @@
+面	RT	円の外接(画素)	比	橙の画素数
+CockpitEquipments_Screen-2	1024x544	381x381	1.000	1214
+CockpitEquipments_Screen-1	1024x544	381x381	1.000	1214
+CockpitEquipments_HUD-2	512x512	359x359	1.000	1132
+CockpitEquipments_Gauge2-Screen	512x512	359x359	1.000	1132
+CockpitEquipments_Gauge1-Screen	256x256	181x181	1.000	582

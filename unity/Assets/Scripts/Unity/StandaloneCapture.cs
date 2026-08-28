@@ -71,6 +71,20 @@ namespace SolarSystem.Unity
             Application.Quit(0);
         }
 
+        /// <summary>値を取らない起動引数があるか。</summary>
+        public static bool HasArg(string name)
+        {
+            foreach (string arg in System.Environment.GetCommandLineArgs())
+            {
+                if (string.Equals(arg, name, System.StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         /// <summary>--name value 形式の引数を読む。無ければ null。</summary>
         public static string ArgValue(string name)
         {
