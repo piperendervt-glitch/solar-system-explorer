@@ -145,6 +145,8 @@ namespace SolarSystem.Unity
                 }
 
                 ok = Compare(dir, report, left, right);
+
+                yield return MeasureProbesByDifference(dir, report, left, right);
             }
 
             if (!ok)
@@ -217,18 +219,21 @@ namespace SolarSystem.Unity
             report.AppendLine();
 
             report.AppendLine("== f と眼間の実測 (段ごと) ==");
-            report.AppendLine("段\ts\tf 左 [px]\tf 右 [px]\t眼間 [units]\t眼間 [m]");
+            report.AppendLine("段\ts\tlossyScale\tf 左 [px]\tf 右 [px]\t眼間 [units]\t眼間 [m]");
             foreach (XrStereoOptics.Reading r in optics)
             {
                 report.AppendLine(string.Join("\t", new[]
                 {
                     r.CameraName,
                     F(r.StageScale),
+                    E(r.LossyScale),
                     F(r.FocalLengthPixelsLeft),
                     F(r.FocalLengthPixelsRight),
                     E(r.EyeSeparationUnits),
                     E(r.EyeSeparationMeters),
                 }));
+
+                report.AppendLine($"  目L={r.EyeLeftWorld:F6} / 目R={r.EyeRightWorld:F6}");
             }
 
             report.AppendLine();
@@ -389,26 +394,6 @@ namespace SolarSystem.Unity
             report.AppendLine($"  左: {Brightness(leftRgb)}");
             report.AppendLine($"  右: {Brightness(rightRgb)}");
 
-            // 層ごとの識別色。**正しく重なっているかは見ない。**
-            //
-            // **プローブが表示されていなければ、これは場面の色を色相で拾っているだけ。**
-            // （12-C はここを取り違えた。`-xrProbes` を付けないとプローブは出ない）
-            var diagnostics = FindAnyObjectByType<XrDiagnostics>();
-            bool probesVisible = diagnostics != null && diagnostics.ProbesVisible;
-
-            report.AppendLine();
-            report.AppendLine("== 層ごとの識別色 (写っているかだけ) ==");
-            report.AppendLine(probesVisible
-                ? "  プローブ: **表示**（この数はプローブ＋同じ色相の場面の色）"
-                : "  プローブ: **非表示**。**下の数はプローブではなく、"
-                  + "同じ色相を持つ場面の色を数えているだけ**（-xrProbes を付けること）");
-
-            foreach (XrDiagnosticsModel.StereoProbeHit hit in
-                     XrDiagnosticsModel.MeasureStereo(leftRgb, rightRgb, width, height))
-            {
-                report.AppendLine("  " + hit);
-            }
-
             return differing > 0;
         }
 
@@ -445,6 +430,129 @@ namespace SolarSystem.Unity
             report.AppendLine($"  差のある画素: {differing} / {a.width * a.height}");
             report.AppendLine($"  最大差    : {maxDiff}");
             return differing;
+        }
+
+        /// <summary>
+        /// **層別の数を「プローブを消した絵との差分」で採る (Step 12-2)。**
+        ///
+        /// ■ なぜ色相の分類だけでは駄目か
+        /// 12-C / 12-C2 の実測で、色相だけで拾うと**場面の色を数えてしまう。**
+        /// 地球の陸地は Near と同じ色相帯にあり、自前シェーダを差し替えて
+        /// 白くしたら Near が 0/0 になった（＝あれはプローブではなかった）。
+        /// このままセッション D で使うと**偽の片目落ちが出る。**
+        ///
+        /// ■ 差分にした理由（もう 1 つの案との比較）
+        /// 「目ごとの描画量」のようなプローブに依らない指標も併記しているが、
+        /// **段を切り分けられない。** どの段が落ちたかを言うには層別が要る。
+        /// プローブの色を変える案は、平面 36 枚の基準値を全部作り直すことになる。
+        /// **差分なら基準値を動かさずに、場面の色を確実に除ける。**
+        ///
+        /// ■ 差分を取るためにフレームを止める
+        /// プローブを消すには 1 フレーム進める必要があり、そのままだと微振動と
+        /// 天体の運動が混ざる。**`Time.timeScale = 0` で世界を止めてから**
+        /// 撮り比べる。止まっていることは「プローブ以外の画素が 0」で確かめられる。
+        /// </summary>
+        IEnumerator MeasureProbesByDifference(string dir, StringBuilder report,
+                                              Texture2D left, Texture2D right)
+        {
+            report.AppendLine();
+            report.AppendLine("== 層ごとの識別色 (プローブを消した絵との差分) ==");
+
+            var diagnostics = FindAnyObjectByType<XrDiagnostics>();
+            if (diagnostics == null || !diagnostics.ProbesVisible)
+            {
+                report.AppendLine("  プローブが非表示なので測らない（-xrProbes を付けること）。");
+                report.AppendLine("  **色相だけで数えると場面の色を拾う**ので、代わりに数えない。");
+                yield break;
+            }
+
+            float timeScale = Time.timeScale;
+            Time.timeScale = 0f;
+            diagnostics.SetProbesVisible(false);
+
+            yield return null;
+            yield return new WaitForEndOfFrame();
+
+            Texture2D bareLeft = TryCapture(ScreenCapture.StereoScreenCaptureMode.LeftEye,
+                                            report, "左目 (プローブ無し)");
+            Texture2D bareRight = TryCapture(ScreenCapture.StereoScreenCaptureMode.RightEye,
+                                             report, "右目 (プローブ無し)");
+
+            diagnostics.SetProbesVisible(true);
+            Time.timeScale = timeScale;
+
+            if (bareLeft == null || bareRight == null)
+            {
+                report.AppendLine("  プローブ無しの絵が撮れなかった。測らない。");
+                yield break;
+            }
+
+            WritePng(dir, "left_no-probes.png", bareLeft);
+            WritePng(dir, "right_no-probes.png", bareRight);
+
+            int width = left.width;
+            int height = left.height;
+
+            byte[] leftRgb = ToRgb(left);
+            byte[] rightRgb = ToRgb(right);
+            bool[] maskLeft = Differs(leftRgb, ToRgb(bareLeft));
+            bool[] maskRight = Differs(rightRgb, ToRgb(bareRight));
+
+            report.AppendLine($"  差分の画素: 左 {Count(maskLeft)} / 右 {Count(maskRight)}");
+
+            List<XrDiagnosticsModel.ProbeHit> hitsLeft =
+                XrDiagnosticsModel.MeasureProbes(leftRgb, width, height, maskLeft);
+            List<XrDiagnosticsModel.ProbeHit> hitsRight =
+                XrDiagnosticsModel.MeasureProbes(rightRgb, width, height, maskRight);
+
+            report.AppendLine("  段\t左 [px]\t右 [px]\t左 重心\t右 重心\t重心の差 x [px]");
+            for (int i = 0; i < hitsLeft.Count; i++)
+            {
+                XrDiagnosticsModel.ProbeHit l = hitsLeft[i];
+                XrDiagnosticsModel.ProbeHit r = hitsRight[i];
+                string shift = l.Count == 0 || r.Count == 0
+                    ? "---"
+                    : F(r.CenterX - l.CenterX);
+
+                report.AppendLine("  " + string.Join("\t", new[]
+                {
+                    XrDiagnosticsModel.LayerNames[i],
+                    l.Count.ToString(CultureInfo.InvariantCulture),
+                    r.Count.ToString(CultureInfo.InvariantCulture),
+                    F(l.CenterX) + ", " + F(l.CenterY),
+                    F(r.CenterX) + ", " + F(r.CenterY),
+                    shift,
+                }));
+            }
+
+            Destroy(bareLeft);
+            Destroy(bareRight);
+        }
+
+        static bool[] Differs(byte[] a, byte[] b)
+        {
+            var mask = new bool[a.Length / 3];
+            for (int i = 0; i < mask.Length; i++)
+            {
+                int p = i * 3;
+                mask[i] = a[p] != b[p] || a[p + 1] != b[p + 1] || a[p + 2] != b[p + 2];
+            }
+
+            return mask;
+        }
+
+        static int Count(bool[] mask)
+        {
+            int n = 0;
+            foreach (bool v in mask)
+            {
+                if (v)
+                {
+                    n++;
+                }
+            }
+
+            return n;
         }
 
         /// <summary>平均の明るさと、黒でない画素の数。**判定はしない。**</summary>

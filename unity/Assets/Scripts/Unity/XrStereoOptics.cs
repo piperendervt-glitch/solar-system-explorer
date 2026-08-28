@@ -60,13 +60,22 @@ namespace SolarSystem.Unity
             /// <summary>上を m に直した値（= 間隔 / StageScale）。</summary>
             public double EyeSeparationMeters;
 
+            /// <summary>カメラのワールドスケール。**EyeAnchor が効いているかの確認 (12-2)。**</summary>
+            public double LossyScale;
+
+            /// <summary>左右の目のワールド位置。**段ごとに違うかを見る (12-2)。**</summary>
+            public Vector3 EyeLeftWorld;
+            public Vector3 EyeRightWorld;
+
             public override string ToString()
                 => $"{CameraName} (s={StageScale}) / stereo={StereoEnabled}"
                    + $" / eyeH={EyeTextureHeight}"
                    + $" / m11 L={M11Left:F6} R={M11Right:F6}"
                    + $" / f L={FocalLengthPixelsLeft:F4} R={FocalLengthPixelsRight:F4} px"
                    + $" / fov={CameraFieldOfView:F2} 度"
-                   + $" / 眼間={EyeSeparationUnits:E6} units = {EyeSeparationMeters:E6} m";
+                   + $" / lossyScale={LossyScale:E3}"
+                   + $" / 眼間={EyeSeparationUnits:E6} units = {EyeSeparationMeters:E6} m"
+                   + $" / 目L={EyeLeftWorld:F6} 目R={EyeRightWorld:F6}";
         }
 
         /// <summary>
@@ -89,6 +98,7 @@ namespace SolarSystem.Unity
             }
 
             reading.CameraFieldOfView = camera.fieldOfView;
+            reading.LossyScale = camera.transform.lossyScale.x;
             reading.StereoEnabled = camera.stereoEnabled;
 
             if (!reading.StereoEnabled)
@@ -120,6 +130,8 @@ namespace SolarSystem.Unity
             Vector3 eyeRight = camera.GetStereoViewMatrix(Camera.StereoscopicEye.Right)
                 .inverse.GetColumn(3);
 
+            reading.EyeLeftWorld = eyeLeft;
+            reading.EyeRightWorld = eyeRight;
             reading.EyeSeparationUnits = (eyeRight - eyeLeft).magnitude;
             reading.EyeSeparationMeters = stageScale > 0.0
                 ? reading.EyeSeparationUnits / stageScale

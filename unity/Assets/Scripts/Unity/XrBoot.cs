@@ -174,7 +174,14 @@ namespace SolarSystem.Unity
             }
 
             Result result = Initialize(mode);
-            Debug.Log("[XrBoot] " + result);
+
+            // **この 1 行の立体視の値は当てにならない (Step 12-2 で注記)。**
+            // 初期化直後は目のテクスチャがまだ無く、XR を使っていないときと同じ
+            // 既定値 (MultiPass / Tex2D 256x256 / volumeDepth 1) が読める。
+            // ここだけ読んで「MultiPass で初期化された」と誤読しないこと。
+            Debug.Log("[XrBoot] " + result
+                      + " ※立体視の値は初期化直後のもので当てにならない。"
+                      + "frame 60 以降の [XrFacts] を見ること");
         }
 
         /// <summary>
@@ -282,6 +289,10 @@ namespace SolarSystem.Unity
             // **左右 2 枚の撮影 (Step 12-C)。** `-xrCaptureDir` が無ければ何もしない。
             // XR を立ち上げたときだけ載せる（平面の経路には出さない）。
             go.AddComponent<XrStereoCapture>();
+
+            // **頭姿勢の段配布 (Step 12-2)。** XR のときだけ EyeAnchor を作る。
+            // 平面のカメラ配置には触らない。
+            go.AddComponent<XrEyeRig>();
         }
 
         /// <summary>**立ち上げたときだけ止める。** 触っていなければ何もしない。</summary>
