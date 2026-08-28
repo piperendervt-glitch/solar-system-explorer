@@ -206,6 +206,16 @@ Step が進むたびに追記する。
 **方針は変えない。Input System 1 本のまま。このパッケージの API はコードから使わない。**
 旧 Input Manager の軸が再生成されるなどの副作用が出たら、**直しに行かず症状として記録する。**
 
+### 起動経路（`XrBoot`）
+
+**無指定なら XR に一切触らない。** `-xr`（実機 / OpenXR）と `-xrMock`（batchmode /
+MockHMD）を付けたときだけローダを選んで初期化する。
+
+`Assets/XR/XRGeneralSettingsPerBuildTarget.asset` は `SolarSetup.ConfigureXr` が
+**CLI から**作る（GUI を要する手順を持ち込まない）。**`InitManagerOnStart` は false。**
+true だと、ローダを登録した時点で起動と同時に XR が立ち上がり、引数を見る前に
+平面の絵が変わる。EditMode テストで false を縛っている。
+
 ### `Assets/XR/` について
 
 XR パッケージを入れると Unity が自動生成する（ローダ選択と設定）。**第三者アセットでは

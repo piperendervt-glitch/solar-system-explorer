@@ -111,6 +111,18 @@ public static class SolarSetup
         Debug.Log("[SolarSetup] CaptureXrStack OK");
     }
 
+    /// <summary>
+    /// XR の設定アセットを作る (Step 12-0)。**GUI を使わずに構成する。**
+    /// 自動起動は切ってあり、立ち上げるのは -xr / -xrMock のときだけ。
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.ConfigureXr
+    /// </summary>
+    public static void ConfigureXr()
+    {
+        SolarSystem.Editor.XrSetup.Run();
+        Debug.Log("[SolarSetup] ConfigureXr OK");
+    }
+
     /// <summary>暗い場面で内装が潰れていないかを画素で測る (Step 11-4)。</summary>
     public static void MeasureCockpitLighting()
     {
