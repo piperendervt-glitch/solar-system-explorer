@@ -35,6 +35,16 @@ namespace SolarSystem.Unity
         public const string DirArg = "-xrCaptureDir";
         public const string FramesArg = "-xrCaptureFrames";
 
+        /// <summary>
+        /// **対照用 (Step 12-C2)。** 自前シェーダ (`SolarSystem/*`) を使っている
+        /// レンダラーを既定の URP/Lit に差し替えてから撮る。
+        ///
+        /// 自前シェーダは SPI のマクロ（`UNITY_VERTEX_INPUT_INSTANCE_ID` など）を
+        /// 1 つも持っていない。**それが片目落ちの原因かどうかを、直さずに確かめる**
+        /// ための一時的な差し替え。exe の実行中だけで、アセットには書き戻さない。
+        /// </summary>
+        public const string SwapShaderArg = "-xrSwapShader";
+
         /// <summary>既定の待ちフレーム。シーンとポストプロセスが落ち着くまで待つ。</summary>
         public const int DefaultFrames = 150;
 
@@ -80,6 +90,12 @@ namespace SolarSystem.Unity
 
             var report = new StringBuilder();
             WriteConditions(report, facts, optics);
+            WriteCameraState(report, stack);
+
+            if (StandaloneCapture.HasArg(SwapShaderArg))
+            {
+                SwapShaders(report);
+            }
 
             // ---- SPI ゲート ----
             string gate = GateFailure(facts);
@@ -221,6 +237,98 @@ namespace SolarSystem.Unity
             report.AppendLine();
         }
 
+        /// <summary>
+        /// 4 段のカメラの状態 (Step 12-C2)。**`stereoTargetEye` が Both 以外だと
+        /// その段は片目にしか出ない。** 値を出すだけで判定はしない。
+        /// </summary>
+        static void WriteCameraState(StringBuilder report, CameraStackController stack)
+        {
+            report.AppendLine("== カメラ 4 段の状態 ==");
+            report.AppendLine("段\tstereoTargetEye\tstereoEnabled\tdepth\tnear\tfar\tcullingMask\ttargetTexture");
+
+            if (stack == null)
+            {
+                report.AppendLine("  カメラスタックが見つからない");
+                report.AppendLine();
+                return;
+            }
+
+            (string Name, Camera Camera)[] cameras =
+            {
+                ("Deep", stack.Deep),
+                ("Near", stack.Near),
+                ("Nearfield", stack.Nearfield),
+                ("Cockpit", stack.Cockpit),
+            };
+
+            foreach ((string name, Camera camera) in cameras)
+            {
+                if (camera == null)
+                {
+                    report.AppendLine(name + "\t(無し)");
+                    continue;
+                }
+
+                report.AppendLine(string.Join("\t", new[]
+                {
+                    name,
+                    camera.stereoTargetEye.ToString(),
+                    camera.stereoEnabled.ToString(),
+                    camera.depth.ToString(CultureInfo.InvariantCulture),
+                    camera.nearClipPlane.ToString(CultureInfo.InvariantCulture),
+                    camera.farClipPlane.ToString(CultureInfo.InvariantCulture),
+                    "0x" + camera.cullingMask.ToString("X"),
+                    camera.targetTexture == null ? "(無し)" : camera.targetTexture.name,
+                }));
+            }
+
+            report.AppendLine();
+        }
+
+        /// <summary>
+        /// **対照 (Step 12-C2)。** 自前シェーダを既定の URP/Lit に差し替える。
+        /// 差し替えた結果、右目に出るようになれば原因はシェーダ。出なければ別。
+        /// </summary>
+        static void SwapShaders(StringBuilder report)
+        {
+            report.AppendLine("== 対照: 自前シェーダを URP/Lit へ差し替え ==");
+
+            Shader lit = Shader.Find("Universal Render Pipeline/Lit");
+            if (lit == null)
+            {
+                report.AppendLine("  **URP/Lit が見つからない。** 差し替えていない。");
+                report.AppendLine();
+                return;
+            }
+
+            var replacement = new Material(lit);
+            int swapped = 0;
+            var names = new List<string>();
+
+            foreach (Renderer renderer in FindObjectsByType<Renderer>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                Material material = renderer.sharedMaterial;
+                if (material == null || material.shader == null
+                    || !material.shader.name.StartsWith("SolarSystem/"))
+                {
+                    continue;
+                }
+
+                names.Add($"{renderer.name} ({material.shader.name})");
+                renderer.sharedMaterial = replacement;
+                swapped++;
+            }
+
+            report.AppendLine($"  差し替えた: {swapped} 件");
+            foreach (string name in names)
+            {
+                report.AppendLine("    " + name);
+            }
+
+            report.AppendLine();
+        }
+
         /// <summary>撮る。**失敗したら症状を残して null を返す**（例外で落とさない）。</summary>
         Texture2D TryCapture(ScreenCapture.StereoScreenCaptureMode? mode,
                              StringBuilder report, string label)
@@ -275,9 +383,26 @@ namespace SolarSystem.Unity
                 ? "  **同一。片目分を 2 回撮っている（成立しない）。**"
                 : "  同一ではない。");
 
-            // 層ごとの識別色が写っているか。**正しく重なっているかは見ない。**
+            // 目ごとにどれだけ描かれたか。**プローブに依らない指標。**
+            report.AppendLine();
+            report.AppendLine("== 目ごとの描画量 ==");
+            report.AppendLine($"  左: {Brightness(leftRgb)}");
+            report.AppendLine($"  右: {Brightness(rightRgb)}");
+
+            // 層ごとの識別色。**正しく重なっているかは見ない。**
+            //
+            // **プローブが表示されていなければ、これは場面の色を色相で拾っているだけ。**
+            // （12-C はここを取り違えた。`-xrProbes` を付けないとプローブは出ない）
+            var diagnostics = FindAnyObjectByType<XrDiagnostics>();
+            bool probesVisible = diagnostics != null && diagnostics.ProbesVisible;
+
             report.AppendLine();
             report.AppendLine("== 層ごとの識別色 (写っているかだけ) ==");
+            report.AppendLine(probesVisible
+                ? "  プローブ: **表示**（この数はプローブ＋同じ色相の場面の色）"
+                : "  プローブ: **非表示**。**下の数はプローブではなく、"
+                  + "同じ色相を持つ場面の色を数えているだけ**（-xrProbes を付けること）");
+
             foreach (XrDiagnosticsModel.StereoProbeHit hit in
                      XrDiagnosticsModel.MeasureStereo(leftRgb, rightRgb, width, height))
             {
@@ -320,6 +445,25 @@ namespace SolarSystem.Unity
             report.AppendLine($"  差のある画素: {differing} / {a.width * a.height}");
             report.AppendLine($"  最大差    : {maxDiff}");
             return differing;
+        }
+
+        /// <summary>平均の明るさと、黒でない画素の数。**判定はしない。**</summary>
+        static string Brightness(byte[] rgb)
+        {
+            long sum = 0;
+            int nonBlack = 0;
+            for (int i = 0; i < rgb.Length; i += 3)
+            {
+                int max = System.Math.Max(rgb[i], System.Math.Max(rgb[i + 1], rgb[i + 2]));
+                sum += rgb[i] + rgb[i + 1] + rgb[i + 2];
+                if (max >= 8)
+                {
+                    nonBlack++;
+                }
+            }
+
+            int pixels = rgb.Length / 3;
+            return $"平均 {sum / (double)rgb.Length:F2} / 黒でない画素 {nonBlack} / {pixels}";
         }
 
         static byte[] ToRgb(Texture2D texture)
