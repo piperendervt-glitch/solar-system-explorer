@@ -123,6 +123,13 @@ public static class SolarSetup
         Debug.Log("[SolarSetup] ConfigureXr OK");
     }
 
+    /// <summary>MockHMD が batchmode の Editor で初期化できるかを確かめる (Step 12-0c)。</summary>
+    public static void ProbeXrMock()
+    {
+        SolarSystem.Editor.XrProbe.Run();
+        Debug.Log("[SolarSetup] ProbeXrMock OK");
+    }
+
     /// <summary>暗い場面で内装が潰れていないかを画素で測る (Step 11-4)。</summary>
     public static void MeasureCockpitLighting()
     {

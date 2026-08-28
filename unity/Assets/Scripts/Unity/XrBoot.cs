@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.XR;
 using UnityEngine.XR.Management;
 
 namespace SolarSystem.Unity
@@ -57,9 +58,64 @@ namespace SolarSystem.Unity
             public string LoaderName = string.Empty;
             public string Message = string.Empty;
 
+            /// <summary>実行時に読んだ立体視の実態。**判定はしない。値を残すだけ。**</summary>
+            public StereoFacts Facts;
+
             public override string ToString()
                 => $"mode={Mode} / 要求={Requested} / ローダ={LoaderName}"
-                   + $" / 見つかった={LoaderFound} / 初期化={Initialized} / {Message}";
+                   + $" / 見つかった={LoaderFound} / 初期化={Initialized} / {Message}"
+                   + (Facts == null ? string.Empty : " / " + Facts);
+        }
+
+        /// <summary>
+        /// **「SPI で走っているか」の証拠 (Step 12-0c)。**
+        ///
+        /// 設定アセットの `renderMode: 1` は**設定しただけ**で、実際に片目ずつ
+        /// 2 回描いているだけの可能性が残る。MockHMD は実験的なモックなので、
+        /// **実行時の値を読まないと「SPI の経路を通った」とは言えない。**
+        ///
+        /// SPI なら期待される値:
+        ///   `stereoRenderingMode` = SinglePassInstanced
+        ///   `eyeTextureDesc.dimension` = Tex2DArray / `volumeDepth` = 2
+        ///
+        /// **ここでは判定しない。** 期待と違っても記録するだけで、
+        /// 直しに行くかどうかは人が決める。
+        /// </summary>
+        public sealed class StereoFacts
+        {
+            public string StereoRenderingMode = string.Empty;
+            public string EyeTextureDimension = string.Empty;
+            public int EyeTextureVolumeDepth;
+            public int EyeTextureWidth;
+            public int EyeTextureHeight;
+            public bool XrSettingsEnabled;
+            public string DeviceName = string.Empty;
+
+            public override string ToString()
+                => $"stereo={StereoRenderingMode}"
+                   + $" / eyeTex={EyeTextureDimension} {EyeTextureWidth}x{EyeTextureHeight}"
+                   + $" volumeDepth={EyeTextureVolumeDepth}"
+                   + $" / XRSettings.enabled={XrSettingsEnabled}"
+                   + $" / device={DeviceName}";
+        }
+
+        /// <summary>
+        /// いまの立体視の実態を読む。**値の取得だけ。判定はしない。**
+        /// XR が動いていなければ「動いていない」という値がそのまま入る。
+        /// </summary>
+        public static StereoFacts ReadStereoFacts()
+        {
+            RenderTextureDescriptor eye = XRSettings.eyeTextureDesc;
+            return new StereoFacts
+            {
+                StereoRenderingMode = XRSettings.stereoRenderingMode.ToString(),
+                EyeTextureDimension = eye.dimension.ToString(),
+                EyeTextureVolumeDepth = eye.volumeDepth,
+                EyeTextureWidth = eye.width,
+                EyeTextureHeight = eye.height,
+                XrSettingsEnabled = XRSettings.enabled,
+                DeviceName = XRSettings.loadedDeviceName ?? string.Empty,
+            };
         }
 
         /// <summary>直近の起動結果。**触っていなければ null。**</summary>
@@ -193,6 +249,10 @@ namespace SolarSystem.Unity
             manager.StartSubsystems();
             result.Initialized = true;
             result.Message = "初期化した";
+
+            // **「設定した」ではなく「経路が通っている」ことの記録。**
+            // SPI なら Tex2DArray / volumeDepth = 2 になるはず。判定はしない。
+            result.Facts = ReadStereoFacts();
             Application.quitting += Shutdown;
             return result;
         }

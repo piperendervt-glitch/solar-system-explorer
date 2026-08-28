@@ -216,6 +216,45 @@ MockHMD）を付けたときだけローダを選んで初期化する。
 true だと、ローダを登録した時点で起動と同時に XR が立ち上がり、引数を見る前に
 平面の絵が変わる。EditMode テストで false を縛っている。
 
+### 実測（12-0c）
+
+**1. パッケージ追加で平面の絵は変わっていない。**
+
+`dfae1e4`（追加前）と `28601b7`（追加後）で `SolarSetup.CaptureXrStack` の
+**36 枚を撮り比べて、差分は 0 画素**（最大差 0）。**シーンは追加後のものに固定**して
+撮った（シーンの再生成による差を混ぜないため）。同じコミットで 2 回撮った雑音の
+下限も 0 画素なので、この 0 は「測れていない」ではなく「変わっていない」。
+
+exe をビルドすると URP アセットの `m_PrefilterXRKeywords` が **1 -> 0** に変わる
+（XR キーワードの間引きをやめる）。**その後にもう一度撮っても 36 枚とも 0 画素。**
+
+**2. MockHMD は batchmode の Editor でも exe でも初期化できる。**
+
+| 実行形態 | 初期化 | device | stereo | eyeTex |
+| --- | --- | --- | --- | --- |
+| batchmode Editor (`SolarSetup.ProbeXrMock`) | **成功** | Mock HMD Display | MultiPass | Tex2D / volumeDepth 1 |
+| スタンドアロン exe (`-xrMock`) | **成功** | Mock HMD Display | MultiPass | Tex2D / volumeDepth 1 |
+
+**batchmode で立ち上がるので、§0-B に足すホップは無い。** 撮影経路の設計も
+変えなくてよい（exe 経由に切り替える必要は無い）。
+
+**3. ただし SPI の経路は通っていない。**
+
+設定アセットは `renderMode: 1`（SinglePassInstanced）だが、**実行時の実測は
+両方の実行形態で `stereoRenderingMode = MultiPass` / `eyeTextureDesc` は
+Tex2D・volumeDepth 1**。SPI なら Tex2DArray / volumeDepth 2 になるはず。
+
+原因は調べたところまで書く（**直していない**）:
+`MockHMDLoader.Initialize()` は `MockHMDBuildSettings.Instance` を読んでから
+`MockHMD.SetRenderMode` を呼ぶが、この `Instance` は `EditorBuildSettings` の
+`xr.sdk.mock-hmd.settings` キーから引く。**そのキーが登録されていない**
+（`m_configObjects` にあるのは input.settings.actions / xr.management.loader_settings /
+xr.openxr.settings4 の 3 つだけ）。したがって `Instance` が null で
+`SetRenderMode` が呼ばれず、MockHMD は既定の MultiPass のまま動いている。
+
+**「設定した」と「経路が通っている」は別。** アセットの値を見るテストは前者しか
+見ていない。実行時の値を読む口 (`XrBoot.ReadStereoFacts`) を足したのはこのため。
+
 ### `Assets/XR/` について
 
 XR パッケージを入れると Unity が自動生成する（ローダ選択と設定）。**第三者アセットでは
