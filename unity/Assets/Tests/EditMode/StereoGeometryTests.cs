@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using SolarSystem.Core;
 using SolarSystem.Unity;
@@ -26,7 +28,21 @@ namespace SolarSystem.Tests.EditMode
         /// <summary>相対許容差。double の丸めだけを吸収する幅にする。</summary>
         const double RelativeTolerancePercent = 1e-9;
 
+        /// <summary>
+        /// **平面のときの IPD [m]。仮定であって XR の入力ではない (Step 12-1b)。**
+        /// XR で実際に使われる値は `XrStereoOptics` が実行時に測る。
+        /// </summary>
         const double Ipd = 0.063;
+
+        /// <summary>
+        /// **平面のときの焦点距離 [px]。1920x1080 / 縦画角 60 度。**
+        /// 12-0d の実測で XR の目テクスチャは 1512x1680 だったので、
+        /// **この値を XR に持ち込まない。** 数表は平面の値で凍結してある。
+        /// </summary>
+        static readonly double PlaneFocalLengthPixels =
+            AngularSizeSolver.FocalLengthPixels(
+                UniverseConstants.ReferenceVerticalFovDegrees,
+                UniverseConstants.ReferencePixelHeight);
         const double Instrument = 0.5;
         const double Earth = 12000.0;
         const double Mars = 8000.0;
@@ -58,13 +74,13 @@ namespace SolarSystem.Tests.EditMode
             // **f = (H/2)/tan(FOV/2)。FOV/H ではない**（AngularSizeSolver の注記）。
             //   f   = 540 / tan(30 度) = 540 / 0.5773502691896258 = 935.3074360872
             //   1/f = 1.0691671651659736e-3 rad/px
-            AssertClose(StereoGeometry.ReferenceFocalLengthPixels, 935.3074360872, "f");
+            AssertClose(PlaneFocalLengthPixels, 935.3074360872, "f");
 
-            AssertClose(1.0 / StereoGeometry.ReferenceFocalLengthPixels,
+            AssertClose(1.0 / PlaneFocalLengthPixels,
                         1.0691671651659736e-3, "RadiansPerPixel");
 
             // 既存の関数と同じ値であること（別式を持ち込んでいない）。
-            AssertClose(1.0 / StereoGeometry.ReferenceFocalLengthPixels,
+            AssertClose(1.0 / PlaneFocalLengthPixels,
                         AngularSizeSolver.RadiansPerPixel(
                             UniverseConstants.ReferenceVerticalFovDegrees,
                             UniverseConstants.ReferencePixelHeight),
@@ -288,7 +304,8 @@ namespace SolarSystem.Tests.EditMode
         {
             foreach (ParallaxRow row in ParallaxRows)
             {
-                double actual = StereoGeometry.ParallaxPixels(Ipd, row.Distance, row.Scale);
+                double actual = StereoGeometry.ParallaxPixels(
+                    Ipd, row.Distance, row.Scale, PlaneFocalLengthPixels);
                 AssertClose(actual, row.ExpectedPixels, $"{row.Body} / {row.Stage}");
             }
         }
@@ -314,7 +331,8 @@ namespace SolarSystem.Tests.EditMode
             }
 
             Assert.That(
-                StereoGeometry.ParallaxPixels(Ipd, Instrument, Cockpit), Is.GreaterThan(100.0),
+                StereoGeometry.ParallaxPixels(Ipd, Instrument, Cockpit, PlaneFocalLengthPixels),
+                Is.GreaterThan(100.0),
                 "コックピット段の視差まで消えている");
         }
 
@@ -388,7 +406,8 @@ namespace SolarSystem.Tests.EditMode
                     row.ExpectedRadians, label + " [rad]");
 
                 AssertClose(
-                    StereoGeometry.DirectionChangePixels(row.Baseline, row.Distance, row.Scale),
+                    StereoGeometry.DirectionChangePixels(
+                        row.Baseline, row.Distance, row.Scale, PlaneFocalLengthPixels),
                     row.ExpectedPixels, label + " [px]");
             }
         }
@@ -440,11 +459,11 @@ namespace SolarSystem.Tests.EditMode
             // **黙って 0 や NaN を返さない。** 単位を取り違えたまま
             // 「小さい値が出た」で通ると、実測と突き合わせたときに原因が消える。
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => StereoGeometry.ParallaxPixels(Ipd, 0.0, Cockpit));
+                () => StereoGeometry.ParallaxPixels(Ipd, 0.0, Cockpit, PlaneFocalLengthPixels));
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => StereoGeometry.ParallaxPixels(Ipd, -1.0, Cockpit));
+                () => StereoGeometry.ParallaxPixels(Ipd, -1.0, Cockpit, PlaneFocalLengthPixels));
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => StereoGeometry.ParallaxPixels(Ipd, Instrument, 0.0));
+                () => StereoGeometry.ParallaxPixels(Ipd, Instrument, 0.0, PlaneFocalLengthPixels));
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => StereoGeometry.DirectionChangeRadians(0.1, 0.0, Cockpit));
             Assert.Throws<ArgumentOutOfRangeException>(
@@ -452,6 +471,101 @@ namespace SolarSystem.Tests.EditMode
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => StereoGeometry.EyeOffsetMeters(
                     StereoGeometry.HeadPose.Identity, StereoGeometry.Eye.Left, -0.063));
+        }
+
+        // ---- 投影行列から f を出す (Step 12-1b) ----
+
+        struct FocalRow
+        {
+            public string Note;
+            public double M11;
+            public int Height;
+            public double ExpectedPixels;
+
+            public FocalRow(string note, double m11, int height, double px)
+            {
+                Note = note;
+                M11 = m11;
+                Height = height;
+                ExpectedPixels = px;
+            }
+        }
+
+        /// <summary>f [px] = (H/2) * m11。m11 = 1/tan(縦画角/2)。</summary>
+        static readonly FocalRow[] FocalRows =
+        {
+            //           条件                      m11                 H     f [px]
+            new FocalRow("平面 1080p / 60 度",      1.7320508075688774, 1080, 935.3074360871938),
+            new FocalRow("XR 目テクスチャ高 1680",  1.0,                1680, 840.0),
+            new FocalRow("同 / 画角 60 度相当",     1.7320508075688774, 1680, 1454.922678357857),
+            new FocalRow("H 1512 / m11 = 2",       2.0,                1512, 1512.0),
+        };
+
+        [Test]
+        public void 投影行列から焦点距離を出す数表()
+        {
+            foreach (FocalRow row in FocalRows)
+            {
+                AssertClose(
+                    StereoGeometry.FocalLengthPixelsFromProjection(row.M11, row.Height),
+                    row.ExpectedPixels, row.Note);
+            }
+
+            // **平面の経路と同じ値になること。** 別式を持ち込んでいない確認。
+            AssertClose(
+                StereoGeometry.FocalLengthPixelsFromProjection(
+                    1.0 / Math.Tan(Math.PI / 6.0), UniverseConstants.ReferencePixelHeight),
+                PlaneFocalLengthPixels, "平面と一致");
+
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => StereoGeometry.FocalLengthPixelsFromProjection(0.0, 1080));
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => StereoGeometry.FocalLengthPixelsFromProjection(1.5, 0));
+        }
+
+        [Test]
+        public void fとIPDに既定値を持たせない()
+        {
+            // **渡し忘れを黙って通さないことの構造的な保証 (Step 12-1b)。**
+            // 既定値があると、平面の f = 935.31 px や IPD 63 mm で計算が通ってしまい、
+            // 「実測 / 理論」が 1.0 から外れたときに描画の壊れなのか入力違いなのかを
+            // 切り分けられなくなる。
+            foreach (MethodInfo method in typeof(StereoGeometry)
+                     .GetMethods(BindingFlags.Public | BindingFlags.Static))
+            {
+                foreach (ParameterInfo parameter in method.GetParameters())
+                {
+                    Assert.That(parameter.HasDefaultValue, Is.False,
+                                $"{method.Name} の {parameter.Name} に既定値がある");
+                }
+            }
+
+            // px を返す関数は f を必ず受け取る（f 無しのオーバーロードを作らない）。
+            foreach (string name in new[] { "ParallaxPixels", "DirectionChangePixels" })
+            {
+                MethodInfo[] overloads = typeof(StereoGeometry)
+                    .GetMethods(BindingFlags.Public | BindingFlags.Static)
+                    .Where(m => m.Name == name).ToArray();
+
+                Assert.That(overloads, Is.Not.Empty, name + " が無い");
+
+                foreach (MethodInfo method in overloads)
+                {
+                    Assert.That(method.GetParameters().Select(p => p.Name),
+                                Does.Contain("focalLengthPixels"),
+                                $"{name} に f を受け取らない口がある");
+                }
+            }
+
+            // 平面の値を持ち出せる公開メンバを置かない。
+            foreach (MemberInfo member in typeof(StereoGeometry)
+                     .GetMembers(BindingFlags.Public | BindingFlags.Static))
+            {
+                Assert.That(member.Name, Does.Not.Contain("Default"),
+                            "既定値らしき公開メンバがある: " + member.Name);
+                Assert.That(member.Name, Does.Not.Contain("Reference"),
+                            "基準値らしき公開メンバがある: " + member.Name);
+            }
         }
     }
 }

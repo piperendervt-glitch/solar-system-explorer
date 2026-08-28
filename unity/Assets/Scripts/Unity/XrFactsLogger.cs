@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SolarSystem.Unity
@@ -23,6 +24,13 @@ namespace SolarSystem.Unity
         /// <summary>最後に読んだ値。テストと撮影から参照する。</summary>
         public static XrBoot.StereoFacts Latest { get; private set; }
 
+        /// <summary>
+        /// 最後に読んだ光学の実測 (Step 12-1b)。**理論値の入力にする値。**
+        /// 平面の見積もり（f = 935.31 px / IPD 63 mm）で代用しないこと。
+        /// </summary>
+        public static List<XrStereoOptics.Reading> LatestOptics { get; private set; }
+            = new List<XrStereoOptics.Reading>();
+
         IEnumerator Start()
         {
             int previous = 0;
@@ -36,6 +44,28 @@ namespace SolarSystem.Unity
                 previous = frame;
                 Latest = XrBoot.ReadStereoFacts();
                 Debug.Log($"[XrFacts] frame={frame} / {Latest}");
+
+                LogOptics(frame);
+            }
+        }
+
+        /// <summary>
+        /// f と眼間距離を段ごとに読む。**投影行列も目テクスチャが出来てから**
+        /// でないと当てにならない可能性があるので、`[XrFacts]` と同じ回に読む。
+        /// </summary>
+        void LogOptics(int frame)
+        {
+            var stack = FindAnyObjectByType<CameraStackController>();
+            if (stack == null)
+            {
+                Debug.Log($"[XrOptics] frame={frame} / カメラスタックが見つからない");
+                return;
+            }
+
+            LatestOptics = XrStereoOptics.ReadStack(stack);
+            foreach (XrStereoOptics.Reading reading in LatestOptics)
+            {
+                Debug.Log($"[XrOptics] frame={frame} / {reading}");
             }
         }
     }

@@ -36,8 +36,16 @@ namespace SolarSystem.Core
         /// </summary>
         public const double WorldStageScale = 0.001;
 
-        /// <summary>成人の平均的な瞳孔間距離 [m]。</summary>
-        public const double DefaultIpdMeters = 0.063;
+        // **IPD と焦点距離の既定値はここに置かない (Step 12-1b)。**
+        //
+        // 「IPD 63 mm」も「f = 935.31 px（1080p / 60 度）」も、平面のときの
+        // 見積もりであって XR の入力ではない。12-0d の実測で目テクスチャは
+        // 1512x1680 で、画角は HMD の投影行列が決めていた。
+        //
+        // 既定値を持つと、渡し忘れたときに黙って平面の値で計算が通ってしまい、
+        // 「実測 / 理論」が 1.0 から外れたときに**描画の壊れなのか入力違いなのかを
+        // 切り分けられなくなる。** そこで f も IPD も**呼び出し側から必ず受け取る。**
+        // 実行時の値は `XrStereoOptics`（Unity 側）が測る。
 
         public enum Eye
         {
@@ -140,14 +148,27 @@ namespace SolarSystem.Core
         // ---- 3. 視差の理論値 ----
 
         /// <summary>
-        /// 基準の焦点距離 [px]。1080p / 縦画角 60 度。
-        /// **`AngularSizeSolver` の式をそのまま使う**（f = (H/2)/tan(FOV/2)、
-        /// RadiansPerPixel = 1/f = 2*tan(FOV/2)/H。FOV/H ではない）。
+        /// 投影行列と目テクスチャの高さから焦点距離 [px] を出す (Step 12-1b)。
+        ///
+        /// 透視投影の `m11` は 1/tan(縦画角/2)（非対称な錐台でも 2n/(t-b)）なので、
+        /// **f [px] = (H/2) * m11。**
+        ///
+        /// **XR では画角はカメラの `fieldOfView` ではなく HMD の投影行列が決める。**
+        /// 平面の f（1080p / 60 度で 935.31 px）をそのまま持ち込まないこと。
+        /// 左右で違いうるので、**目ごとに出す。**
         /// </summary>
-        public static double ReferenceFocalLengthPixels =>
-            AngularSizeSolver.FocalLengthPixels(
-                UniverseConstants.ReferenceVerticalFovDegrees,
-                UniverseConstants.ReferencePixelHeight);
+        public static double FocalLengthPixelsFromProjection(double m11, int eyeTextureHeight)
+        {
+            RequirePositive(m11, nameof(m11));
+
+            if (eyeTextureHeight <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(eyeTextureHeight), eyeTextureHeight, "目テクスチャの高さは正の数");
+            }
+
+            return eyeTextureHeight * 0.5 * m11;
+        }
 
         /// <summary>
         /// 両眼の像のずれ [px]。**視差 = f * IPD / 距離。**
@@ -166,10 +187,6 @@ namespace SolarSystem.Core
 
             return focalLengthPixels * IpdInStageUnits(ipdMeters, scale) / distanceStageUnits;
         }
-
-        /// <summary>視差 [px]。焦点距離は 1080p / 60 度の基準値を使う。</summary>
-        public static double ParallaxPixels(double ipdMeters, double distanceStageUnits, double scale)
-            => ParallaxPixels(ipdMeters, distanceStageUnits, scale, ReferenceFocalLengthPixels);
 
         // ---- 4. 頭を動かしたときの方向変化 ----
 
@@ -210,11 +227,6 @@ namespace SolarSystem.Core
             RequirePositive(focalLengthPixels, nameof(focalLengthPixels));
             return DirectionChangeRadians(baselineMeters, distanceStageUnits, scale) * focalLengthPixels;
         }
-
-        /// <summary>方向変化 [px]。焦点距離は 1080p / 60 度の基準値を使う。</summary>
-        public static double DirectionChangePixels(
-            double baselineMeters, double distanceStageUnits, double scale)
-            => DirectionChangePixels(baselineMeters, distanceStageUnits, scale, ReferenceFocalLengthPixels);
 
         // ---- 前提の検査 ----
         //
