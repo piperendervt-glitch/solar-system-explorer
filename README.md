@@ -180,10 +180,15 @@ CC0 なのでクレジット表記は**必須ではありません**が、出所
 
 ---
 
-### コックピットモデル (Demo 3) — **未取得**
+### コックピットモデル (Demo 3)
 
-**まだリポジトリには何も入っていません。** Step 11-1 で取り込みます。
+| | |
+| --- | --- |
+| アセット | Hi-Rez Spaceships Creator Free Sample（v1.31） |
+| 提供元 | Ebal Studios（Unity Asset Store / 無料） |
+| 使っているもの | 内装付きコックピット `Cockpit3_WithInterior` のみ |
 
+**リポジトリにはアセット本体が入っていません。**
 取り込んだアセットは **Standard Unity Asset Store EULA** に基づいて使用します。
 EULA は**アセット自体の再配布を禁じている**ため、**このリポジトリには含めません**
 （`unity/Assets/ThirdParty/` は追跡除外）。
@@ -259,13 +264,44 @@ Gaia (ESA) など第三者のデータを含みます。詳細は [docs/02-asset
 計画と決定値の一覧は [docs/02-demo2-plan.md](docs/02-demo2-plan.md) §0-A にあります。
 **実機で目と耳で決めた値**がどれかも、そこに分けて書いてあります。
 
-### 代表カット
+### Demo 2 の代表カット
 
 | | |
 | --- | --- |
 | ![地球（昼側）](docs/screenshots/demo2/01_earth-day.jpg) | 4k テクスチャ・雲層・大気の縁 |
 | ![明暗境界](docs/screenshots/demo2/02_earth-terminator.jpg) | 夜側の街灯り・海の鏡面反射 |
 | ![惑星の縁から昇る太陽](docs/screenshots/demo2/03_sun-over-limb.jpg) | HDR ディスク・コロナ・光条 |
+
+### Demo 3（コックピット）
+
+灰色の箱で組んでいたコックピットを、**公開アセットの内装付き 3D モデル**へ置き換えました。
+アセットは Ebal Studios の無料サンプル（Hi-Rez Spaceships Creator Free Sample / v1.31）。
+**EULA のためアセット本体はこのリポジトリに入っていません**（`unity/Assets/ThirdParty/` は追跡除外）。
+取り込まれていないクローンでは**箱コックピットへ自動で落ちます**（判定はプレハブ GUID の有無）。
+
+| Step | 内容 |
+| --- | --- |
+| 11-0 | 追跡除外・出典記録・フォールバック骨格（**取り込み前に**追跡除外を入れる） |
+| 11-1 | `.unitypackage` の取り込み（CLI に閉じる）、URP 変換、マテリアルの棚卸し |
+| 11-2 | 配置・スケール・視点。**姿勢は前方と上方の 2 軸で決める**（1 軸だと前後と上下が同時に反転する） |
+| 11-3 | 計器を**コックピットの 5 面へ移設**（面ごとに Render Texture、下端の帯は撤去） |
+| 11-3c | **逆歪ませ** — 傾いた面の遠近を、RT の中身を先に歪ませて打ち消す（4 点 DLT で自動算出） |
+| 11-4 | 内装の補助光（暗い場面で真っ黒に潰れないようにするだけの弱い点光源） |
+| 11-5 | **有料アセットは買わず、無料のまま続けると決定** |
+
+計画と決定値の一覧は [docs/03-demo3-plan.md](docs/03-demo3-plan.md) §0-A にあります。
+
+**計器の見せ方は 3 択（面に貼る / 正対 / 逆歪ませ）を F4 に残してあります。**
+逆歪ませは片目・平面モニタ専用の細工なので、**PCVR では「面に貼る」へ戻します**
+（両眼視差があると、傾いた盤は傾いた盤として正しく見えるため）。
+
+### Demo 3 の代表カット
+
+| | |
+| --- | --- |
+| ![計器](docs/screenshots/demo3/01_cockpit.jpg) | 計器が読める（面ごとの RT・逆歪ませ・下端の帯は無い） |
+| ![明暗境界](docs/screenshots/demo3/02_terminator.jpg) | 明暗境界。内装に光が差す |
+| ![夜側](docs/screenshots/demo3/03_night.jpg) | 暗い場面。補助光で内装が潰れていない |
 
 船の乗り換え・相対論効果の描画・惑星への着陸・PCVR 対応・戦闘などは
 **スコープ外**です。理由は [docs/00-requirements.md](docs/00-requirements.md) §4 を参照してください。
@@ -278,6 +314,7 @@ Gaia (ESA) など第三者のデータを含みます。詳細は [docs/02-asset
 | [docs/01-architecture.md](docs/01-architecture.md) | 設計と決定 D-1 〜 D-25 |
 | [docs/02-assets.md](docs/02-assets.md) | 外部アセットの出所とライセンス |
 | [docs/02-demo2-plan.md](docs/02-demo2-plan.md) | Demo 2 の計画・完了状態・決定値の一覧 |
+| [docs/03-demo3-plan.md](docs/03-demo3-plan.md) | Demo 3 の計画・完了状態・決定値の一覧 |
 | [docs/asset-sources.md](docs/asset-sources.md) | Demo 2 で追加した素材の出所とライセンス |
 | [docs/audio-candidates.md](docs/audio-candidates.md) | 音の選定経緯とループ加工のパラメータ |
 | [CLAUDE.md](CLAUDE.md) | 開発時の運用ルール・コマンド |
