@@ -393,7 +393,7 @@ XR パッケージを入れると Unity が自動生成する（ローダ選択�
 | 描画 | 「写真に見えるか」の判断 | — | 完全に人手 |
 | 描画 | シェーダのバリアント欠落による見た目の差 | 画素検証（縁の色成分・夜側輝度など） | コンパイルエラーはログに出るが、キーワード漏れは出ない |
 | 描画 | 透明オブジェクトの描画順の不定性 | 複数カメラ角度のスクショ差分 | 角度を振れば自動化できる |
-| 描画 | **MockHMD が SPI で描いているか（`eyeTextureDesc`）** | 無い。**exe を `-xrMock` で起動して `[XrFacts]` を読む** | 確立済み（Step 12-0d）。**batchmode の Editor は目のテクスチャを作らない**（PlayMode でも `-executeMethod` でも Tex2D 256x256 = XR を使っていないときと同じ値）。`XrStereoFactsPlayModeTests` は batchmode で **Inconclusive** になる。**SPI 固有の片目落ちは batchmode では検証できず、実機ホップでしか判定できない** |
+| 描画 | **MockHMD が SPI で描いているか（`eyeTextureDesc`）** | 無い。**exe を `-xrMock` で起動して `[XrFacts]` を読む** | 確立済み（Step 12-0d）。**batchmode の Editor は目のテクスチャを作らない**（PlayMode でも `-executeMethod` でも Tex2D 256x256 = XR を使っていないときと同じ値）。`XrStereoFactsPlayModeTests` は batchmode で **Inconclusive** になる。**スタンドアロン exe + MockHMD なら SPI で走る**ので、**SPI 固有の片目落ちはそこで画素判定できる**（12-0d の訂正 / 12-C）。実機ホップは OpenXR ランタイム側の確認のためだけに要る |
 | 描画 | **SRP Lens Flare が `Camera.Render()` → RenderTexture 経路で描かれるか** | 要実測 | **未確認。** 現行のスクショは `Deep.Render()` で RT に描いている。乗らない場合は exe 経由（Step 7 で確立）へ切り替える |
 | 描画 | 「眩しい」「暗すぎる」の判断 | 輝度分布の測定 | 閾値の妥当性は人手 |
 | 描画 | **HDR 値（bloom しきい値を超えたか）** | ARGBHalf の RT へ描いて float で読む | 確立済み（Step 9-1）。**カメラの `renderPostProcessing = false` が必須。`Volume.enabled = false` だけでは ACES が残り、2.4 も 9.6 も 0.59 / 0.63 に潰れて「強度を変えても絵が変わらない」ように見える** |
@@ -408,6 +408,65 @@ XR パッケージを入れると Unity が自動生成する（ローダ選択�
 | 描画 | **OnGUI（デバッグ HUD・シナリオの確認項目テキスト・F4 デバッグパネル）** | exe 経由で撮る（Step 7 の `StandaloneCapture`） | `Camera.Render` → RenderTexture の経路には**写らない**。実測済み・PlayMode テストで回帰を見ている。**F4 パネル（§0-C）も同じ**ので、パネルで決めた値の確認は必ず exe で行う |
 | 音 | ループの継ぎ目のクリック | **波形解析で数値化できる** | 隣接サンプル差の平均に対する連結点の段差比。**人手不要にできるので EditMode テストへ落とす** |
 | 全般 | exe 起動でのスクショ | Step 7 の `StandaloneCapture` | 確立済み。ただし音の自動判定は exe でも不可 |
+
+### XR の検証は自動テストでは縛れない (Step 12-C)
+
+**この領域の成果物は自動テストではなく、exe 実行の数値表と画像。**
+batchmode の Editor は目のテクスチャを作らないので、XR まわりのテストは
+**Inconclusive**（「確かめられなかった」）にしかならない。緑になっても
+何も主張していない。
+
+`run_tests.ps1` の判定は **failed 件数を正**としているので、**Inconclusive は
+成功扱いで通過する。** 気付かないまま「全緑」と読まないよう、Inconclusive が
+1 件でもあれば警告と**テスト名の列挙**を出すようにした (12-C)。
+
+| 何を確かめたいか | どこで確かめるか |
+| --- | --- |
+| SPI で走っているか | **exe + MockHMD** の `[XrFacts]`（frame 1 以降） |
+| f と眼間の実測 | **exe + MockHMD** の `[XrOptics]` |
+| SPI 固有の片目落ち | **exe + MockHMD** の左右 2 枚の画素比較 |
+| OpenXR ランタイム側 | **実機ホップ**（そこだけ） |
+
+### 左右 2 枚の最終絵を取り出す経路 (Step 12-C / 成立した)
+
+**`ScreenCapture.CaptureScreenshotAsTexture(StereoScreenCaptureMode.LeftEye / RightEye)`
+で取れる。** 経路 2（ミラーウィンドウの読み戻し）は要らなかった。
+
+```powershell
+build\SolarSystemExplorer.exe -screen-fullscreen 0 -screen-width 640 -screen-height 480 `
+  -xrMock -scenario cockpit-view -xrCaptureDir verify\xr-stereo -xrCaptureFrames 150 `
+  -logFile logs\xrstereo.log
+```
+
+`XrStereoCapture`（`-xrCaptureDir` が無ければ何もしない）が行うこと:
+
+| | |
+| --- | --- |
+| **SPI ゲート** | frame 150 で `[XrFacts]` を読み、SinglePassInstanced / Tex2DArray / volumeDepth 2 でなければ**撮らずに終了コード 3 で落ちる**。撮影が MultiPass に落ちたまま全部緑、を防ぐ |
+| 条件の併記 | `xr-stack.txt` の先頭に stereo モード / dimension / volumeDepth / 目テクスチャのサイズ / 画面サイズ、続けて**段ごとの f（左右）と眼間**（`[XrOptics]`）|
+| 撮影 | **左右を同じフレームで撮る。** フレームをまたぐと微振動の差が混ざり、視差か時間か区別できない |
+| 対照 | **同じフレームで左目をもう 1 枚。** 実測で **0 画素**なので、左右の差は本物 |
+| 層の確認 | `XrDiagnosticsModel.MeasureStereo` で 4 段の識別色を左右それぞれ数える |
+
+**実測（640x480 / cockpit-view / MockHMD）:**
+
+| | |
+| --- | --- |
+| 雑音の下限（左目 2 回・同フレーム） | **0 / 307,200 画素** |
+| 左右の差 | **228,994 / 307,200 画素**（最大差 202） |
+| 明るさの平均 | 左 37.20 / 右 **7.87** |
+
+| 段 | 左 [px] | 右 [px] | 比 |
+| --- | ---: | ---: | ---: |
+| Deep | 363 | 331 | 0.9118 |
+| Near | 362 | **0** | **0.0000** |
+| Nearfield | 5,812 | 5,816 | 0.9993 |
+| Cockpit | 576 | **1** | **0.0017** |
+
+**右目に地球（Near 段）が写っていない。** 絵でも確認できる（左目には地球が
+画面いっぱいに写り、右目は星空だけ）。コックピット内装と計器は両目に写っている。
+**これは判定していない。** 12-C の目的は経路が取れるかどうかだけで、
+絵の正しさは見ていない。Q1 の判定は人が行う。
 
 **GUI が要るホップは現時点で無い。** Demo 2 の惑星シェーダは Shader Graph をやめて
 手書き `.shader` にしたので（[02-demo2-plan.md](docs/02-demo2-plan.md) §8-2）、

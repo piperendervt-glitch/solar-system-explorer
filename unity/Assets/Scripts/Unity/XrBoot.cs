@@ -278,6 +278,10 @@ namespace SolarSystem.Unity
             go.hideFlags = HideFlags.HideAndDontSave;
             UnityEngine.Object.DontDestroyOnLoad(go);
             go.AddComponent<XrFactsLogger>();
+
+            // **左右 2 枚の撮影 (Step 12-C)。** `-xrCaptureDir` が無ければ何もしない。
+            // XR を立ち上げたときだけ載せる（平面の経路には出さない）。
+            go.AddComponent<XrStereoCapture>();
         }
 
         /// <summary>**立ち上げたときだけ止める。** 触っていなければ何もしない。</summary>
