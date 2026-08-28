@@ -44,9 +44,27 @@ namespace SolarSystem.Editor
         public static string ShotDirectory =>
             Path.GetFullPath(Path.Combine(Application.dataPath, "../../verify/shots"));
 
-        /// <summary>代表カット。追跡対象なので Step ごと最大 3 枚に抑える。</summary>
-        public static string HeroDirectory =>
-            Path.GetFullPath(Path.Combine(Application.dataPath, "../../docs/screenshots/demo2"));
+        /// <summary>代表カットの行き先を選ぶ起動引数 (Step 11-5)。既定は demo2。</summary>
+        public const string HeroDirArg = "-heroDir";
+
+        /// <summary>
+        /// 代表カット。**追跡対象なので Demo ごと最大 3 枚**に抑える。
+        /// `-heroDir demo3` のように行き先を選ぶ（既定は demo2 のまま）。
+        /// </summary>
+        public static string HeroDirectory
+        {
+            get
+            {
+                string name = StandaloneCapture.ArgValue(HeroDirArg);
+                if (string.IsNullOrEmpty(name))
+                {
+                    name = "demo2";
+                }
+
+                return Path.GetFullPath(Path.Combine(
+                    Application.dataPath, "../../docs/screenshots", name));
+            }
+        }
 
         public static void Run()
         {
