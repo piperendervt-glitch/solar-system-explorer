@@ -1,5 +1,7 @@
 using SolarSystem.Unity;
+using UnityEditor;
 using UnityEngine;
+using UnityEngine.XR.Management;
 
 namespace SolarSystem.Editor
 {
@@ -19,6 +21,7 @@ namespace SolarSystem.Editor
     {
         public static void Run()
         {
+            PrimeSettings();
             Debug.Log("[XrProbe] 開始前: " + XrBoot.ReadStereoFacts());
 
             XrBoot.Result result = XrBoot.Initialize(XrBoot.Mode.Mock);
@@ -27,6 +30,27 @@ namespace SolarSystem.Editor
 
             XrBoot.Shutdown();
             Debug.Log("[XrProbe] 終了後: " + XrBoot.ReadStereoFacts());
+        }
+
+        /// <summary>
+        /// **Editor でだけ要る前準備 (Step 12-0d)。**
+        ///
+        /// `XRGeneralSettings.Instance` は `XRGeneralSettingsPerBuildTarget.OnEnable()`
+        /// が入れる。batchmode の `-executeMethod` では**そのアセットが読み込まれるとは
+        /// 限らない**ので、コンパイルが走った回だけ Instance が入り、走らない回は
+        /// null になる（12-0d で実測。同じコードで初期化が成功したり失敗したりする）。
+        ///
+        /// ここで先に読ませて、**測定の当たり外れを潰す。**
+        /// プレイヤー（exe）では preloaded asset として必ず読まれるので、これは
+        /// **Editor だけの事情。`XrBoot` 側には持ち込まない。**
+        /// </summary>
+        static void PrimeSettings()
+        {
+            EditorBuildSettings.TryGetConfigObject(
+                XRGeneralSettings.k_SettingsKey, out ScriptableObject perTarget);
+
+            Debug.Log($"[XrProbe] 設定の読み込み: perTarget={(perTarget == null ? "(無し)" : perTarget.name)}"
+                      + $" / Instance={(XRGeneralSettings.Instance == null ? "null" : "有り")}");
         }
     }
 }

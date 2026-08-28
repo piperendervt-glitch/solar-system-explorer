@@ -2,7 +2,9 @@ using System;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
+using SolarSystem.Editor;
 using SolarSystem.Unity;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.XR;
 using UnityEngine.XR.Management;
@@ -156,21 +158,44 @@ namespace SolarSystem.Tests.EditMode
         }
 
         // ---- Render Mode ----
+        //
+        // **ここから下は「設定は入っている」という主張だけ。**
+        // 「実際に SPI の経路を通っている」は実行時の値でしか言えず、
+        // それは `XrStereoFactsPlayModeTests` が見る (Step 12-0d)。
+        // 12-0c では下の 2 件が緑のまま、実行時は MultiPass だった。
 
         [Test]
-        public void 両方のRenderModeがSinglePassInstanced()
+        public void 設定アセットにはSPIと書いてある_経路の証拠ではない()
         {
             // **列挙はパッケージごとに読んで確かめた (CLAUDE.md §0-D)。**
             //   OpenXR  `OpenXRSettings.RenderMode`       0 = MultiPass / 1 = SinglePassInstanced
             //   MockHMD `MockHMDBuildSettings.RenderMode` 0 = MultiPass / 1 = SinglePassInstanced
             //
-            // **MockHMD の生成時の既定は 0 = MultiPass。** 明示しないと batchmode の
-            // 測定が SPI の経路を一切通らず、数値が緑でも実機で初めて壊れる。
+            // **MockHMD の生成時の既定は 0 = MultiPass。**
             Assert.That(RenderModeOf("MockHMDBuildSettings.asset", "renderMode:"), Is.EqualTo(1),
-                        "**MockHMD が MultiPass のまま**（SPI の経路を通らない）");
+                        "**MockHMD のアセットが MultiPass のまま**");
 
             Assert.That(RenderModeOf("OpenXR Package Settings.asset", "m_renderMode:"),
-                        Is.EqualTo(1), "OpenXR が MultiPass になっている");
+                        Is.EqualTo(1), "OpenXR のアセットが MultiPass になっている");
+        }
+
+        [Test]
+        public void MockHMDの設定がEditorBuildSettingsに登録されている_経路の証拠ではない()
+        {
+            // **アセットが在るだけでは `MockHMDBuildSettings.Instance` が引けない。**
+            // 引けないと `MockHMDLoader.Initialize()` が `SetRenderMode` を呼ばず、
+            // アセットに 1 と書いてあっても既定の MultiPass で走る（12-0c の実測）。
+            //
+            // 登録は `SolarSetup.ConfigureXr` が行う。
+            // **これも「設定が入っている」側の主張**で、経路の証拠ではない。
+            EditorBuildSettings.TryGetConfigObject(XrSetup.MockSettingsKey, out UnityEngine.Object registered);
+
+            Assert.That(registered, Is.Not.Null,
+                        $"**{XrSetup.MockSettingsKey} が登録されていない**"
+                        + "（SolarSetup.ConfigureXr を回すこと）");
+
+            Assert.That(registered.GetType().Name, Is.EqualTo("MockHMDBuildSettings"),
+                        "登録されているものが MockHMD の設定ではない");
         }
 
         /// <summary>設定アセットから RenderMode を読む。**すべての行が同じ値**であること。</summary>

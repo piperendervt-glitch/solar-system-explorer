@@ -253,8 +253,31 @@ namespace SolarSystem.Unity
             // **「設定した」ではなく「経路が通っている」ことの記録。**
             // SPI なら Tex2DArray / volumeDepth = 2 になるはず。判定はしない。
             result.Facts = ReadStereoFacts();
+
+            // **初期化した直後の値は当てにならない (Step 12-0d)。**
+            // `eyeTextureDesc` は表示サブシステムが実際に描き始めるまで埋まらず、
+            // XR を使っていないときと同じ既定値 (Tex2D 256x256 / volumeDepth 1) が
+            // そのまま読める。**フレームが回ってから読み直す。**
+            SpawnFactsLogger();
+
             Application.quitting += Shutdown;
             return result;
+        }
+
+        /// <summary>フレームが回ってから立体視の実態を読み直す。**判定はしない。**</summary>
+        static void SpawnFactsLogger()
+        {
+            if (!Application.isPlaying)
+            {
+                // Editor の `-executeMethod` にはフレームが無い。**読める場所が無い。**
+                Debug.Log("[XrBoot] 再測定は行わない（フレームの回らない実行）");
+                return;
+            }
+
+            var go = new GameObject("XrFactsLogger");
+            go.hideFlags = HideFlags.HideAndDontSave;
+            UnityEngine.Object.DontDestroyOnLoad(go);
+            go.AddComponent<XrFactsLogger>();
         }
 
         /// <summary>**立ち上げたときだけ止める。** 触っていなければ何もしない。</summary>

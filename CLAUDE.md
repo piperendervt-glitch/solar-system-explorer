@@ -230,30 +230,77 @@ exe をビルドすると URP アセットの `m_PrefilterXRKeywords` が **1 ->
 
 **2. MockHMD は batchmode の Editor でも exe でも初期化できる。**
 
+ただし**目のテクスチャが作られるのは exe だけ。**（12-0d の実測）
+
 | 実行形態 | 初期化 | device | stereo | eyeTex |
 | --- | --- | --- | --- | --- |
-| batchmode Editor (`SolarSetup.ProbeXrMock`) | **成功** | Mock HMD Display | MultiPass | Tex2D / volumeDepth 1 |
-| スタンドアロン exe (`-xrMock`) | **成功** | Mock HMD Display | MultiPass | Tex2D / volumeDepth 1 |
+| batchmode Editor (`ProbeXrMock` / PlayMode) | **成功** | Mock HMD Display | MultiPass | Tex2D **256x256** / volumeDepth 1 |
+| スタンドアロン exe (`-xrMock`) | **成功** | Mock HMD Display | **SinglePassInstanced** | **Tex2DArray 1512x1680 / volumeDepth 2** |
 
-**batchmode で立ち上がるので、§0-B に足すホップは無い。** 撮影経路の設計も
-変えなくてよい（exe 経由に切り替える必要は無い）。
+**256x256 / Tex2D は「XR を使っていないとき」と同じ値。** batchmode の Editor には
+描く先が無いので目のテクスチャが作られず、**起動前の既定値がそのまま読める。**
+これは「MultiPass だった」ではなく「測れていない」。→ §0-B にホップを 1 行足した。
 
-**3. ただし SPI の経路は通っていない。**
+**3. SPI を実際に通すには設定アセットだけでは足りない (12-0d で解決)。**
 
-設定アセットは `renderMode: 1`（SinglePassInstanced）だが、**実行時の実測は
-両方の実行形態で `stereoRenderingMode = MultiPass` / `eyeTextureDesc` は
-Tex2D・volumeDepth 1**。SPI なら Tex2DArray / volumeDepth 2 になるはず。
-
-原因は調べたところまで書く（**直していない**）:
 `MockHMDLoader.Initialize()` は `MockHMDBuildSettings.Instance` を読んでから
-`MockHMD.SetRenderMode` を呼ぶが、この `Instance` は `EditorBuildSettings` の
-`xr.sdk.mock-hmd.settings` キーから引く。**そのキーが登録されていない**
-（`m_configObjects` にあるのは input.settings.actions / xr.management.loader_settings /
-xr.openxr.settings4 の 3 つだけ）。したがって `Instance` が null で
-`SetRenderMode` が呼ばれず、MockHMD は既定の MultiPass のまま動いている。
+`MockHMD.SetRenderMode` を呼ぶ。この `Instance` は `EditorBuildSettings` の
+**`xr.sdk.mock-hmd.settings` キー**から引くので、アセットが `Assets/XR/Settings/` に
+在るだけでは引けない。12-0c 時点でこのキーが未登録で `Instance` が null になり、
+**アセットに `renderMode: 1` と書いてあっても既定の MultiPass で走っていた。**
 
-**「設定した」と「経路が通っている」は別。** アセットの値を見るテストは前者しか
-見ていない。実行時の値を読む口 (`XrBoot.ReadStereoFacts`) を足したのはこのため。
+`SolarSetup.ConfigureXr` が `EditorBuildSettings.AddConfigObject` で登録するように
+した (`XrSetup.RegisterMockSettings`)。**対照付きの実測:**
+
+| exe のビルド時 | frame 1 以降の実測 |
+| --- | --- |
+| キー登録あり | **SinglePassInstanced / Tex2DArray 1512x1680 / volumeDepth 2** |
+| キー登録なし（対照。手で外して再ビルド） | MultiPass / Tex2D 1512x1680 / volumeDepth 1 |
+
+対照でも目のテクスチャ自体は 1512x1680 で作られる。**「XR が動いていない」のではなく
+「MultiPass で動いている」**ことが区別できている。
+
+**4. 立体視の値を読む時機を間違えない。**
+
+`XRSettings.eyeTextureDesc` は**表示サブシステムが描き始めるまで埋まらない。**
+`XrBoot.Initialize` の直後に読むと、XR を使っていないときと同じ
+Tex2D 256x256 / volumeDepth 1 が読める（12-0c はこれを「MultiPass」と読み違えた）。
+`XrFactsLogger` が frame 1 / 2 / 10 / 60 / 120 で読み直してログに落とす。
+
+**「設定した」と「経路が通っている」は別。** テストも 2 種類に分けてある:
+
+| テスト | 何を主張しているか |
+| --- | --- |
+| `XrBootTests.設定アセットにはSPIと書いてある_経路の証拠ではない` | 設定は入っている |
+| `XrBootTests.MockHMDの設定がEditorBuildSettingsに登録されている_経路の証拠ではない` | 設定は引ける |
+| `XrStereoFactsPlayModeTests.MockHMDがSinglePassInstancedで走る` | **実行時に SPI で走っている**（batchmode では Inconclusive） |
+
+**5. exe をビルドすると `m_PrefilterXRKeywords` が 1 -> 0 に変わる。**
+
+`Assets/Settings/PC_RPAsset.asset`。**XR シェーダキーワードの間引きをやめる**設定で、
+XR パッケージを入れると Unity がビルド時に書き換える。**絵は変わらない**
+（36 枚とも 0 画素）が、**シェーダバリアントが増えるのでビルド時間と exe のサイズに
+効く。** 追跡ファイルなので勝手に戻さないこと（戻しても次のビルドでまた変わる）。
+
+### 12-3（実機ホップ）で確認すること
+
+**最優先: 実機で `[XrFacts]` が SPI になっていること。**
+
+```powershell
+build\SolarSystemExplorer.exe -xr -logFile logs\xr_real.log
+# ログの [XrFacts] 行を読む（frame 1 / 2 / 10 / 60 / 120 の 5 行が出る）
+```
+
+| 期待 | 値 |
+| --- | --- |
+| `stereoRenderingMode` | `SinglePassInstanced` |
+| `eyeTextureDesc.dimension` | `Tex2DArray` |
+| `volumeDepth` | `2` |
+
+**ここが MultiPass だったら Q1（SPI で目のインデックスが Overlay 段に伝わるか）の
+問い自体が成立していない。** OpenXR 側は `xr.openxr.settings4` が登録済みで
+`m_renderMode: 1` なので SPI のはずだが、**MockHMD で同じ「はず」が外れた**
+（上の 3）ので、実機でも値を読むまで通さない。
 
 ### `Assets/XR/` について
 
@@ -270,8 +317,10 @@ XR パッケージを入れると Unity が自動生成する（ローダ選択�
 | `com.unity.xr.mock-hmd` | `MockHMDBuildSettings.RenderMode` : 0 = MultiPass / 1 = SinglePassInstanced | `renderMode: 0` = **MultiPass** |
 
 **並び順が同じであることはソースを 2 つとも読んで確かめた。** 片方の値をもう片方に
-当てはめない。**MockHMD の既定は MultiPass なので、明示的に SPI にしないと
-batchmode の測定が SPI の経路を一切通らない**（数値が全部緑でも実機で初めて壊れる）。
+当てはめない。**MockHMD の既定は MultiPass なので、明示的に SPI にする。**
+
+**アセットに 1 と書くだけでは効かない。** `EditorBuildSettings` への登録が要る
+（→ 上の「実測」3）。そして**その結果を確かめられるのは exe だけ**（→ §0-B）。
 
 ---
 
@@ -287,6 +336,7 @@ batchmode の測定が SPI の経路を一切通らない**（数値が全部緑
 | 描画 | 「写真に見えるか」の判断 | — | 完全に人手 |
 | 描画 | シェーダのバリアント欠落による見た目の差 | 画素検証（縁の色成分・夜側輝度など） | コンパイルエラーはログに出るが、キーワード漏れは出ない |
 | 描画 | 透明オブジェクトの描画順の不定性 | 複数カメラ角度のスクショ差分 | 角度を振れば自動化できる |
+| 描画 | **MockHMD が SPI で描いているか（`eyeTextureDesc`）** | 無い。**exe を `-xrMock` で起動して `[XrFacts]` を読む** | 確立済み（Step 12-0d）。**batchmode の Editor は目のテクスチャを作らない**（PlayMode でも `-executeMethod` でも Tex2D 256x256 = XR を使っていないときと同じ値）。`XrStereoFactsPlayModeTests` は batchmode で **Inconclusive** になる。**SPI 固有の片目落ちは batchmode では検証できず、実機ホップでしか判定できない** |
 | 描画 | **SRP Lens Flare が `Camera.Render()` → RenderTexture 経路で描かれるか** | 要実測 | **未確認。** 現行のスクショは `Deep.Render()` で RT に描いている。乗らない場合は exe 経由（Step 7 で確立）へ切り替える |
 | 描画 | 「眩しい」「暗すぎる」の判断 | 輝度分布の測定 | 閾値の妥当性は人手 |
 | 描画 | **HDR 値（bloom しきい値を超えたか）** | ARGBHalf の RT へ描いて float で読む | 確立済み（Step 9-1）。**カメラの `renderPostProcessing = false` が必須。`Volume.enabled = false` だけでは ACES が残り、2.4 も 9.6 も 0.59 / 0.63 に潰れて「強度を変えても絵が変わらない」ように見える** |
@@ -318,6 +368,29 @@ RenderTexture に写らない → §0-B）。
 | `F1` | デバッグ HUD の表示切替（**情報表示**）。既定は非表示。`-debugHud` を付けると初期表示 |
 | `F2` / `F3` | シナリオを次 / 前へ |
 | `F4` | **デバッグパネル**（操作盤）の開閉 |
+
+### 立体視の実態を採る（`[XrFacts]` / Step 12-0d）
+
+**目で見る道具ではないが、実機でしか採れないのでここに置く。**
+`XRSettings` の実測値を exe のログに落とす。**`-xr` / `-xrMock` を付けたときだけ**
+`XrFactsLogger` が生成され、frame 1 / 2 / 10 / 60 / 120 で読み直す。
+
+```powershell
+# 実機 (OpenXR)
+build\SolarSystemExplorer.exe -xr -logFile logs\xr_real.log
+
+# HMD 無し (MockHMD)。撮って終わる形にもできる
+build\SolarSystemExplorer.exe -screen-fullscreen 0 -screen-width 640 -screen-height 480 `
+  -xrMock -scenario cockpit-view -captureShot verify\shots\xrmock.png `
+  -captureFrames 150 -logFile logs\xrmock.log
+```
+
+```
+[XrFacts] frame=1 / stereo=SinglePassInstanced / eyeTex=Tex2DArray 1512x1680 volumeDepth=2 / ...
+```
+
+**初期化直後の `[XrBoot]` 行の値は使わない。** そこはまだ目のテクスチャが無く、
+XR を使っていないときと同じ Tex2D 256x256 / volumeDepth 1 が読める（→ §0-D）。
 
 ### F4 デバッグパネル（Step 8-0b）
 
