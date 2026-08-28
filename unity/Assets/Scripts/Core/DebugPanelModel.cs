@@ -231,6 +231,22 @@ namespace SolarSystem.Core
         /// <summary>エンジンの一次遅れの時定数 [秒] (Step 10-3)。**耳で決める値。**</summary>
         public const string EngineLagId = "num.engineLag";
 
+        /// <summary>
+        /// 座席の目の位置 [m] (Step 11-2b)。**目で決める値。**
+        /// 既定はシーンに組まれた値（定義の `EyeLocal`、未定なら bounds の中心）。
+        /// 範囲は既定の ±0.5 m。決まったら `CockpitDefinition.EyeLocal` に入れる。
+        /// </summary>
+        public const string EyeXId = "num.eyeX";
+        public const string EyeYId = "num.eyeY";
+        public const string EyeZId = "num.eyeZ";
+
+        /// <summary>
+        /// 垂直画角 [度] (Step 11-2b)。**4 段のカメラすべてに効く。**
+        /// コックピットだけ別の画角にすると窓枠と外の景色で遠近が食い違う。
+        /// **既定から動かしたときだけ適用する**（動かさなければシナリオの値が生きる）。
+        /// </summary>
+        public const string FovId = "num.fov";
+
         readonly List<DebugItem> _items = new List<DebugItem>();
 
         public IReadOnlyList<DebugItem> Items => _items;
@@ -266,7 +282,13 @@ namespace SolarSystem.Core
             double engineVolume,
             double cockpitVolume,
             double sfxVolume,
-            double engineLagSeconds)
+            double engineLagSeconds,
+            double eyeX,
+            double eyeY,
+            double eyeZ,
+            Vec3d eyeMin,
+            Vec3d eyeMax,
+            double fovDegrees)
         {
             var m = new DebugPanelModel();
 
@@ -336,6 +358,22 @@ namespace SolarSystem.Core
                 cockpitVolume, AudioMix.MinVolume, AudioMix.MaxVolume, 0.05, "F2"));
             m._items.Add(DebugItem.MakeNumber(SfxVolumeId, "音量 SFX",
                 sfxVolume, AudioMix.MinVolume, AudioMix.MaxVolume, 0.05, "F2"));
+
+            // ---- 目の位置と画角 (Step 11-2b) ----
+            // **範囲はコックピットの寸法いっぱい。** 座席がどこにあるかは
+            // アセットを見るまで分からず、実測では機体が 5.8 m もある。
+            // 既定（窓の中心）の周り ±0.5 m では届かない場所が出る。
+            //
+            // **刻みは 0.05 m。** パネルの左右キーは押すたびに 1 段なので、
+            // 0.01 刻みだと数 m を動かすのに数百回押すことになる。
+            m._items.Add(DebugItem.MakeNumber(EyeXId, "目 左右 [m]",
+                eyeX, eyeMin.X, eyeMax.X, 0.05, "F2"));
+            m._items.Add(DebugItem.MakeNumber(EyeYId, "目 高さ [m]",
+                eyeY, eyeMin.Y, eyeMax.Y, 0.05, "F2"));
+            m._items.Add(DebugItem.MakeNumber(EyeZId, "目 前後 [m]",
+                eyeZ, eyeMin.Z, eyeMax.Z, 0.05, "F2"));
+            m._items.Add(DebugItem.MakeNumber(FovId, "画角 [度]",
+                fovDegrees, 50.0, 90.0, 1.0, "F0"));
 
             m._items.Add(DebugItem.MakeNumber(EngineLagId, "エンジンの追従 [秒]",
                 engineLagSeconds, AudioMix.MinEngineLagSeconds,

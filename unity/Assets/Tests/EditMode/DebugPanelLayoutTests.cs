@@ -12,21 +12,24 @@ namespace SolarSystem.Tests.EditMode
     /// </summary>
     public sealed class DebugPanelLayoutTests
     {
-        const int HeaderLines = 3;
+        // 見出し 3 行 + 窓の投影面積比 1 行 (Step 11-2b)。
+        const int HeaderLines = 4;
         const int BodyLines = 4; // 見出し + 天体 3 件
 
         /// <summary>本番と同じ項目数を使う。ここで数を二重定義しない。</summary>
         static int RealItemCount()
         {
             DebugPanelModel m = DebugPanelModel.Create(
-                new[] { "Sun", "Earth", "Mars" }, 5.0, 1.15, 0.6, 1.5e-3, 6.0, 2.5, 1.5, 6.0, 0.4, 0.8, 1.05, 0.6, 3.0, 0.10, 1.0, 0.55, 0.30, 0.70, 0.50);
+                new[] { "Sun", "Earth", "Mars" }, 5.0, 1.15, 0.6, 1.5e-3, 6.0, 2.5, 1.5, 6.0, 0.4, 0.8, 1.05, 0.6, 3.0, 0.10, 1.0, 0.55, 0.30, 0.70, 0.50, 0.0, 0.0, 0.0,
+                new Vec3d(-1.0, -1.0, -1.0), new Vec3d(1.0, 1.0, 1.0), 60.0);
             return m.Items.Count;
         }
 
         [Test]
-        public void 項目数は39件()
+        public void 項目数は43件()
         {
-            Assert.That(RealItemCount(), Is.EqualTo(39));
+            // 39 + 目の位置 3 + 画角 1 = 43 (Step 11-2b)。
+            Assert.That(RealItemCount(), Is.EqualTo(43));
         }
 
         [Test]

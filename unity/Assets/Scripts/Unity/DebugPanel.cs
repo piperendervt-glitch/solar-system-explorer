@@ -33,6 +33,9 @@ namespace SolarSystem.Unity
         [SerializeField] CameraStackController _stack;
         [SerializeField] DebugOverlay _overlay;
 
+        /// <summary>窓の投影面積比 (Step 11-2b)。**目の位置を振りながら見るため。**</summary>
+        [SerializeField] CockpitMetrics _metrics;
+
         GUIStyle _style;
         GUIStyle _cursorStyle;
         GUIStyle _dimStyle;
@@ -48,18 +51,35 @@ namespace SolarSystem.Unity
         public DebugPanelLayout LastLayout { get; private set; }
 
         public void Bind(UniverseRoot root, ShipRig rig, DebugPanelApplier applier,
-                         CameraStackController stack, DebugOverlay overlay)
+                         CameraStackController stack, DebugOverlay overlay,
+                         CockpitMetrics metrics)
         {
             _root = root;
             _rig = rig;
             _applier = applier;
             _stack = stack;
             _overlay = overlay;
+            _metrics = metrics;
         }
 
         /// <summary>既定値はコードの定数から取る。ここで数値を二重定義しない。</summary>
         public void Initialize(SolarSystemModel model)
         {
+            Camera cockpit = _stack != null ? _stack.Cockpit : null;
+            Vector3 eye = cockpit != null ? cockpit.transform.localPosition : Vector3.zero;
+            float fov = cockpit != null
+                ? cockpit.fieldOfView
+                : CameraStackController.VerticalFovDegrees;
+
+            // **目を振れる範囲はコックピットの寸法そのもの。**
+            // 座席がどこかは分からないので、機体の中ならどこへでも置けるようにする。
+            Bounds room = _metrics != null
+                ? _metrics.LocalBounds()
+                : new Bounds(eye, Vector3.one);
+            room.Encapsulate(eye); // 既定値が範囲の外に出ないようにする
+            var eyeMin = new Vec3d(room.min.x, room.min.y, room.min.z);
+            var eyeMax = new Vec3d(room.max.x, room.max.y, room.max.z);
+
             var names = new List<string>();
             if (model != null)
             {
@@ -89,7 +109,10 @@ namespace SolarSystem.Unity
                 AudioMix.EngineVolume,
                 AudioMix.CockpitVolume,
                 AudioMix.SfxVolume,
-                AudioMix.EngineLagSeconds);
+                AudioMix.EngineLagSeconds,
+                // **既定はシーンに組まれた値。** パネル側で数値を二重定義しない
+                // （目の位置は CockpitDefinition か bounds から来ている）。
+                eye.x, eye.y, eye.z, eyeMin, eyeMax, fov);
 
             if (HasDebugPanelArg())
             {
@@ -447,6 +470,7 @@ namespace SolarSystem.Unity
                 "=== F4 デバッグパネル ===",
                 "上下=項目  左右=増減  Space=ON/OFF  R=全部リセット  F4=閉じる",
                 "**開いている間は船の操作を止めています** (Space と R をパネルが使うため)",
+                _metrics != null ? _metrics.Describe() : "窓の投影面積比: --- (計測器が無い)",
             };
 
             IReadOnlyList<DebugItem> items = Model.Items;

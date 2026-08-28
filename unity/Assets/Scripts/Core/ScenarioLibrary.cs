@@ -56,6 +56,10 @@ namespace SolarSystem.Core
             // sun-face では中心に重なって見えない。
             list.Add(CreateSunOffAxis(model));
 
+            // コックピットの配置 (Step 11-2b)。窓の面積比と、窓の外に地球が
+            // 見えていることを見る。位置と光は earth-close-day と同じ。
+            list.Add(CreateCockpitView(model));
+
             // LOD と実スケール引き渡しの確認 (Step 2 / 3b から移設)。
             list.Add(CreateLod(model, "lod-from-earth", 2.0e4, fromEarth: true,
                 "地球近傍 (地球から 2e4 units) から火星方向"));
@@ -133,6 +137,13 @@ namespace SolarSystem.Core
         /// <summary>太陽を画面の端寄りに置く (Step 9-3b)。ゴーストの確認用。</summary>
         public const string SunOffAxisName = "sun-offaxis";
 
+        /// <summary>
+        /// コックピット越しに地球を見る (Step 11-2b)。
+        /// **窓の投影面積比を測るための場面。** 地球が窓の中にあることを目でも
+        /// 画素でも確かめられるよう、`earth-close-day` と同じ位置・同じ光にしてある。
+        /// </summary>
+        public const string CockpitViewName = "cockpit-view";
+
         /// <summary>太陽が地球の縁からどれだけ出ているか。</summary>
         public enum SunPhase
         {
@@ -165,6 +176,38 @@ namespace SolarSystem.Core
 
         /// <summary>観測者を置く距離 (地球半径の倍数)。円盤が画面いっぱいになる。</summary>
         public const double EarthCloseRadii = 2.5;
+
+        /// <summary>
+        /// コックピット越しに地球を見る (Step 11-2b)。
+        ///
+        /// **`earth-close-day` と同じ位置・同じ光**にしてある。違うのは確認項目だけで、
+        /// 見るのは惑星ではなくコックピットの側。同じ絵で比べられるようにしている。
+        /// </summary>
+        static Scenario CreateCockpitView(SolarSystemModel model)
+        {
+            var offset = new Vec3d(1.0, 0.0, 0.0);
+            Vec3d position = model.Earth.AbsolutePosition
+                             + offset * (SolarSystemModel.EarthRadiusKm * EarthCloseRadii);
+
+            var start = new ScenarioStart
+            {
+                Position = position,
+                LookAt = model.Earth.AbsolutePosition,
+                Up = new Vec3d(0.0, 1.0, 0.0),
+                TargetStationIndex = 0,
+                ElapsedSeconds = 0.0,
+                VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                DebugHudVisible = false,
+                SunDirectionOverride = offset * -1.0, // 昼側。earth-close-day と同じ
+            };
+
+            return new Scenario(CockpitViewName, "コックピット越しに地球を見る", start, new[]
+            {
+                "窓の外に地球が見えている (窓枠に隠れていない)",
+                "正面窓の上端が画面の上端より上、計器盤の上端が下 1/3 より下",
+                "ガラス越しの景色が暗くなりすぎていない",
+            });
+        }
 
         /// <summary>
         /// 地球に寄って表面の作り込みを見る (Step 8-2)。

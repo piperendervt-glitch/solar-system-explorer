@@ -215,8 +215,8 @@ namespace SolarSystem.Editor
                          MaterialLibrary.MeshMaterial(appearanceModel.Sun),
                          MaterialLibrary.PointMaterial(appearanceModel.Sun),
                          MaterialLibrary.CoronaMaterial(appearanceModel.Sun),
-                         audioRouting);
-            debugPanel.Bind(universeRoot, rig, applier, stack, overlay);
+                         audioRouting, cockpit.CockpitCamera.transform);
+            debugPanel.Bind(universeRoot, rig, applier, stack, overlay, cockpit.Metrics);
 
             // ---- exe からのスクショ用 (Step 7) ----
             // 引数が無ければ何もしない。見た目には影響しない。

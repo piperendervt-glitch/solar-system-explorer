@@ -69,6 +69,22 @@ namespace SolarSystem.Tests.PlayMode
             rt.Create();
             RenderTexture prevDeep = _stack.Deep.targetTexture;
             RenderTexture prevActive = RenderTexture.active;
+
+            // **コックピットの中身だけを描かずに撮る (Step 11-2a)。**
+            // ここで見ているのは惑星のシェーダで、コックピットではない。11-2a で箱から
+            // 実アセットに変わり、内装が視界の大半を占めるようになったため、外さないと
+            // 惑星の画素が拾えない。窓越しの見え方は cockpit-view と F4 で人が見る。
+            //
+            // **カメラごと止めない。** URP はスタックの最後のカメラで
+            // ポストプロセスを適用するので、コックピット段を無効にすると
+            // トーンマップと bloom の掛かり方まで変わってしまう。
+            // 描画対象（culling mask）だけを空にする。
+            int prevMask = _stack.Cockpit != null ? _stack.Cockpit.cullingMask : 0;
+            if (_stack.Cockpit != null)
+            {
+                _stack.Cockpit.cullingMask = 0;
+            }
+
             try
             {
                 _stack.Deep.targetTexture = rt;
@@ -84,6 +100,11 @@ namespace SolarSystem.Tests.PlayMode
             {
                 _stack.Deep.targetTexture = prevDeep;
                 RenderTexture.active = prevActive;
+                if (_stack.Cockpit != null)
+                {
+                    _stack.Cockpit.cullingMask = prevMask;
+                }
+
                 rt.Release();
                 Object.DestroyImmediate(rt);
             }

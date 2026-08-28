@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using SolarSystem.Unity;
 using TMPro;
 using UnityEditor;
@@ -34,6 +35,13 @@ namespace SolarSystem.Editor
         const int PanelWidth = 768;
         const int PanelHeight = 160;
 
+        /// <summary>
+        /// 箱コックピットの内寸の半分（高さ）。
+        /// **計器パネルの位置がこれを基準にしている**ので、箱の枠を組む側と
+        /// パネル側で共有する。パネルを実機の画面へ移すのは 11-3。
+        /// </summary>
+        const float HalfHeight = Size * 0.5f;
+
         /// <summary>パネル背景の不透明度 (Step 7)。文字は不透明のまま。</summary>
         const float PanelBackgroundAlpha = 0.55f;
 
@@ -50,9 +58,22 @@ namespace SolarSystem.Editor
 
             /// <summary>どの定義で組んだか (Step 11-0c)。HUD とテストが読む。</summary>
             public CockpitIdentity Identity;
+
+            /// <summary>窓の投影面積比の計測器 (Step 11-2b)。F4 とテストが読む。</summary>
+            public CockpitMetrics Metrics;
         }
 
+        /// <summary>既定の定義（`CockpitCatalog.Requested`）で組む。</summary>
         public static Result Build(Transform shipTransform, int cockpitLayer)
+            => Build(shipTransform, cockpitLayer, CockpitCatalog.Requested);
+
+        /// <summary>
+        /// 定義を指定して組む (Step 11-2a)。
+        /// **差し替えの継ぎ目はここ。** 11-6 で有料アセットを足すときも、
+        /// 定義を 1 つ増やしてここへ渡すだけで済むはず、というのが 11-2a の主張。
+        /// </summary>
+        public static Result Build(Transform shipTransform, int cockpitLayer,
+                                   SolarSystem.Core.CockpitDefinition requested)
         {
             // 微振動 (Step 8-0) はカメラと枠を**一緒に**揺らす必要がある。
             // カメラだけ揺らすと枠が泳いで見える。実機ではカメラは枠に固定されていて、
@@ -67,7 +88,6 @@ namespace SolarSystem.Editor
             // **どの定義で組んだかをシーンに残す (Step 11-0c)。**
             // 「レンダラー数が箱より多い」のような間接的な判定ではなく、
             // Id を直接読めるようにする。HUD にも出るので実機で取り違えに気づける。
-            SolarSystem.Core.CockpitDefinition requested = CockpitCatalog.Requested;
             SolarSystem.Core.CockpitDefinition built =
                 CockpitCatalog.Resolve(requested, out bool fellBackToBox);
             CockpitIdentity identity = root.AddComponent<CockpitIdentity>();
@@ -78,28 +98,22 @@ namespace SolarSystem.Editor
             camGo.transform.SetParent(rig.transform, false);
             Camera cockpitCam = camGo.AddComponent<Camera>();
 
-            // ---- 枠 ----
-            // 前方に開口部、上下左右に厚みのある枠。プリミティブの箱だけで作る。
-            Material frame = MaterialLibrary.SolidMaterial("CockpitFrame", new Color(0.16f, 0.17f, 0.19f));
-            const float halfW = Size * 0.9f;
-            const float halfH = Size * 0.5f;
-            const float depth = Size * 1.2f;
-            const float bar = Size * 0.12f;
+            // ---- 機体 ----
+            // **箱と実アセットで同じ手順を通す。** 置く物が違うだけで、
+            // 目の位置の決め方も、レイヤの与え方も、あとの計器も同じ。
+            SolarSystem.Core.Vec3d eye = built.NeedsPrefab
+                ? PlacePrefab(root.transform, built, cockpitLayer)
+                : BuildBoxHull(root.transform, cockpitLayer);
 
-            AddBox(root.transform, "Frame_Top", new Vector3(0f, halfH, depth * 0.5f),
-                new Vector3(halfW * 2f, bar, depth), frame, cockpitLayer);
-            AddBox(root.transform, "Frame_Bottom", new Vector3(0f, -halfH, depth * 0.5f),
-                new Vector3(halfW * 2f, bar, depth), frame, cockpitLayer);
-            AddBox(root.transform, "Frame_Left", new Vector3(-halfW, 0f, depth * 0.5f),
-                new Vector3(bar, halfH * 2f, depth), frame, cockpitLayer);
-            AddBox(root.transform, "Frame_Right", new Vector3(halfW, 0f, depth * 0.5f),
-                new Vector3(bar, halfH * 2f, depth), frame, cockpitLayer);
-
-            // 背面と床。振り返っても宇宙が見えないようにする。
-            AddBox(root.transform, "Hull_Back", new Vector3(0f, 0f, -Size * 0.6f),
-                new Vector3(halfW * 2f, halfH * 2f, bar), frame, cockpitLayer);
-            AddBox(root.transform, "Hull_Floor", new Vector3(0f, -halfH * 0.55f, 0f),
-                new Vector3(halfW * 1.6f, bar * 0.5f, Size), frame, cockpitLayer);
+            // 視点はプレハブ原点基準のメートル。コックピット空間は 1 m = 1 unit。
+            //
+            // **機首の向きはプレハブ側を回して合わせる**ので、目の位置にも同じ回転を掛ける。
+            // カメラ自身は回さない。**カメラを回すと船の後ろを向いてしまう**
+            // （船の前方は Unity の Z+ で、外の景色はそちらにある）。
+            Quaternion align = AlignToShipForward(built);
+            camGo.transform.localPosition =
+                align * new Vector3((float)eye.X, (float)eye.Y, (float)eye.Z);
+            camGo.transform.localRotation = Quaternion.identity;
 
             // ---- 計器パネル ----
             RenderTexture rt = GetOrCreateRenderTexture();
@@ -116,17 +130,22 @@ namespace SolarSystem.Editor
             // RT が 768x160 なのでアスペクトは 4.8 を保つ。
             // 下枠 (Frame_Bottom) の上面は y = -halfH + bar/2 = -0.44*Size。
             // パネルの下端 (中心 - 0.10*Size*cos18 = 0.095*Size) がそれより上に来る位置。
-            panelQuad.transform.localPosition = new Vector3(0f, -halfH * 0.62f, Size * 1.05f);
+            panelQuad.transform.localPosition = new Vector3(0f, -HalfHeight * 0.62f, Size * 1.05f);
             panelQuad.transform.localRotation = Quaternion.Euler(18f, 0f, 0f);
             panelQuad.transform.localScale = new Vector3(Size * 0.96f, Size * 0.20f, 1f);
             panelQuad.GetComponent<Renderer>().sharedMaterial = panelMaterial;
 
             InstrumentPanel panel = BuildInstrumentSource(root.transform, rt);
 
+            // ---- 窓の物差し (Step 11-2b) ----
+            // **箱には窓が無い**ので、そのときは空のまま。計測器は「測れない」を返す。
+            var metrics = root.AddComponent<CockpitMetrics>();
+            metrics.Bind(cockpitCam, CollectGlass(root.transform));
+
             return new Result
             {
                 CockpitCamera = cockpitCam, Panel = panel,
-                ShakeRig = rig.transform, Identity = identity,
+                ShakeRig = rig.transform, Identity = identity, Metrics = metrics,
             };
         }
 
@@ -311,6 +330,130 @@ namespace SolarSystem.Editor
             go.layer = layer;
             Object.DestroyImmediate(go.GetComponent<Collider>());
             go.GetComponent<Renderer>().sharedMaterial = material;
+        }
+
+        /// <summary>
+        /// アセットの姿勢を船に合わせる回転 (Step 11-2c)。
+        /// 機首を Z+ へ、上を Y+ へ。
+        ///
+        /// ■ **`FromToRotation` は使わない（実機で踏んだ不具合）**
+        /// 前方だけを渡すと、**Z+ と反平行のときに回転軸が一意に決まらない。**
+        /// Unity は直交する軸を任意に選んで 180 度回すため、X 軸が選ばれると
+        /// **前後と上下が同時に反転する。** Hi-Rez の機首はちょうど -Z なので
+        /// 毎回この縮退に当たっていた。
+        ///
+        /// `LookRotation(forward, up)` は「前方を Z+ に、上方を Y+ に」写す回転の逆写像
+        /// なので、その逆行列がアセット -> 船の補正になる。**2 軸で決まるので縮退しない。**
+        /// ヨー 180 度を足すような応急処置にしないのは、別のアセットで同じ罠に
+        /// 落ちるのを防ぐため。
+        /// </summary>
+        static Quaternion AlignToShipForward(SolarSystem.Core.CockpitDefinition definition)
+        {
+            var forward = new Vector3((float)definition.EyeForward.X,
+                                      (float)definition.EyeForward.Y,
+                                      (float)definition.EyeForward.Z);
+            var up = new Vector3((float)definition.EyeUp.X,
+                                 (float)definition.EyeUp.Y,
+                                 (float)definition.EyeUp.Z);
+
+            if (forward.sqrMagnitude < 1e-6f || up.sqrMagnitude < 1e-6f)
+            {
+                return Quaternion.identity;
+            }
+
+            return Quaternion.Inverse(
+                Quaternion.LookRotation(forward.normalized, up.normalized));
+        }
+
+        /// <summary>
+        /// 取り込んだプレハブを置く (Step 11-2a)。**リンクのまま置く。**
+        ///
+        /// `PrefabUtility.InstantiatePrefab` を使うと、保存したシーンには
+        /// **プレハブの GUID と差分だけ**が載る。`Object.Instantiate` だと階層が
+        /// まるごとシーンへ展開され、アセットを持たないクローンでも中身が復元されて
+        /// しまう。**EULA はアセットの再配布を禁じている。**
+        /// </summary>
+        static SolarSystem.Core.Vec3d PlacePrefab(
+            Transform parent, SolarSystem.Core.CockpitDefinition definition, int cockpitLayer)
+        {
+            string path = AssetDatabase.GUIDToAssetPath(definition.PrefabGuid);
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (prefab == null)
+            {
+                // ここへ来るのは CockpitCatalog.Resolve が通したあとなので、
+                // 取り込みが壊れている。黙って箱にせず落とす。
+                throw new System.InvalidOperationException(
+                    $"プレハブが読めない: {definition.Id} / GUID {definition.PrefabGuid}");
+            }
+
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+            instance.transform.localPosition = Vector3.zero;
+            instance.transform.localRotation = AlignToShipForward(definition);
+            instance.transform.localScale = Vector3.one * (float)definition.Scale;
+
+            SetLayerRecursive(instance, cockpitLayer);
+
+            CockpitBoundsSolver.Log(definition, prefab);
+
+            Bounds? bounds = CockpitBoundsSolver.LocalBounds(prefab);
+            return definition.EyeLocal
+                   ?? (bounds.HasValue
+                       ? CockpitBoundsSolver.SuggestEye(prefab, bounds.Value, definition)
+                       : SolarSystem.Core.Vec3d.Zero);
+        }
+
+        /// <summary>
+        /// 窓（ガラス）のレンダラーを集める (Step 11-2b)。
+        ///
+        /// **マテリアル名で引く。** 子の順番や階層の形に依存すると、別のアセットへ
+        /// 差し替えたときに黙って壊れる。実測では `Cockpit3Grey_Glass` が 1 枚。
+        /// </summary>
+        static List<Renderer> CollectGlass(Transform root)
+        {
+            var found = new List<Renderer>();
+            foreach (Renderer renderer in root.GetComponentsInChildren<Renderer>(true))
+            {
+                foreach (Material material in renderer.sharedMaterials)
+                {
+                    if (material != null
+                        && material.name.Contains(CockpitMetrics.GlassMaterialKeyword))
+                    {
+                        found.Add(renderer);
+                        break;
+                    }
+                }
+            }
+
+            return found;
+        }
+
+        /// <summary>箱の枠と外殻を組む。**取り込みが無いときのフォールバック。**</summary>
+        static SolarSystem.Core.Vec3d BuildBoxHull(Transform root, int cockpitLayer)
+        {
+            // 前方に開口部、上下左右に厚みのある枠。プリミティブの箱だけで作る。
+            Material frame = MaterialLibrary.SolidMaterial("CockpitFrame", new Color(0.16f, 0.17f, 0.19f));
+            const float halfW = Size * 0.9f;
+            const float halfH = HalfHeight;
+            const float depth = Size * 1.2f;
+            const float bar = Size * 0.12f;
+
+            AddBox(root, "Frame_Top", new Vector3(0f, halfH, depth * 0.5f),
+                new Vector3(halfW * 2f, bar, depth), frame, cockpitLayer);
+            AddBox(root, "Frame_Bottom", new Vector3(0f, -halfH, depth * 0.5f),
+                new Vector3(halfW * 2f, bar, depth), frame, cockpitLayer);
+            AddBox(root, "Frame_Left", new Vector3(-halfW, 0f, depth * 0.5f),
+                new Vector3(bar, halfH * 2f, depth), frame, cockpitLayer);
+            AddBox(root, "Frame_Right", new Vector3(halfW, 0f, depth * 0.5f),
+                new Vector3(bar, halfH * 2f, depth), frame, cockpitLayer);
+
+            // 背面と床。振り返っても宇宙が見えないようにする。
+            AddBox(root, "Hull_Back", new Vector3(0f, 0f, -Size * 0.6f),
+                new Vector3(halfW * 2f, halfH * 2f, bar), frame, cockpitLayer);
+            AddBox(root, "Hull_Floor", new Vector3(0f, -halfH * 0.55f, 0f),
+                new Vector3(halfW * 1.6f, bar * 0.5f, Size), frame, cockpitLayer);
+
+            // 箱は原点が目の位置。**設計上ここが基準**なので定義側には持たせない。
+            return SolarSystem.Core.Vec3d.Zero;
         }
 
         static void SetLayerRecursive(GameObject go, int layer)

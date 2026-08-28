@@ -36,11 +36,18 @@ namespace SolarSystem.Unity
         /// <summary>音量の反映先 (Step 10-2)。</summary>
         [SerializeField] AudioRouting _audio;
 
+        /// <summary>
+        /// 目の位置を動かす先 (Step 11-2b)。`Cam_Cockpit` の Transform。
+        /// **触るのは実行時の Transform だけで、シーンには書き戻さない。**
+        /// 決まった値は `CockpitDefinition.EyeLocal` に定数として入れる。
+        /// </summary>
+        [SerializeField] Transform _cockpitEye;
+
         public void Bind(UniverseRoot root, CameraStackController stack, SunFlareController flare,
                          CockpitShake shake, PostProcessPreset post, StationViewSet stations,
                          Material earthSurface, Material marsSurface, Material clouds,
                          Material sunMesh, Material sunPoint, Material sunCorona,
-                         AudioRouting audio)
+                         AudioRouting audio, Transform cockpitEye)
         {
             _root = root;
             _stack = stack;
@@ -55,6 +62,7 @@ namespace SolarSystem.Unity
             _sunPoint = sunPoint;
             _sunCorona = sunCorona;
             _audio = audio;
+            _cockpitEye = cockpitEye;
         }
 
         /// <summary>1 フレームぶん反映する。</summary>
@@ -161,8 +169,35 @@ namespace SolarSystem.Unity
             }
         }
 
+        /// <summary>
+        /// 目の位置と画角 (Step 11-2b)。**どちらも目で決める値。**
+        ///
+        /// 画角は**既定から動かしたときだけ**当てる。シナリオが画角を持っているので、
+        /// 触っていない間はそちらを生かす（`ScenarioStart.VerticalFovDegrees`）。
+        /// 目の位置は既定がシーンに組まれた値そのものなので、毎フレーム当てても
+        /// 触らなければ同じ位置になる。
+        /// </summary>
+        void ApplyEyeAndFov(DebugPanelModel model)
+        {
+            if (_cockpitEye != null)
+            {
+                _cockpitEye.localPosition = new Vector3(
+                    (float)model.NumberOf(DebugPanelModel.EyeXId),
+                    (float)model.NumberOf(DebugPanelModel.EyeYId),
+                    (float)model.NumberOf(DebugPanelModel.EyeZId));
+            }
+
+            DebugItem fov = model.Find(DebugPanelModel.FovId);
+            if (fov != null && fov.IsChanged && _stack != null)
+            {
+                _stack.SetVerticalFov((float)fov.Value);
+            }
+        }
+
         void ApplyNumbers(DebugPanelModel model)
         {
+            ApplyEyeAndFov(model);
+
             float atmosphere = (float)model.NumberOf(DebugPanelModel.AtmosphereId);
             if (_earthSurface != null)
             {

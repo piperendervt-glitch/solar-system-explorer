@@ -80,6 +80,15 @@ namespace SolarSystem.Tests.PlayMode
             var rt = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32);
             rt.Create();
             RenderTexture prevDeep = _stack.Deep.targetTexture;
+
+            // **コックピットの中身だけを描かない (Step 11-2a)。**
+            // 見ているのは雲と地表で、コックピットではない。カメラごと止めると
+            // ポストプロセスの適用先が変わるので、culling mask だけを空にする。
+            int prevMask = _stack.Cockpit != null ? _stack.Cockpit.cullingMask : 0;
+            if (_stack.Cockpit != null)
+            {
+                _stack.Cockpit.cullingMask = 0;
+            }
             RenderTexture prevActive = RenderTexture.active;
             try
             {
@@ -95,6 +104,11 @@ namespace SolarSystem.Tests.PlayMode
             finally
             {
                 _stack.Deep.targetTexture = prevDeep;
+                if (_stack.Cockpit != null)
+                {
+                    _stack.Cockpit.cullingMask = prevMask;
+                }
+
                 RenderTexture.active = prevActive;
                 rt.Release();
                 Object.DestroyImmediate(rt);

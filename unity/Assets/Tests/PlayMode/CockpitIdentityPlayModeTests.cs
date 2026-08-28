@@ -54,18 +54,23 @@ namespace SolarSystem.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator 配置はまだなので箱で組まれている()
+        public IEnumerator 要求と記録が食い違わない()
         {
             yield return null;
 
-            // **11-1a で取り込みは済んだが、`CockpitBuilder` はまだプレハブを
-            // 置いていない**（配置・スケール・視点は 11-2a）。だから要求そのものが
-            // 箱のままで、フォールバックでもない（`CockpitCatalog.Requested`）。
-            // **組んだものと記録が食い違わないようにするための状態。**
-            // 11-2a でプレハブを置くようになったらこのテストを更新する。
-            Assert.That(_identity.DefinitionId, Is.EqualTo(CockpitDefinition.BoxId));
-            Assert.That(_identity.FellBackToBox, Is.False,
-                        "箱を要求しているのにフォールバック扱いになっている");
+            // 11-2a で `CockpitBuilder` がプレハブを置くようになったので、
+            // 要求は hirez-sample に戻した。**取り込みの有無でどちらにもなりうる**ので、
+            // ここで縛るのは「記録が実態と食い違わないこと」。
+            //   取り込み済み  -> hirez-sample / フォールバックしていない
+            //   取り込み無し  -> box / フォールバックした
+            if (_identity.FellBackToBox)
+            {
+                Assert.That(_identity.DefinitionId, Is.EqualTo(CockpitDefinition.BoxId));
+            }
+            else
+            {
+                Assert.That(_identity.DefinitionId, Is.EqualTo(_identity.RequestedId));
+            }
         }
 
         [UnityTest]

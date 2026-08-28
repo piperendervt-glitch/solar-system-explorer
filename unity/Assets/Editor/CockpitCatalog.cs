@@ -29,14 +29,13 @@ namespace SolarSystem.Editor
         /// **取り込まれていなければ箱へ落ちる**（Resolve が面倒を見る）ので、
         /// アセットが無いクローンでもシーン生成は通る。
         ///
-        /// ■ **11-1a では箱のまま。**
-        /// 11-1a でやったのは取り込みだけで、`CockpitBuilder` はまだプレハブを
-        /// 置いていない（配置・スケール・視点は 11-2a）。ここを `HiRezSample` に
-        /// すると、**箱の枠を組んだのに `CockpitIdentity` が hirez-sample と
-        /// 記録する。** シーンと HUD に嘘が残るので、切り替えるのは
-        /// SceneBuilder が実際にプレハブを置くようになってから。
+        /// ■ 11-2a で実アセットへ切り替えた
+        /// `CockpitBuilder` が定義からプレハブを置くようになったので、要求を
+        /// `HiRezSample` に戻した。**取り込まれていなければ箱へ落ちる**ので、
+        /// アセットが無いクローンでもシーン生成は通る（落ちたことは
+        /// `CockpitIdentity` に残る）。
         /// </summary>
-        public static CockpitDefinition Requested => CockpitDefinition.Box;
+        public static CockpitDefinition Requested => CockpitDefinition.HiRezSample;
 
         /// <summary>プレハブ GUID が実在し、プレハブとして読めるか。</summary>
         public static bool IsAvailable(CockpitDefinition definition)
