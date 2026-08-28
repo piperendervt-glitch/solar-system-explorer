@@ -185,6 +185,47 @@ Step が進むたびに追記する。
 
 ---
 
+## 0-D. XR（Step 12 のスパイク）で入れたもの
+
+**ブランチ `spike/xr-stack` の作業。main には入っていない。**
+
+| パッケージ | 版 | 出所 |
+| --- | --- | --- |
+| `com.unity.xr.management` | 4.5.4 | Susuwatari Mirror（Quest 3 で動作実績 / 同じ Unity 6000.3.11f1）に合わせた |
+| `com.unity.xr.openxr` | 1.16.1 | 同上。レジストリ最新の 1.19.0-pre.1 は pre なので採らない |
+| `com.unity.xr.mock-hmd` | 1.5.0-exp.3 | batchmode 用。**ID は `mockhmd` ではなく `mock-hmd`**（前者は存在しない） |
+
+依存で入るもの: `com.unity.xr.core-utils` 2.5.3 / `com.unity.xr.legacyinputhelpers` 2.1.13。
+
+### `com.unity.xr.legacyinputhelpers` の復活について
+
+**Demo 0 で「旧 XR 入力。Input System 1 本でいく」として削除したパッケージが復活した。**
+`xr.management` と `xr.openxr` の**両方が依存**しているため（2.1.11 / 2.1.2 を要求）、
+親を消さずに外すことはできない。
+
+**方針は変えない。Input System 1 本のまま。このパッケージの API はコードから使わない。**
+旧 Input Manager の軸が再生成されるなどの副作用が出たら、**直しに行かず症状として記録する。**
+
+### `Assets/XR/` について
+
+XR パッケージを入れると Unity が自動生成する（ローダ選択と設定）。**第三者アセットでは
+ないので追跡する**（`.gitignore` に入れるとローダの選択が別マシンで失われる）。
+番人テスト `ThirdPartyTrackingTests` の許可リストに `XR` を足したが、**中身は
+`.asset` と `.meta` だけ**に絞ってある（テクスチャや `.unitypackage` が来たら落ちる）。
+
+### RenderMode の値（**パッケージごとに確かめること**）
+
+| パッケージ | 列挙 | 生成された既定値 |
+| --- | --- | --- |
+| `com.unity.xr.openxr` | `OpenXRSettings.RenderMode` : 0 = MultiPass / 1 = SinglePassInstanced | `m_renderMode: 1` = **SPI** |
+| `com.unity.xr.mock-hmd` | `MockHMDBuildSettings.RenderMode` : 0 = MultiPass / 1 = SinglePassInstanced | `renderMode: 0` = **MultiPass** |
+
+**並び順が同じであることはソースを 2 つとも読んで確かめた。** 片方の値をもう片方に
+当てはめない。**MockHMD の既定は MultiPass なので、明示的に SPI にしないと
+batchmode の測定が SPI の経路を一切通らない**（数値が全部緑でも実機で初めて壊れる）。
+
+---
+
 ## 0-B. batchmode で検証できないホップ
 
 **この表は Demo 2 に限らない。** Step が進むたびに追記する。
