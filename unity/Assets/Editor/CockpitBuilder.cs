@@ -454,6 +454,15 @@ namespace SolarSystem.Editor
         ///
         /// **案 A と案 B の Canvas を両方組む。** 実機で見比べて決めるための一時的な足場。
         /// </summary>
+        /// <summary>
+        /// 計器の描画元を置く高さ [unit] (Step 11-3c)。**原点の近くに置く。**
+        /// ここでの 1 unit は 1 m（コックピット空間）。
+        /// </summary>
+        const float SourceOffset = 40f;
+
+        /// <summary>描画元どうしの間隔 [unit]。カメラの視野 (最大 2 unit) より広い。</summary>
+        const float SourceSpacing = 4f;
+
         static List<CockpitScreens.Screen> BuildScreens(
             Transform root, SolarSystem.Core.CockpitDefinition definition, InstrumentPanel panel,
             Transform eye)
@@ -471,10 +480,21 @@ namespace SolarSystem.Editor
                 return built; // 箱には画面が無い
             }
 
-            // 描画元はコックピットから遠く離す。**他のカメラに写らないように。**
+            // **描画元は原点の近くに置く (Step 11-3c で直した)。**
+            //
+            // 以前は (1e5, 1e5, 0) に置いていた。他のカメラに写らないようにする
+            // つもりだったが、**写らないのはレイヤー（Canvas は 5、コックピットは
+            // 専用レイヤー）で決まっている**ので、離す必要はそもそも無かった。
+            //
+            // 離した代償が大きい。原点から 141,528 unit の位置では float の刻みが
+            // 2^17 * 2^-23 = 0.0156 unit で、**Canvas の 1 画素 (1/544 unit) の
+            // 8.5 倍**になる。Canvas は船の子なので、船が回ると世界座標が動き、
+            // 丸めの出方が変わる。中身は何も変えていないのに絵が変わる。
+            // 実測: 船を 0.5 度回すだけで RT の 48,620 画素が変わり、
+            // テスト柄の円の外接が 32 px 動いた（「マウスを大きく動かすと歪む」）。
             var sourceRoot = new GameObject("ScreenSources");
             sourceRoot.transform.SetParent(root, false);
-            sourceRoot.transform.localPosition = new Vector3(1.0e5f, 1.0e5f, 0f);
+            sourceRoot.transform.localPosition = new Vector3(0f, SourceOffset, 0f);
 
             for (int i = 0; i < layoutA.Count; i++)
                 {
@@ -513,9 +533,12 @@ namespace SolarSystem.Editor
                 SolarSystem.Core.CockpitScreen c = FindByRenderer(layoutC, a.RendererName);
 
                 // **Canvas 同士が互いのカメラに写らないよう、組ごとに離して置く。**
+                // カメラは正射影で高さ 1 unit・幅は最大 2 unit なので、
+                // `SourceSpacing` 離れていれば視野に入らない。**必要最小限にする**
+                // （遠いほど float の刻みが粗くなる。上のコメントを参照）。
                 var slot = new GameObject("Screen_" + a.RendererName);
                 slot.transform.SetParent(sourceRoot.transform, false);
-                slot.transform.localPosition = new Vector3(i * 100f, 0f, 0f);
+                slot.transform.localPosition = new Vector3(i * SourceSpacing, 0f, 0f);
 
                 built.Add(new CockpitScreens.Screen
                 {
@@ -528,13 +551,13 @@ namespace SolarSystem.Editor
                                                 IsTransparent(target)),
                     CameraB = b == null
                         ? null
-                        : BuildScreenSource(slot.transform, "B", texture, b.Role, panel, 50f,
+                        : BuildScreenSource(slot.transform, "B", texture, b.Role, panel, SourceSpacing,
                                             IsTransparent(target)),
                     CameraC = c == null
                         ? null
-                        : BuildScreenSource(slot.transform, "C", texture, c.Role, panel, 100f,
+                        : BuildScreenSource(slot.transform, "C", texture, c.Role, panel, SourceSpacing * 2f,
                                             IsTransparent(target)),
-                    CameraPattern = BuildPatternSource(slot.transform, texture, 150f),
+                    CameraPattern = BuildPatternSource(slot.transform, texture, SourceSpacing * 3f),
                     Facing = BuildFacingQuad(root, target, texture, eye, IsTransparent(target)),
                     Warped = warped,
                     Warp = warp.Warp,

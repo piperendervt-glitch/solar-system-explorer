@@ -459,5 +459,47 @@ namespace SolarSystem.Tests.EditMode
                             + $" RT の比 {texture:F3} と合っていない");
             }
         }
+        [Test]
+        public void 計器の描画元は原点の近くに置く()
+        {
+            RequireImported();
+
+            // **遠くに置くと、船を回しただけで絵が変わる (Step 11-3c で実測)。**
+            //
+            // Canvas は船の子なので、船が回ると世界座標が動く。float の刻みは
+            // 原点からの距離で決まるので、遠いほど丸めが粗くなり、**中身を
+            // 何も変えていないのに描かれる絵が変わる。**
+            // 以前は原点から 141,528 unit の位置に置いており、刻み 0.0156 unit
+            // = Canvas の 8.5 画素だった。船を 0.5 度回すだけで RT の
+            // 48,620 画素が変わり、円が 32 px 動いた。
+            CockpitBuilder.Result hirez =
+                CockpitBuilder.Build(_ship, 9, CockpitDefinition.HiRezSample);
+
+            foreach (CockpitScreens.Screen screen in hirez.Screens.Screens)
+            {
+                foreach (Camera cam in new[]
+                         { screen.CameraA, screen.CameraB, screen.CameraC,
+                           screen.CameraPattern })
+                {
+                    if (cam == null)
+                    {
+                        continue;
+                    }
+
+                    float distance = cam.transform.position.magnitude;
+
+                    // その距離での float の刻み（仮数 23 bit）。
+                    float ulp = Mathf.Pow(2f, Mathf.Floor(Mathf.Log(distance, 2f)) - 23f);
+
+                    // Canvas の 1 画素 [unit]。カメラは正射影で高さ 1 unit。
+                    float canvasPixel = 1f / screen.Texture.height;
+
+                    Assert.That(ulp, Is.LessThan(canvasPixel * 0.1f),
+                                $"{screen.RendererName} の {cam.name} が遠すぎる"
+                                + $" ({distance:F0} unit / 刻み {ulp:E2} unit ="
+                                + $" Canvas の {ulp / canvasPixel:F2} 画素)");
+                }
+            }
+        }
     }
 }
