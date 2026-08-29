@@ -523,24 +523,33 @@ namespace SolarSystem.Unity
                 };
             }
 
+            // **分類ごとに 1 画面 (Step 13-3b 追補)。**
+            // カーソルは全項目を 1 列で辿り、境目で分類が切り替わる。
+            IReadOnlyList<DebugItem> items = Model.VisibleItems;
+
             string[] headerLines =
             {
                 "=== F4 デバッグパネル ===",
                 "上下=項目  左右=増減  Space=ON/OFF  R=全部リセット  F4=閉じる",
                 "**開いている間は船の操作を止めています** (Space と R をパネルが使うため)",
+                string.Format("分類 [{0}/{1}] {2}  ({3} 件 / 全 {4} 件)  "
+                              + "上下で分類をまたぐ",
+                              Model.CurrentCategoryIndex + 1,
+                              DebugPanelModel.CategoryOrder.Length,
+                              Model.CurrentCategory, items.Count, Model.Items.Count),
                 _metrics != null ? _metrics.Describe() : "窓の投影面積比: --- (計測器が無い)",
             };
-
-            IReadOnlyList<DebugItem> items = Model.Items;
             List<string[]> rows = BuildBodyRows();
 
-            float baseWidth = MeasureContent(items, rows, headerLines,
+            // **幅は全項目で測る。** 分類ごとに測ると、分類を跨いだ瞬間に
+            // パネルの幅が飛ぶ。
+            float baseWidth = MeasureContent(Model.Items, rows, headerLines,
                                              out float markW, out float labelW, out float[] colW);
 
             DebugPanelLayout layout = DebugPanelLayoutSolver.Solve(
                 Screen.width, Screen.height,
                 headerLines.Length, items.Count, rows.Count + 1,
-                baseWidth, Model.Cursor);
+                baseWidth, Model.CursorInCategory);
             LastLayout = layout;
 
             EnsureDrawStyles(layout.FontSize);
@@ -577,7 +586,7 @@ namespace SolarSystem.Unity
             for (int i = first; i < last && i < items.Count; i++)
             {
                 DebugItem item = items[i];
-                bool onCursor = i == Model.Cursor;
+                bool onCursor = i == Model.CursorInCategory;
                 GUIStyle s = onCursor ? _cursorStyle : _style;
 
                 if (onCursor)

@@ -51,6 +51,12 @@ namespace SolarSystem.Core
 
         public string Id { get; private set; }
         public string Label { get; private set; }
+
+        /// <summary>
+        /// **分類 (Step 13-3b 追補)。** パネルはこの単位で 1 画面ずつ出す。
+        /// `DebugPanelModel.Create` が追加時に押す。**項目側では指定しない。**
+        /// </summary>
+        public string Category { get; internal set; } = string.Empty;
         public DebugItemKind Kind { get; private set; }
 
         public bool BoolValue { get; set; }
@@ -511,7 +517,176 @@ namespace SolarSystem.Core
             m._items.Add(DebugItem.MakeNumber(ShakeId, "微振動の振幅 [rad]",
                 shakeAmplitude, 0.0, 5.0e-3, 2.5e-4, "E3"));
 
+            m.ApplyCategories();
             return m;
+        }
+
+        // ---- 分類 (Step 13-3b 追補) ----
+        //
+        // 項目 53 / 1080p のフォント段 10（MinFontSize）で 54 項目までしか収まらなかった。
+        // 13-4（航法灯の周期・位相・発光強度・距離帯）と 13-5（誘導灯の色）で
+        // 項目が増えるのは確実なので、増える前に手を打つ。
+        //
+        // **方式: 分類ごとに 1 画面。** カーソルは今までどおり全項目を 1 列で辿り、
+        // パネルは「カーソルがいる分類」だけを描く。↑↓ で分類の境目を跨ぐので、
+        // **新しいキーを増やさずに全項目へ到達できる**（起動引数の口も壊れない）。
+        // 並べ替えは分類の中では安定（追加した順＝これまでの並びを保つ）。
+
+        /// <summary>分類の並び。**この順に画面が出る。**</summary>
+        public static readonly string[] CategoryOrder =
+        {
+            "段と天体", "見た目", "コックピット", "ステーションと判定",
+        };
+
+        /// <summary>
+        /// 項目 id から分類を決める。**どの分類にも当たらない id は例外。**
+        /// 項目を足したときに黙って落ちないようにするため。
+        /// </summary>
+        public static string CategoryOf(string id)
+        {
+            if (id == SoloId || id.StartsWith("tier.") || id.StartsWith("body.")
+                || id.StartsWith("show."))
+            {
+                return CategoryOrder[0];
+            }
+
+            if (id == AtmosphereId || id == CloudId || id == FlareId || id == SunEmissionId
+                || id == CoronaSizeId || id == SpikeLengthId || id == SpikeCountId
+                || id == GhostId || id == SpikeThicknessId || id == CoronaFalloffId
+                || id == BloomIntensityId || id == BloomThresholdId || id == BloomScatterId)
+            {
+                return CategoryOrder[1];
+            }
+
+            if (id == ScreenEmissionId || id == FillLightId || id == FillIntensityId
+                || id == ScreenPatternId || id == ScreenRtViewId || id == ScreenRtFaceId
+                || id == ScreenModeId || id == EyeXId || id == EyeYId || id == EyeZId
+                || id == FovId || id == EngineLagId || id == ShakeId)
+            {
+                return CategoryOrder[2];
+            }
+
+            if (id == StationScaleId || id.StartsWith("judge.") || id == JudgeScaleId
+                || id == JudgeDistanceId)
+            {
+                return CategoryOrder[3];
+            }
+
+            throw new System.ArgumentException(
+                "分類の無い項目がある。CategoryOf に足すこと: " + id, nameof(id));
+        }
+
+        /// <summary>分類を押して、分類の順に並べ替える（中は安定）。</summary>
+        void ApplyCategories()
+        {
+            foreach (DebugItem item in _items)
+            {
+                item.Category = CategoryOf(item.Id);
+            }
+
+            var sorted = new List<DebugItem>(_items.Count);
+            foreach (string category in CategoryOrder)
+            {
+                foreach (DebugItem item in _items)
+                {
+                    if (item.Category == category)
+                    {
+                        sorted.Add(item);
+                    }
+                }
+            }
+
+            if (sorted.Count != _items.Count)
+            {
+                throw new System.InvalidOperationException(
+                    "分類で項目が落ちた: " + sorted.Count + " != " + _items.Count);
+            }
+
+            _items.Clear();
+            _items.AddRange(sorted);
+        }
+
+        /// <summary>いまカーソルがいる分類。</summary>
+        public string CurrentCategory => Current != null ? Current.Category : string.Empty;
+
+        /// <summary>いまの分類の番号（0 起点）。</summary>
+        public int CurrentCategoryIndex
+        {
+            get
+            {
+                string c = CurrentCategory;
+                for (int i = 0; i < CategoryOrder.Length; i++)
+                {
+                    if (CategoryOrder[i] == c)
+                    {
+                        return i;
+                    }
+                }
+
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// **いまの分類の項目だけ。** パネルはこれを描く。
+        /// **毎回作り直す。** 使い回すと、呼び出しの途中でもう一度読んだときに
+        /// 中身が入れ替わる（OnGUI は元から GC を出すので気にしない）。
+        /// </summary>
+        public IReadOnlyList<DebugItem> VisibleItems
+        {
+            get
+            {
+                string c = CurrentCategory;
+                var visible = new List<DebugItem>();
+                foreach (DebugItem item in _items)
+                {
+                    if (item.Category == c)
+                    {
+                        visible.Add(item);
+                    }
+                }
+
+                return visible;
+            }
+        }
+
+        /// <summary>いまの分類の中でのカーソル位置。</summary>
+        public int CursorInCategory
+        {
+            get
+            {
+                string c = CurrentCategory;
+                int n = 0;
+                for (int i = 0; i < _items.Count; i++)
+                {
+                    if (i == Cursor)
+                    {
+                        return n;
+                    }
+
+                    if (_items[i].Category == c)
+                    {
+                        n++;
+                    }
+                }
+
+                return 0;
+            }
+        }
+
+        /// <summary>分類ごとの件数。**レイアウトはこの最大値で決まる。**</summary>
+        public int CountIn(string category)
+        {
+            int n = 0;
+            foreach (DebugItem item in _items)
+            {
+                if (item.Category == category)
+                {
+                    n++;
+                }
+            }
+
+            return n;
         }
 
         public static string BodyId(string bodyName, string part) => "body." + bodyName + "." + part;
