@@ -267,9 +267,19 @@ namespace SolarSystem.Unity
 
             double scale = _judge.Scale;
 
-            sb.AppendLine($"判定     : Scale {scale:F5}  視点 {_judge.Viewpoint}  "
-                          + $"距離 {_judge.LastDistanceUnits:F5} units"
+            double distanceUnits = _judge.LastDistanceUnits;
+
+            sb.AppendLine($"判定     : Scale {scale:F5}  視点 {_judge.Viewpoint}"
                           + (_judge.HasModel ? "" : "  **モデル無し**"));
+
+            // **目からの距離と、機首からの隙間を分けて出す (13-3b 追補)。**
+            // 目からの距離だけだと、船の長さ 4.3191 m を頭の中で引き算することになる。
+            sb.AppendLine($"  距離   : 目から {distanceUnits:F4} units "
+                          + $"= {distanceUnits * 1000.0:F1} m"
+                          + $"  /  機首から {StationJudge.NoseClearanceMeters(distanceUnits):F1} m"
+                          + $"  (機首は目の {StationJudge.ShipNoseAheadOfEyeMeters:F4} m 前)");
+            sb.AppendLine($"           下限 {StationJudge.DockingDistanceMin * 1000.0:F0} m "
+                          + $"= Nearfield の near clip。これより近い絵はこのゲームでは出ない");
             sb.AppendLine($"  全長   : {StationJudge.ToMeters(StationJudge.StationLengthMeters, scale):F2} m"
                           + $"  全幅 {StationJudge.ToMeters(StationJudge.StationWidthMeters, scale):F2} m"
                           + $"  半径 {StationJudge.RadiusUnits(scale):F5} units"

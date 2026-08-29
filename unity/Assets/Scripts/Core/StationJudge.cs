@@ -114,6 +114,38 @@ namespace SolarSystem.Core
         /// <summary>Nearfield の near clip [units]。</summary>
         public const double NearfieldNearClipUnits = 0.01;
 
+        /// <summary>
+        /// **ドッキング視点の距離の下限 [units]。= near clip。**
+        ///
+        /// これは判定リグの都合ではなく**ゲーム本体の制約**。
+        /// Nearfield 段の near clip より内側は構造物が描かれないので、
+        /// **プレイヤーがステーションを見られる最短距離はドッキング後も 10 m。**
+        /// それより近い絵はこのゲームでは原理的に発生しない。
+        /// **下限を割れる実装にしない。**
+        /// </summary>
+        public const double DockingDistanceMin = NearfieldNearClipUnits;
+
+        /// <summary>ドッキング視点の距離の上限 [units] = 200 m。</summary>
+        public const double DockingDistanceMax = 0.200;
+
+        /// <summary>ドッキング視点の距離の刻み [units] = 5 m。</summary>
+        public const double DockingDistanceStep = 0.005;
+
+        /// <summary>
+        /// **船の機首が目より何メートル前にあるか (Demo 3 / 13-3a の実測)。**
+        /// `EyeLocal (0, 0.429, -1.436)` から機首側（+Z）の端 z = 2.8831 まで。
+        /// 目からの距離だけを見ると、船の長さを頭の中で引き算することになる。
+        /// </summary>
+        public const double ShipNoseAheadOfEyeMeters = 4.3191;
+
+        /// <summary>目からの距離 [units] を、機首からの隙間 [m] に直す。</summary>
+        public static double NoseClearanceMeters(double distanceUnits)
+            => distanceUnits * 1000.0 - ShipNoseAheadOfEyeMeters;
+
+        /// <summary>距離を下限・上限へ丸める。**下限は割らない。**</summary>
+        public static double ClampDockingDistance(double value)
+            => Math.Max(DockingDistanceMin, Math.Min(DockingDistanceMax, value));
+
         /// <summary>全景の余白（1.0 = ぴったり）。</summary>
         public const double OverviewMargin = 1.15;
 

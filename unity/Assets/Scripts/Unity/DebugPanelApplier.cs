@@ -315,6 +315,7 @@ namespace SolarSystem.Unity
             if (_judge != null)
             {
                 _judge.SetScale(model.NumberOf(DebugPanelModel.JudgeScaleId));
+                _judge.SetDockingDistance(model.NumberOf(DebugPanelModel.JudgeDistanceId));
 
                 DebugItem view = model.Find(DebugPanelModel.JudgeViewId);
                 if (view != null)

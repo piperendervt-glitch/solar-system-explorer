@@ -62,6 +62,16 @@ namespace SolarSystem.Unity
 
         public JudgeViewpoint Viewpoint { get; private set; } = JudgeViewpoint.Docking;
 
+        /// <summary>
+        /// **ドッキング視点での目からポート面までの距離 [units]。** F4 が振る。
+        /// 下限は Nearfield の near clip（= ゲーム本体の制約）。**割れない。**
+        /// </summary>
+        public double DockingDistanceUnits { get; private set; }
+            = StationJudge.ProvisionalStandoffUnits;
+
+        public void SetDockingDistance(double value)
+            => DockingDistanceUnits = StationJudge.ClampDockingDistance(value);
+
         public bool ShowShipFrame { get; private set; } = true;
         public bool ShowRings { get; private set; } = true;
         public bool ShowGrid { get; private set; } = true;
@@ -150,7 +160,7 @@ namespace SolarSystem.Unity
 
             double fov = _camera.fieldOfView;
             LastDistanceUnits = Viewpoint == JudgeViewpoint.Docking
-                ? StationJudge.ProvisionalStandoffUnits
+                ? DockingDistanceUnits
                 : StationJudge.OverviewDistanceUnits(Scale, fov);
 
             var distance = (float)LastDistanceUnits;

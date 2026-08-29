@@ -289,5 +289,75 @@ namespace SolarSystem.Tests.EditMode
             => StationJudge.WithinRule(PortFaceCandidate.GoldDisc, scale)
                || StationJudge.WithinRule(PortFaceCandidate.ProtrudingPlate, scale)
                || StationJudge.WithinRule(PortFaceCandidate.ModuleBody, scale);
+
+        // ---- ドッキング距離の目盛 (Step 13-3b 追補) ----
+
+        [Test]
+        public void ドッキング距離の目盛()
+        {
+            // **下限は Nearfield の near clip と同値。** 判定リグの都合ではなく
+            // ゲーム本体の制約（これより近い絵は原理的に発生しない）。
+            Assert.That(StationJudge.DockingDistanceMin,
+                        Is.EqualTo(StationJudge.NearfieldNearClipUnits));
+            Assert.That(StationJudge.DockingDistanceMin, Is.EqualTo(0.010));
+            Assert.That(StationJudge.DockingDistanceMax, Is.EqualTo(0.200));
+            Assert.That(StationJudge.DockingDistanceStep, Is.EqualTo(0.005));
+
+            // 刻みが範囲を割り切ること（押しても端数が残らない）。
+            double span = StationJudge.DockingDistanceMax - StationJudge.DockingDistanceMin;
+            Assert.That(span / StationJudge.DockingDistanceStep,
+                        Is.EqualTo(38.0).Within(1e-9));
+
+            // 初期値は目盛の上に乗っていること。
+            double steps = (StationJudge.ProvisionalStandoffUnits
+                            - StationJudge.DockingDistanceMin)
+                           / StationJudge.DockingDistanceStep;
+            Assert.That(steps, Is.EqualTo(Math.Round(steps)).Within(1e-9));
+        }
+
+        [Test]
+        public void 距離は下限を割らない()
+        {
+            // **割れる実装にしない。** 0 や負を渡しても下限で止まる。
+            Assert.That(StationJudge.ClampDockingDistance(0.0),
+                        Is.EqualTo(StationJudge.DockingDistanceMin));
+            Assert.That(StationJudge.ClampDockingDistance(-1.0),
+                        Is.EqualTo(StationJudge.DockingDistanceMin));
+            Assert.That(StationJudge.ClampDockingDistance(0.009),
+                        Is.EqualTo(StationJudge.DockingDistanceMin));
+
+            Assert.That(StationJudge.ClampDockingDistance(1.0),
+                        Is.EqualTo(StationJudge.DockingDistanceMax));
+
+            // 範囲の中はそのまま。
+            Assert.That(StationJudge.ClampDockingDistance(0.015), Is.EqualTo(0.015));
+        }
+
+        [Test]
+        public void 機首からの隙間の数表()
+        {
+            // **機首は目の 4.3191 m 前**（EyeLocal (0, 0.429, -1.436) から
+            // 機首側の端 z = 2.8831 まで / 13-3a の実測）。
+            //
+            //   目からの距離 [units]   [m]     機首からの隙間 [m]
+            //   0.010                   10.0     5.6809   （下限）
+            //   0.015                   15.0    10.6809   （初期値）
+            //   0.050                   50.0    45.6809
+            //   0.200                  200.0   195.6809   （上限）
+            Assert.That(StationJudge.ShipNoseAheadOfEyeMeters, Is.EqualTo(4.3191));
+
+            Assert.That(StationJudge.NoseClearanceMeters(0.010),
+                        Is.EqualTo(5.6809).Within(1e-9));
+            Assert.That(StationJudge.NoseClearanceMeters(0.015),
+                        Is.EqualTo(10.6809).Within(1e-9));
+            Assert.That(StationJudge.NoseClearanceMeters(0.050),
+                        Is.EqualTo(45.6809).Within(1e-9));
+            Assert.That(StationJudge.NoseClearanceMeters(0.200),
+                        Is.EqualTo(195.6809).Within(1e-9));
+
+            // **下限でも機首は構造物に触れていない。**
+            Assert.That(StationJudge.NoseClearanceMeters(StationJudge.DockingDistanceMin),
+                        Is.GreaterThan(0.0));
+        }
     }
 }

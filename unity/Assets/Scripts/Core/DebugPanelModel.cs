@@ -264,6 +264,13 @@ namespace SolarSystem.Core
         /// <summary>判定ビューの視点 (Step 13-3b)。</summary>
         public const string JudgeViewId = "judge.view";
 
+        /// <summary>
+        /// **判定ビューのドッキング距離 [units] (Step 13-3b 追補)。**
+        /// 下限 0.010 は Nearfield の near clip で、**ゲーム本体の制約**。
+        /// これより近い絵はこのゲームでは発生しないので、下限を下げない。
+        /// </summary>
+        public const string JudgeDistanceId = "num.judgeDistance";
+
         public static readonly string[] JudgeViewOptions = { "ドッキング", "全景" };
 
         /// <summary>船の断面枠 1.6075 x 1.6312 m (Step 13-3b)。**比較対象そのもの。**</summary>
@@ -466,6 +473,10 @@ namespace SolarSystem.Core
                 StationJudge.ScaleInitial, StationJudge.ScaleMin, StationJudge.ScaleMax,
                 StationJudge.ScaleStep, "F5"));
             m._items.Add(DebugItem.MakeChoice(JudgeViewId, "判定の視点", JudgeViewOptions, 0));
+            m._items.Add(DebugItem.MakeNumber(JudgeDistanceId, "判定 距離 [units]",
+                StationJudge.ProvisionalStandoffUnits,
+                StationJudge.DockingDistanceMin, StationJudge.DockingDistanceMax,
+                StationJudge.DockingDistanceStep, "F3"));
             m._items.Add(DebugItem.MakeToggle(JudgeShipFrameId, "判定 船の断面枠", true));
             m._items.Add(DebugItem.MakeToggle(JudgeRingsId, "判定 候補 3 円", true));
             m._items.Add(DebugItem.MakeToggle(JudgeGridId, "判定 1m グリッド", true));
