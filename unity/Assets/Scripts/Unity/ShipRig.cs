@@ -375,7 +375,9 @@ namespace SolarSystem.Unity
 
             DockingState before = _docking.State;
             LastAlignmentAngle = angle;
-            _docking.Step(distance, root.Ship.SpeedKmPerSec, angle, dockPressed, undockPressed, dt);
+            // **要求可能距離は定義から (Step 13-1a)。** グローバル定数を読まない。
+            _docking.Step(distance, root.Ship.SpeedKmPerSec, angle, dockPressed, undockPressed, dt,
+                          station.RequestRangeUnits);
 
             if (before != DockingState.Docking && _docking.State == DockingState.Docking)
             {
@@ -411,7 +413,8 @@ namespace SolarSystem.Unity
                 {
                     // ポートの正面へ離脱する。
                     Vec3d away = station.AbsolutePosition
-                                 + port * (station.PortStandoffKm + DockingSolver.UndockDistanceUnits);
+                                 + port * (station.PortStandoffKm
+                                           + DockingSolver.UndockDistance(station.RequestRangeUnits));
                     root.Ship.SetVelocity(Vec3d.Zero);
                     root.Ship.SetPosition(DockingSolver.Interpolate(_dockFrom, away, _docking.Progress));
                     break;

@@ -9,6 +9,9 @@ namespace SolarSystem.Tests.EditMode
     /// <summary>見た目の仕上げ (Step 6)。</summary>
     public sealed class PolishTests
     {
+        /// <summary>箱の定義の要求可能距離 (Step 13-1a)。**グローバル定数ではなく定義から読む。**</summary>
+        static readonly double BoxRange = StationCatalog.Box().RequestRange;
+
         // ---- 整列の表示と拒否理由 ----
 
         [Test]
@@ -29,10 +32,10 @@ namespace SolarSystem.Tests.EditMode
         public void 要求が通らない理由は距離速度角度の順に出る()
         {
             // 全部だめなら距離を先に言う。遠ければ速度も角度も意味がないため。
-            string far = DockingSolver.RejectionReason(100.0, 50.0, 90.0);
-            string fast = DockingSolver.RejectionReason(10.0, 50.0, 90.0);
-            string angle = DockingSolver.RejectionReason(10.0, 0.5, 90.0);
-            string ok = DockingSolver.RejectionReason(10.0, 0.5, 10.0);
+            string far = DockingSolver.RejectionReason(100.0, 50.0, 90.0, BoxRange);
+            string fast = DockingSolver.RejectionReason(10.0, 50.0, 90.0, BoxRange);
+            string angle = DockingSolver.RejectionReason(10.0, 0.5, 90.0, BoxRange);
+            string ok = DockingSolver.RejectionReason(10.0, 0.5, 10.0, BoxRange);
 
             Debug.Log($"[Step6] 拒否理由:\n  遠い: {far}\n  速い: {fast}\n  角度: {angle}\n  OK: '{ok}'");
 
@@ -46,8 +49,8 @@ namespace SolarSystem.Tests.EditMode
         public void 要求が通ったときは理由が残らない()
         {
             var d = new DockingSolver();
-            d.Step(10.0, 0.5, 0.0, false, false, 1.0 / 60.0); // Free -> Approaching
-            d.Step(10.0, 0.5, 0.0, true, false, 1.0 / 60.0);  // 要求が通る
+            d.Step(10.0, 0.5, 0.0, false, false, 1.0 / 60.0, BoxRange); // Free -> Approaching
+            d.Step(10.0, 0.5, 0.0, true, false, 1.0 / 60.0, BoxRange);  // 要求が通る
 
             Assert.That(d.State, Is.EqualTo(DockingState.DockRequested));
             Assert.That(d.LastRejection, Is.Empty);

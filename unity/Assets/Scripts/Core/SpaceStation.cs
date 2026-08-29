@@ -13,14 +13,23 @@ namespace SolarSystem.Core
     public sealed class SpaceStation
     {
         public SpaceStation(string name, CelestialBody host, Vec3d offsetDirection,
-                            double distanceFromCenterKm, double radiusKm)
+                            double distanceFromCenterKm, double radiusKm,
+                            StationDefinition definition)
         {
             Name = name;
             Host = host;
             OffsetDirection = offsetDirection.Normalized;
             DistanceFromCenterKm = distanceFromCenterKm;
             RadiusKm = radiusKm;
+            Definition = definition
+                         ?? throw new System.ArgumentNullException(nameof(definition));
         }
+
+        /// <summary>
+        /// **このステーションの定義 (Step 13-1a)。**
+        /// 地球と火星は同じ定義を共有する。位置と姿勢だけがここ（配置側）にある。
+        /// </summary>
+        public StationDefinition Definition { get; }
 
         public string Name { get; }
 
@@ -48,8 +57,17 @@ namespace SolarSystem.Core
         /// <summary>ポート面の位置。ドッキング完了時に船が座る場所。</summary>
         public Vec3d PortPosition => AbsolutePosition + PortDirection * PortStandoffKm;
 
-        /// <summary>ポート面までの距離 [units]。船体半分ぶんの余裕。</summary>
-        public double PortStandoffKm => RadiusKm * 1.2;
+        /// <summary>
+        /// ポート面までの距離 [units]。船体半分ぶんの余裕。
+        ///
+        /// **値の出所は定義 (Step 13-1a)。** ここで半径から計算しない。
+        /// モデルが変われば寸法も変わるので、グローバルな式ではなく定義側に持つ。
+        /// **未設定の定義ならここで例外になる**（読む経路がこれ）。
+        /// </summary>
+        public double PortStandoffKm => Definition.PortStandoff;
+
+        /// <summary>ドッキング要求ができる距離 [units]。**値の出所は定義。**</summary>
+        public double RequestRangeUnits => Definition.RequestRange;
 
         public double DistanceFrom(Vec3d observer) => Vec3d.Distance(observer, AbsolutePosition);
     }

@@ -20,6 +20,8 @@ namespace SolarSystem.Core
     /// すり抜ける (§0-2)。
     ///
     /// 到着圏は 20 units 以内かつ 1 km/s 以下 (決定 D-10)。
+    /// **要求可能距離は Step 13-1a から `StationDefinition.RequestRange` で渡す。**
+    /// 箱の定義の値が 20 なので、既定の挙動は変わらない。
     /// 補間は 5 秒 (決定 D-17)、姿勢の許容角は 30 度 (決定 D-18)。
     /// </summary>
     public sealed class DockingSolver
@@ -33,8 +35,12 @@ namespace SolarSystem.Core
         /// <summary>Approaching から抜ける距離の倍率。境界での振動を防ぐ。</summary>
         public const double LeaveMultiplier = 1.2;
 
-        /// <summary>Undocking を終える距離 [units]。</summary>
-        public const double UndockDistanceUnits = UniverseConstants.ArrivalRadiusUnits * LeaveMultiplier;
+        /// <summary>
+        /// Undocking を終える距離 [units]。**要求可能距離は定義ごと (Step 13-1a)**
+        /// なので const ではなくなった。
+        /// </summary>
+        public static double UndockDistance(double requestRangeUnits)
+            => requestRangeUnits * LeaveMultiplier;
 
         public DockingState State { get; private set; } = DockingState.Free;
 
@@ -66,11 +72,12 @@ namespace SolarSystem.Core
         /// ドッキング要求が今この場で通るかを判定し、通らないなら理由を返す。
         /// 距離 -> 速度 -> 角度 の順に見る (遠ければ速度も角度も意味がないため)。
         /// </summary>
-        public static string RejectionReason(double distance, double speedKmPerSec, double angleDegrees)
+        public static string RejectionReason(double distance, double speedKmPerSec,
+                                            double angleDegrees, double requestRangeUnits)
         {
-            if (distance > UniverseConstants.ArrivalRadiusUnits)
+            if (distance > requestRangeUnits)
             {
-                return $"距離が遠い ({distance:0.0} > {UniverseConstants.ArrivalRadiusUnits:0} units)";
+                return $"距離が遠い ({distance:0.0} > {requestRangeUnits:0} units)";
             }
 
             if (speedKmPerSec > UniverseConstants.ArrivalMaxSpeedKmPerSec)
@@ -96,7 +103,8 @@ namespace SolarSystem.Core
         /// <param name="undockPressed">出港要求 (立ち上がり済み)。</param>
         /// <param name="deltaSeconds">経過時間 [s]。</param>
         public void Step(double distanceToStation, double speedKmPerSec, double attitudeAngleDegrees,
-                         bool requestPressed, bool undockPressed, double deltaSeconds)
+                         bool requestPressed, bool undockPressed, double deltaSeconds,
+                         double requestRangeUnits)
         {
             LastDistance = distanceToStation;
             DockingState before = State;
@@ -107,14 +115,16 @@ namespace SolarSystem.Core
             if (State == DockingState.Free || State == DockingState.Approaching
                 || State == DockingState.DockRequested)
             {
-                LastRejection = RejectionReason(distanceToStation, speedKmPerSec, attitudeAngleDegrees);
+                LastRejection = RejectionReason(distanceToStation, speedKmPerSec,
+                                                attitudeAngleDegrees, requestRangeUnits);
             }
             else
             {
                 LastRejection = string.Empty;
             }
 
-            bool inRange = distanceToStation <= UniverseConstants.ArrivalRadiusUnits
+            // **要求可能距離は定義から来る (Step 13-1a)。** ここがその読む経路。
+            bool inRange = distanceToStation <= requestRangeUnits
                            && speedKmPerSec <= UniverseConstants.ArrivalMaxSpeedKmPerSec;
 
             switch (State)
@@ -129,7 +139,7 @@ namespace SolarSystem.Core
 
                 case DockingState.Approaching:
                     // ヒステリシス: 20 units で入って 24 units で出る。
-                    if (distanceToStation > UniverseConstants.ArrivalRadiusUnits * LeaveMultiplier)
+                    if (distanceToStation > requestRangeUnits * LeaveMultiplier)
                     {
                         State = DockingState.Free;
                     }

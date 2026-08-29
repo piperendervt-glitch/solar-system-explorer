@@ -80,10 +80,16 @@ namespace SolarSystem.Core
             // DockingTests で検算している。
             var offset = new Vec3d(0.0, 1.0, 0.0);
 
+            // **地球と火星は同じ定義を共有する (Step 13-1a)。**
+            // 差別化（灯の色・周期）は 13-4 の定数で行う。ここでは入れない。
+            StationDefinition definition = StationCatalog.Box();
+
             model._stations.Add(new SpaceStation(
-                "Earth Station", model.Earth, offset, EarthStationDistanceKm, StationRadiusKm));
+                "Earth Station", model.Earth, offset, EarthStationDistanceKm, StationRadiusKm,
+                definition));
             model._stations.Add(new SpaceStation(
-                "Mars Station", model.Mars, offset, MarsStationDistanceKm, StationRadiusKm));
+                "Mars Station", model.Mars, offset, MarsStationDistanceKm, StationRadiusKm,
+                definition));
 
             return model;
         }

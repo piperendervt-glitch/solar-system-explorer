@@ -8,6 +8,9 @@ namespace SolarSystem.Tests.EditMode
     /// <summary>ステーション配置とドッキング (Step 5)。</summary>
     public sealed class DockingTests
     {
+        /// <summary>箱の定義の要求可能距離 (Step 13-1a)。**グローバル定数ではなく定義から読む。**</summary>
+        static readonly double BoxRange = StationCatalog.Box().RequestRange;
+
         const double Dt = UniverseConstants.FixedDeltaSeconds;
 
         static readonly SolarSystemModel Model = SolarSystemModel.CreateOpposition();
@@ -102,7 +105,7 @@ namespace SolarSystem.Tests.EditMode
         public void 遠くにいる間はFree()
         {
             var d = new DockingSolver();
-            d.Step(1000.0, 0.0, 0.0, false, false, Dt);
+            d.Step(1000.0, 0.0, 0.0, false, false, Dt, BoxRange);
             Assert.That(d.State, Is.EqualTo(DockingState.Free));
         }
 
@@ -112,10 +115,10 @@ namespace SolarSystem.Tests.EditMode
             var d = new DockingSolver();
 
             // 距離は満たすが速い -> まだ Free
-            d.Step(10.0, 100.0, 0.0, false, false, Dt);
+            d.Step(10.0, 100.0, 0.0, false, false, Dt, BoxRange);
             Assert.That(d.State, Is.EqualTo(DockingState.Free), "速すぎるうちは入らない");
 
-            d.Step(10.0, 0.5, 0.0, false, false, Dt);
+            d.Step(10.0, 0.5, 0.0, false, false, Dt, BoxRange);
             Assert.That(d.State, Is.EqualTo(DockingState.Approaching));
         }
 
@@ -123,17 +126,17 @@ namespace SolarSystem.Tests.EditMode
         public void Approachingはヒステリシスで振動しない()
         {
             var d = new DockingSolver();
-            d.Step(10.0, 0.5, 0.0, false, false, Dt);
+            d.Step(10.0, 0.5, 0.0, false, false, Dt, BoxRange);
             Assert.That(d.State, Is.EqualTo(DockingState.Approaching));
 
             // 20 と 24 の間を往復しても Approaching のまま。
             for (int i = 0; i < 100; i++)
             {
-                d.Step(i % 2 == 0 ? 21.0 : 23.0, 0.5, 0.0, false, false, Dt);
+                d.Step(i % 2 == 0 ? 21.0 : 23.0, 0.5, 0.0, false, false, Dt, BoxRange);
                 Assert.That(d.State, Is.EqualTo(DockingState.Approaching));
             }
 
-            d.Step(25.0, 0.5, 0.0, false, false, Dt);
+            d.Step(25.0, 0.5, 0.0, false, false, Dt, BoxRange);
             Assert.That(d.State, Is.EqualTo(DockingState.Free), "24 を超えたら抜ける");
         }
 
@@ -141,19 +144,19 @@ namespace SolarSystem.Tests.EditMode
         public void 姿勢が合わないとDockingへ進まない()
         {
             var d = new DockingSolver();
-            d.Step(10.0, 0.5, 0.0, false, false, Dt);
-            d.Step(10.0, 0.5, 0.0, true, false, Dt);
+            d.Step(10.0, 0.5, 0.0, false, false, Dt, BoxRange);
+            d.Step(10.0, 0.5, 0.0, true, false, Dt, BoxRange);
             Assert.That(d.State, Is.EqualTo(DockingState.DockRequested));
 
             // 許容角 30 度を超えている間は待つ。
             for (int i = 0; i < 100; i++)
             {
-                d.Step(10.0, 0.5, 45.0, false, false, Dt);
+                d.Step(10.0, 0.5, 45.0, false, false, Dt, BoxRange);
             }
 
             Assert.That(d.State, Is.EqualTo(DockingState.DockRequested));
 
-            d.Step(10.0, 0.5, DockingSolver.AttitudeToleranceDegrees, false, false, Dt);
+            d.Step(10.0, 0.5, DockingSolver.AttitudeToleranceDegrees, false, false, Dt, BoxRange);
             Assert.That(d.State, Is.EqualTo(DockingState.Docking));
         }
 
@@ -161,15 +164,15 @@ namespace SolarSystem.Tests.EditMode
         public void 補間は5秒でDockedになる()
         {
             var d = new DockingSolver();
-            d.Step(10.0, 0.5, 0.0, false, false, Dt);
-            d.Step(10.0, 0.5, 0.0, true, false, Dt);
-            d.Step(10.0, 0.5, 0.0, false, false, Dt);
+            d.Step(10.0, 0.5, 0.0, false, false, Dt, BoxRange);
+            d.Step(10.0, 0.5, 0.0, true, false, Dt, BoxRange);
+            d.Step(10.0, 0.5, 0.0, false, false, Dt, BoxRange);
             Assert.That(d.State, Is.EqualTo(DockingState.Docking));
 
             int steps = 0;
             while (d.State == DockingState.Docking && steps < 10000)
             {
-                d.Step(10.0, 0.0, 0.0, false, false, Dt);
+                d.Step(10.0, 0.0, 0.0, false, false, Dt, BoxRange);
                 steps++;
             }
 
@@ -187,7 +190,7 @@ namespace SolarSystem.Tests.EditMode
             void Advance(double distance, double speed, double angle, bool req, bool und)
             {
                 DockingState before = d.State;
-                d.Step(distance, speed, angle, req, und, Dt);
+                d.Step(distance, speed, angle, req, und, Dt, BoxRange);
                 if (d.State != before)
                 {
                     seen.Add(d.State);
