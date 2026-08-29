@@ -31,6 +31,15 @@ namespace SolarSystem.Core
         /// <summary>カメラの垂直画角 [度]。</summary>
         public double VerticalFovDegrees;
 
+        /// <summary>
+        /// **動きの状態 (Step 13-0b)。**
+        ///
+        /// `default` は「どちらも選んでいない」不正な状態で、**読むと例外**。
+        /// `double` の速度を直接持たせると書き忘れが 0 = 静止として静かに
+        /// 成立するので、専用の型で塞いである（→ `ScenarioMotion`）。
+        /// </summary>
+        public ScenarioMotion Motion;
+
         /// <summary>起動直後にデバッグ HUD を出すか。</summary>
         public bool DebugHudVisible;
 

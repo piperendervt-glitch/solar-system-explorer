@@ -94,7 +94,36 @@ namespace SolarSystem.Unity
         /// アセットには Bloom の既定値 (intensity 0 = 消灯) が残っていた。
         /// **結果、Step 6 以来 bloom は一度も効いていなかった。**
         /// </summary>
-        void Awake() => Apply(_strength);
+        /// <summary>
+        /// **ポストプロセスを切って起動する診断用の引数 (Step 13-3b)。**
+        /// bloom が絵を飽和させているかを対照で切り分けるためだけにある。
+        /// **無指定なら何も変わらない。**
+        /// </summary>
+        public const string NoPostArg = "-noPost";
+
+        public static bool NoPostRequested()
+        {
+            foreach (string a in System.Environment.GetCommandLineArgs())
+            {
+                if (string.Equals(a, NoPostArg, System.StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        void Awake()
+        {
+            Apply(_strength);
+
+            if (NoPostRequested() && Volume != null)
+            {
+                Volume.enabled = false;
+                Debug.Log("[PostProcessPreset] -noPost: Volume を切った（対照用）");
+            }
+        }
 
         public void Apply(PostProcessStrength strength)
         {

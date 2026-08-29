@@ -323,7 +323,10 @@ namespace SolarSystem.Tests.PlayMode
             SpaceStation mars = _root.Model.Stations[1];
             _rig.SetTargetIndex(1);
 
-            _root.PlaceObserver(mars.AbsolutePosition + mars.PortDirection * 10.0);
+            // **ポート位置から 1.0 units (Step 13-3b)。**
+            // 要求可能距離が 20 -> 2.0 になり、判定の原点も中心からポートへ移った。
+            // 中心から 10.0 のままだとポートまで 9.8 units で「距離が遠い」になる。
+            _root.PlaceObserver(mars.PortPosition + mars.PortDirection * 1.0);
 
             // ずれた向き -> ALIGNED が付かない
             AimShip(new Vec3d(1.0, 0.0, 0.0));

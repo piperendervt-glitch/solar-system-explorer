@@ -153,7 +153,7 @@ namespace SolarSystem.Core
 
         /// <summary>
         /// 画面の発光強度の既定値 (Step 11-3b)。**目で決める値。**
-        /// bloom のしきい値 0.90 の下に置き、文字が滲まないことを優先する。
+        /// bloom のしきい値（決めた当時 0.90 / **13-3b で 3.00 へ変更**） の下に置き、文字が滲まないことを優先する。
         /// F4 で振って決めたらここを書き換える。
         /// </summary>
         public const double DefaultScreenEmission = 0.75;

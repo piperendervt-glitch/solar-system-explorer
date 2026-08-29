@@ -140,6 +140,13 @@ namespace SolarSystem.Unity
                 }
             }
 
+            // **動きの状態を読む (Step 13-0b)。**
+            // `PlaceObserver` が速度を 0 にした後に入れ直す。
+            // **未設定なら `ScenarioMotion` 側が例外を投げる。**
+            // 書き忘れたシナリオを静止として静かに通さないための経路で、
+            // 「設定を書いたこと」ではなく「読まれること」がこの塞ぎの本体。
+            ApplyMotion(root, start);
+
             root.SetElapsedSeconds(start.ElapsedSeconds);
             root.SetSunDirectionOverride(start.SunDirectionOverride);
 
@@ -160,6 +167,32 @@ namespace SolarSystem.Unity
             root.DebugPanel?.ResetTogglesForScenario();
 
             Debug.Log($"[ScenarioRunner] '{scenario.Name}' を適用 ({_index + 1}/{Count}): {scenario.Description}");
+        }
+
+        /// <summary>
+        /// 場面の動きを船に入れる。**静止 (β=0) なら何も起きない**
+        /// （`PlaceObserver` が既に速度を 0 にしている）。
+        ///
+        /// 向きは視線方向。`LookAt` が `Position` と同じなら動かしようがないので
+        /// 巡航は成立しない（例外にする）。
+        /// </summary>
+        static void ApplyMotion(UniverseRoot root, ScenarioStart start)
+        {
+            // **ここで読むことに意味がある。** 未設定なら例外が出る。
+            double kmPerSec = start.Motion.SpeedKmPerSec;
+            if (kmPerSec <= 0.0)
+            {
+                return;
+            }
+
+            Vec3d direction = (start.LookAt - start.Position).Normalized;
+            if (direction.SqrMagnitude <= 0.0)
+            {
+                throw new System.InvalidOperationException(
+                    "巡航の向きが決まらない（LookAt と Position が同じ）");
+            }
+
+            root.Ship.SetVelocity(direction * kmPerSec);
         }
     }
 }

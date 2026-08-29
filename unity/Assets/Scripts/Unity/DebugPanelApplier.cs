@@ -22,6 +22,9 @@ namespace SolarSystem.Unity
         [SerializeField] CockpitShake _shake;
         [SerializeField] PostProcessPreset _post;
         [SerializeField] StationViewSet _stations;
+
+        /// <summary>判定リグ (Step 13-3b)。**-stationJudge のときだけ活きている。**</summary>
+        [SerializeField] StationJudgeRig _judge;
         [SerializeField] Material _earthSurface;
         [SerializeField] Material _marsSurface;
         [SerializeField] Material _clouds;
@@ -74,6 +77,9 @@ namespace SolarSystem.Unity
             _lights = lights;
         }
 
+        /// <summary>判定リグを差し込む (Step 13-3b)。リグはシーン生成の後半で組まれる。</summary>
+        public void BindJudge(StationJudgeRig judge) => _judge = judge;
+
         /// <summary>1 フレームぶん反映する。</summary>
         public void Apply(DebugPanelModel model)
         {
@@ -105,6 +111,39 @@ namespace SolarSystem.Unity
 
             if (_stations != null)
             {
+                // **倍率は定義へ流す (Step 13-3 コミット2)。**
+                // 定義は地球・火星で共有されているので 1 回で両方に効く。
+                // 描画（`StationView` の localScale）も判定（半径・ポート位置・
+                // MinStandoff）も `EffectiveScale` を読むので、両方が同時に動く。
+                double factor = model.NumberOf(DebugPanelModel.StationScaleId);
+                double roll = model.NumberOf(DebugPanelModel.StationRollId);
+                double range = model.NumberOf(DebugPanelModel.RequestRangeId);
+                foreach (StationView v in _stations.Views)
+                {
+                    StationDefinition def = v != null && v.Station != null
+                        ? v.Station.Definition
+                        : null;
+                    if (def == null)
+                    {
+                        continue;
+                    }
+
+                    if (System.Math.Abs(factor - StationDefinition.RuntimeScaleFactorDefault) < 1e-12)
+                    {
+                        def.ResetRuntimeScale();
+                    }
+                    else
+                    {
+                        def.SetRuntimeScale(def.Scale * factor);
+                    }
+
+                    // **アレイのロール (13-3b)。** 既定 0 で法線が太陽を向く。
+                    def.SetArrayRoll(roll);
+
+                    // **要求可能距離 (13-3b)。** 原点はポート位置。
+                    def.SetRuntimeRequestRange(range);
+                }
+
                 bool visible = model.BoolOf("show.stations");
                 foreach (StationView view in _stations.Views)
                 {
@@ -277,6 +316,26 @@ namespace SolarSystem.Unity
                 // 確定しており、値は AudioMix の定数がそのまま効く。
                 // 追従の時定数だけは Demo 3 でも触れるように残す。
                 _audio.EngineLagSeconds = model.NumberOf(DebugPanelModel.EngineLagId);
+            }
+
+            // ---- 判定ビュー (Step 13-3b) ----
+            // **Definition には書かない。** リグの実行時の値だけを動かす。
+            if (_judge != null)
+            {
+                _judge.SetScale(model.NumberOf(DebugPanelModel.JudgeScaleId));
+                _judge.SetDockingDistance(model.NumberOf(DebugPanelModel.JudgeDistanceId));
+
+                DebugItem view = model.Find(DebugPanelModel.JudgeViewId);
+                if (view != null)
+                {
+                    _judge.SetViewpoint(view.Index == 1
+                        ? JudgeViewpoint.Overview
+                        : JudgeViewpoint.Docking);
+                }
+
+                _judge.SetMarkers(model.BoolOf(DebugPanelModel.JudgeShipFrameId),
+                                  model.BoolOf(DebugPanelModel.JudgeRingsId),
+                                  model.BoolOf(DebugPanelModel.JudgeGridId));
             }
 
             if (_lights != null)

@@ -1,0 +1,126 @@
+== Step 13-2: ステーションアセットの取り込み結果（経路 C）==
+実施日   : 2026-08-29
+コマンド : .\tools\run_unity.ps1 -Method SolarSetup.ImportStation
+取り込み先 : unity/Assets/ThirdParty/CobbleGames/SpaceStationFree/（**追跡除外**）
+
+経路 C = 外側（Built-in 版）の中に入れ子で入っている URP/URP.unitypackage だけを
+一時ファイルへ取り出し、pathname を書き換えてから取り込む。
+外側のトップレベルにも HDRP にも Assets/ へは一切書いていない。
+
+---- 所要（実測 / ログ unity_20260829_142412.log）----
+
+外側の pathname 走査 (76 エントリ)          6,491 ms
+入れ子の取り出し (671,052,577 バイト)        6,594 ms
+pathname の書き換えと除外                   62,495 ms
+ImportPackageImmediately                    18,700 ms
+StationImporter.Import 合計                 98.9 秒
+run_unity.ps1 全体（Editor 起動を含む）      109.9 秒
+
+---- 取り込んだ量（実測）----
+
+130 ファイル / 2,551,339,973 バイト = 2433.15 MB（.meta を含む）
+
+内訳（.meta を除く）:
+  Textures/  46 ファイル / 2432.00 MB   ← ほぼ全量
+  Materials/ 15 ファイル
+  Meshes/Spaceship.fbx                1 ファイル
+  Prefabs/Space Station.prefab        1 ファイル
+
+---- 除外したもの（5 件。取り込み前に落とした）----
+
+Assets/Cobble Games/Spaceship/Scenes/SampleScene.unity
+Assets/Cobble Games/Spaceship/hdri.mat
+Assets/Cobble Games/Spaceship/hdr.png                                   (18.33 MB)
+Assets/Cobble Games/Spaceship/Prefabs/UniversalRenderPipelineAsset.asset
+Assets/Cobble Games/Spaceship/Prefabs/UniversalRenderPipelineAsset_Renderer.asset
+
+落とした親フォルダ（写し先が決まらないため / フォルダは Unity が作る）:
+Assets/Cobble Games
+
+---- テクスチャ（実測 / TGA ヘッダから）----
+
+4096x4096 / 24 bpp : 32 枚
+4096x4096 / 32 bpp : 14 枚
+合計 46 枚 / 2432.00 MB
+
+**46 枚すべてが 4096x4096。** 2K 以下は 1 枚も無い。
+
+---- マテリアル 15 件（実測 / 取り込み後の実体を見た）----
+
+name / shader / 発光 / 発光マップ / レンダラー / メッシュ
+
+module1                    / Universal Render Pipeline/Lit / 無し / -                  / 2 / 2
+module3                    / Universal Render Pipeline/Lit / 無し / -                  / 1 / 1
+module4                    / Universal Render Pipeline/Lit / 無し / -                  / 2 / 2
+module5                    / Universal Render Pipeline/Lit / 無し / -                  / 1 / 1
+module6                    / Universal Render Pipeline/Lit / あり / module6_Emission   / 1 / 1
+module7                    / Universal Render Pipeline/Lit / あり / module7_Emission   / 1 / 1
+module8                    / Universal Render Pipeline/Lit / 無し / -                  / 1 / 1
+module9                    / Universal Render Pipeline/Lit / 無し / -                  / 1 / 1
+module10                   / Universal Render Pipeline/Lit / あり / module10_Emission  / 1 / 1
+module11                   / Universal Render Pipeline/Lit / あり / module11_Emission  / 1 / 1
+module12                   / Universal Render Pipeline/Lit / 無し / -                  / 1 / 1
+module13                   / Universal Render Pipeline/Lit / 無し / -                  / 1 / 1
+module14                   / Universal Render Pipeline/Lit / 無し / -                  / 1 / 1
+module15                   / Universal Render Pipeline/Lit / 無し / -                  / 1 / 1
+MOdule8MetallicSmoothness  / Universal Render Pipeline/Lit / 無し / -                  / 0 / 0
+
+合計 15 件 / URP 15 件（**URP でないものは 0 件**）
+
+**「URP 版だから変換不要」と決めつけず、取り込み後の実体のシェーダを見た結果。**
+EditMode テスト StationImportTests.取り込んだマテリアルはすべてURP が同じことを縛る。
+
+**MOdule8MetallicSmoothness.mat はどのレンダラーからも参照されていない**（0 / 0）。
+名前からするとテクスチャを誤ってマテリアル化したもの。13-3 では触らない。
+
+---- 発光を持つマテリアル 4 件（13-4 の入力）----
+
+module6  / 発光マップ module6_Emission
+module7  / 発光マップ module7_Emission
+module10 / 発光マップ module10_Emission
+module11 / 発光マップ module11_Emission
+
+**発光を持つのはこの 4 件だけ。** 13-4 の窓・航法灯はこの制約の中で作ることになる。
+
+---- 候補（**候補として挙げるだけ。指名は人間が 13-3 / 13-4 で行う**）----
+
+窓・航法灯の候補   : 上の発光 4 件
+ドッキング口の候補 : 13-3 でプレハブの形を見てから決める（この時点では挙げられない）
+
+---- プレハブ（13-3 で Scale とポートを決める入力）----
+
+Space Station / GUID 0daf96c15d4c97b4e9e526f6acfce2f0 / レンダラー 16
+
+  ピボット（プレハブ原点）からの中心オフセット : (0.03, 0.25, -6.55)
+  バウンディングボックス（プレハブのローカル単位） : (41.94, 24.84, 62.54)
+
+  **単位の読み方**: このアセットは Unity の既定（1 = 1 m）で作られている前提。
+  この世界は 1 unit = 1 km なので、メートルとして読むなら 41.94 x 24.84 x 62.54 m。
+  units に直すには 0.001 倍（**13-3 で確定する。ここでは確定していない**）。
+
+  **前方軸**: プレハブのローカル +Z を前方と「仮定」した。**実測ではない。**
+  13-3 で前方・上方の 2 軸で確定する（Demo 3 の 11-2c で踏んだ罠）。
+
+  **ピボットは中心にない**（-6.55 m のオフセット）。13-3 の配置とポート位置で効く。
+
+---- 取り込み後に確認したこと ----
+
+Graphics 設定の RP アセット : PC_RPAsset（GUID 4b83569d67af61e458304325a23e5dfd）のまま
+Quality 設定 PC の RP アセット : 同上のまま
+  → unity/ProjectSettings/ 配下の差分は 0 ファイル。取り込みは触っていない。
+
+追跡ファイル : unity/Assets/ThirdParty 配下の追跡ファイルは 0 件
+  .gitignore:58 `/unity/Assets/ThirdParty/*` が CobbleGames/ と CobbleGames.meta の
+  両方を捕まえていることを `git check-ignore -v` で確認した。
+
+追跡アセットの変更 : 無し（tracked 6 ファイルに差分があるが、いずれも改行コードのみで
+  内容差分 0。exe ビルドと CaptureXrStack の既知の副産物）。
+
+一時ファイル : %TEMP%\solar-station-import\ に残っていないことを確認（0 件）。
+  リポジトリ配下には最初から置いていない。
+
+---- 回帰 ----
+
+平面 36 枚（verify/xr）  : 取り込み前後で差のあった画素 0 / 最大差 0
+EditMode                : 441 / 441 passed（取り込み前 429 + 本 Step の 12 件）
+PlayMode                : 132 total / 0 failed / inconclusive 2（いずれも既知）

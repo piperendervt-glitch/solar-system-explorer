@@ -1,3 +1,4 @@
+using System.Text;
 using SolarSystem.Core;
 using UnityEngine;
 
@@ -49,6 +50,11 @@ namespace SolarSystem.Unity
 
         /// <summary>どの定義で組まれたか (Step 11-0c)。**実機で取り違えに気づくため。**</summary>
         [SerializeField] CockpitIdentity _cockpit;
+
+        /// <summary>判定リグ (Step 13-3b)。**-stationJudge のときだけ行が増える。**</summary>
+        [SerializeField] StationJudgeRig _judge;
+
+        public void BindJudge(StationJudgeRig judge) => _judge = judge;
 
         public void BindCockpit(CockpitIdentity cockpit) => _cockpit = cockpit;
 
@@ -124,6 +130,14 @@ namespace SolarSystem.Unity
             sb.AppendLine($"速度     : {speed:0.###} km/s  ({UniverseConstants.KmPerSecToBeta(speed):0.####} c)  スラスト {_rig.LastThrust:+0.0;-0.0; 0.0}");
             sb.AppendLine($"火星まで : {distance:E4} units");
             sb.AppendLine($"表示     : {mode}   角直径 {angular}");
+
+            // **フレーム時間 (Step 13-0b)。** 埋まっていなければ「---」を出す。
+            // 0 ms と書くと「速い」と誤読されるので、数字にしない。
+            sb.AppendLine(FrameTimeProbe.Enabled
+                ? (FrameTimeProbe.HasLatest
+                    ? $"フレーム : CPU {FrameTimeProbe.LatestCpuMs:0.00} ms / GPU {FrameTimeProbe.LatestGpuMs:0.00} ms"
+                    : "フレーム : --- (FrameTimingManager が埋まっていない)")
+                : "フレーム : 計測 OFF (-frameTimeOff)");
             SpaceStation station = _rig.TargetStation(_root.Model);
             if (station != null)
             {
@@ -132,6 +146,19 @@ namespace SolarSystem.Unity
                               $"(Tab で切替)");
                 sb.AppendLine($"ドック   : {_rig.Docking.State}  進行 {_rig.Docking.Progress:0.00}  " +
                               $"ずれ角 {_rig.LastAlignmentAngle:0.0} 度  (Enter=要求 / BackSpace=出港)");
+                // **要求の判定に使っている値そのもの (Step 13-3b)。**
+                // 原点は構造物の中心ではなく**ポート位置**。
+                double pd = station.DistanceFromPort(_root.Ship.Position);
+                double range = station.RequestRangeUnits;
+                sb.AppendLine($"ポートまで: {pd:F4} units = {pd * 1000.0:F1} m  "
+                              + $"要求可能 {range:F1} units = {range * 1000.0:F0} m  "
+                              + (pd <= range ? "**圏内**" : "圏外"));
+
+                // 補間は距離に依らず DockSeconds 秒。**変わるのは詰める速さ。**
+                sb.AppendLine($"           出港距離 {DockingSolver.UndockDistance(range):F2} units  "
+                              + $"補間 {DockingSolver.DockSeconds:F1} 秒 "
+                              + $"(要求可能距離を詰めると {range / DockingSolver.DockSeconds:F3} km/s 相当)");
+
                 if (!string.IsNullOrEmpty(_rig.Docking.LastRejection))
                 {
                     sb.AppendLine($"要求NG   : {_rig.Docking.LastRejection}");
@@ -164,6 +191,8 @@ namespace SolarSystem.Unity
             {
                 sb.AppendLine($"コックピット: {_cockpit.Describe()}");
             }
+
+            AppendJudge(sb);
 
             // **音は「鳴ったかどうか」を目で確かめられない (CLAUDE.md 0-B)。**
             // 聴き分けに自信が持てないときに、画面で裏を取れるようにする。
@@ -209,7 +238,12 @@ namespace SolarSystem.Unity
 
             if (!SuppressMainHud)
             {
-                GUI.Label(new Rect(12f, 12f, 900f, 220f), BuildText(), _style);
+                // **枠は画面いっぱいに取る (Step 13-3b で直した)。**
+                // 900x220 の固定枠だったので、行が増えるたびに下が黙って切れていた
+                // （実測: FLARE / コックピット / 音 / 操作 の 4 行が出ていなかった）。
+                // **測定器が計算した値を表示できていない**状態なので直す。
+                GUI.Label(new Rect(12f, 12f, Screen.width - 24f, Screen.height - 24f),
+                          BuildText(), _style);
             }
 
             string check = BuildCheckText();
@@ -230,6 +264,71 @@ namespace SolarSystem.Unity
             }
 
             GUI.Label(new Rect(Screen.width - 512f - 12f, 12f, 512f, 160f), check, _checkStyle);
+        }
+
+        /// <summary>
+        /// **判定ビューの数値 (Step 13-3b)。**
+        /// 接続面と Scale を決めた後に「その値がどういう数字だったか」を
+        /// 数表へ残せるようにするための行。**-stationJudge のときだけ出る。**
+        /// </summary>
+        void AppendJudge(StringBuilder sb)
+        {
+            if (_judge == null || !_judge.gameObject.activeSelf)
+            {
+                return;
+            }
+
+            double scale = _judge.Scale;
+
+            double distanceUnits = _judge.LastDistanceUnits;
+
+            sb.AppendLine($"判定     : Scale {scale:F5}  視点 {_judge.Viewpoint}"
+                          + (_judge.HasModel ? "" : "  **モデル無し**"));
+
+            // **目からの距離と、機首からの隙間を分けて出す (13-3b 追補)。**
+            // 目からの距離だけだと、船の長さ 4.3191 m を頭の中で引き算することになる。
+            sb.AppendLine($"  距離   : 目から {distanceUnits:F4} units "
+                          + $"= {distanceUnits * 1000.0:F1} m"
+                          + $"  /  機首から {StationJudge.NoseClearanceMeters(distanceUnits):F1} m"
+                          + $"  (機首は目の {StationJudge.ShipNoseAheadOfEyeMeters:F4} m 前)");
+            // **near clip の内側かどうかを事実として出す。**
+            // 下限は 1 m まで下げてある（判定に使うには 10 m では足りなかった）。
+            // 内側では手前の構造物が描かれないので、それを知らずに形を読まない。
+            sb.AppendLine(StationJudge.InsideNearClip(distanceUnits)
+                ? $"           **near clip ({StationJudge.NearfieldNearClipUnits * 1000.0:F0} m) の内側。"
+                  + "手前の構造物は描かれない**"
+                : $"           near clip ({StationJudge.NearfieldNearClipUnits * 1000.0:F0} m) の外。"
+                  + $"目盛は {StationJudge.DockingDistanceMin * 1000.0:F0}〜"
+                  + $"{StationJudge.DockingDistanceMax * 1000.0:F0} m");
+            sb.AppendLine($"  全長   : {StationJudge.ToMeters(StationJudge.StationLengthMeters, scale):F2} m"
+                          + $"  全幅 {StationJudge.ToMeters(StationJudge.StationWidthMeters, scale):F2} m"
+                          + $"  半径 {StationJudge.RadiusUnits(scale):F5} units"
+                          + $"  MinStandoff {StationJudge.MinStandoffUnits(scale):F5} units");
+
+            AppendCandidate(sb, "(a) 金の円 ", PortFaceCandidate.GoldDisc, scale);
+            AppendCandidate(sb, "(b) 突円盤 ", PortFaceCandidate.ProtrudingPlate, scale);
+            AppendCandidate(sb, "(c) 胴     ", PortFaceCandidate.ModuleBody, scale);
+
+            const double closeDistance = 0.5;
+            sb.AppendLine($"  station-close (D={closeDistance} units / "
+                          + $"{StationJudge.ReferenceWidth}x{StationJudge.ReferenceHeight} / "
+                          + $"画角 {StationJudge.ReferenceFovDegrees:F0} 度) : "
+                          + $"角直径 {StationJudge.AngularDiameterDegrees(scale, closeDistance):F1} 度  "
+                          + $"被覆 {StationJudge.CoveragePercent(scale, closeDistance):F1} %");
+            sb.AppendLine($"  船の全幅 {StationJudge.ShipWidthMeters:F4} m / "
+                          + $"物差し {StationJudge.RatioMin:F1}〜{StationJudge.RatioMax:F1} 倍"
+                          + "   輪の色: (a) 金 / (b) 青 / (c) 桃");
+        }
+
+        static void AppendCandidate(StringBuilder sb, string label,
+                                    PortFaceCandidate candidate, double scale)
+        {
+            StationJudge.ScaleRangeFor(candidate, out double lo, out double hi);
+
+            sb.AppendLine($"  {label}: {StationJudge.OpeningMeters(candidate, scale):F3} m  "
+                          + $"船幅比 {StationJudge.RatioToShipWidth(candidate, scale):F2}"
+                          + (StationJudge.WithinRule(candidate, scale) ? " [物差し内]" : "")
+                          + $"  物差しを満たす Scale {lo:F5}〜{hi:F5}");
         }
     }
 }

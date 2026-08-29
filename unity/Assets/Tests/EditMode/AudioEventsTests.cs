@@ -8,6 +8,9 @@ namespace SolarSystem.Tests.EditMode
     /// <summary>イベント音の発火表 (Step 10-4)。</summary>
     public sealed class AudioEventsTests
     {
+        /// <summary>箱の定義の要求可能距離 (Step 13-1a)。**グローバル定数ではなく定義から読む。**</summary>
+        static readonly double BoxRange = StationCatalog.Box().RequestRange;
+
         static readonly DockingState[] AllStates =
             (DockingState[])Enum.GetValues(typeof(DockingState));
 
@@ -126,7 +129,7 @@ namespace SolarSystem.Tests.EditMode
         public void 要求を押さなければ拒否にならない()
         {
             var solver = new DockingSolver();
-            solver.Step(1000.0, 0.0, 0.0, requestPressed: false, undockPressed: false, 0.016);
+            solver.Step(BoxRange * 50.0, 0.0, 0.0, requestPressed: false, undockPressed: false, 0.016, BoxRange);
 
             Assert.That(solver.LastRequestRejected, Is.False);
             Assert.That(solver.LastRejection, Is.Not.Empty,
@@ -137,7 +140,7 @@ namespace SolarSystem.Tests.EditMode
         public void 圏外で要求すると拒否になる()
         {
             var solver = new DockingSolver();
-            solver.Step(1000.0, 0.0, 0.0, requestPressed: true, undockPressed: false, 0.016);
+            solver.Step(BoxRange * 50.0, 0.0, 0.0, requestPressed: true, undockPressed: false, 0.016, BoxRange);
 
             Assert.That(solver.State, Is.EqualTo(DockingState.Free));
             Assert.That(solver.LastRequestRejected, Is.True);
@@ -149,10 +152,10 @@ namespace SolarSystem.Tests.EditMode
             var solver = new DockingSolver();
 
             // 圏内に入って Approaching へ。
-            solver.Step(10.0, 0.0, 0.0, false, false, 0.016);
+            solver.Step(BoxRange * 0.5, 0.0, 0.0, false, false, 0.016, BoxRange);
             Assert.That(solver.State, Is.EqualTo(DockingState.Approaching));
 
-            solver.Step(10.0, 0.0, 0.0, requestPressed: true, undockPressed: false, 0.016);
+            solver.Step(BoxRange * 0.5, 0.0, 0.0, requestPressed: true, undockPressed: false, 0.016, BoxRange);
 
             Assert.That(solver.State, Is.EqualTo(DockingState.DockRequested));
             Assert.That(solver.LastRequestRejected, Is.False, "受理されたのに拒否になっている");
@@ -162,11 +165,11 @@ namespace SolarSystem.Tests.EditMode
         public void 拒否は押したフレームだけ真()
         {
             var solver = new DockingSolver();
-            solver.Step(1000.0, 0.0, 0.0, requestPressed: true, undockPressed: false, 0.016);
+            solver.Step(BoxRange * 50.0, 0.0, 0.0, requestPressed: true, undockPressed: false, 0.016, BoxRange);
             Assert.That(solver.LastRequestRejected, Is.True);
 
             // 押していない次のフレームで false に戻ること。
-            solver.Step(1000.0, 0.0, 0.0, requestPressed: false, undockPressed: false, 0.016);
+            solver.Step(BoxRange * 50.0, 0.0, 0.0, requestPressed: false, undockPressed: false, 0.016, BoxRange);
             Assert.That(solver.LastRequestRejected, Is.False, "押していないのに真のまま");
         }
     }

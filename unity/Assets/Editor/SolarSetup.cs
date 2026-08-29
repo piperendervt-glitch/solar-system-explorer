@@ -137,6 +137,76 @@ public static class SolarSetup
         Debug.Log("[SolarSetup] MeasureCockpitLighting OK");
     }
 
+    /// <summary>
+    /// ステーションアセットを取り込む (Step 13-2)。**経路 C**（入れ子の URP だけ）。
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.ImportStation
+    ///   run_unity.ps1 -Method SolarSetup.ImportStation -ExtraArgs "-package","&lt;path&gt;"
+    /// </summary>
+    public static void ImportStation()
+    {
+        SolarSystem.Editor.StationImporter.Run();
+        Debug.Log("[SolarSetup] ImportStation OK");
+    }
+
+    /// <summary>取り込んだステーションアセットの棚卸し (Step 13-2)。</summary>
+    public static void InventoryStation()
+    {
+        SolarSystem.Editor.StationInventory.Report();
+        Debug.Log("[SolarSetup] InventoryStation OK");
+    }
+
+    /// <summary>
+    /// 取り込んだモデルの単位を実測する (Step 13-3 コミット1)。**配線はしない。**
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.MeasureModelUnits
+    /// </summary>
+    public static void MeasureModelUnits()
+    {
+        SolarSystem.Editor.ModelUnitProbe.Run();
+        Debug.Log("[SolarSetup] MeasureModelUnits OK");
+    }
+
+    /// <summary>
+    /// ステーションを 6 方向から正投影で撮る (Step 13-3 コミット2)。**口の特定はしない。**
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.CaptureStationOrtho
+    /// </summary>
+    public static void CaptureStationOrtho()
+    {
+        SolarSystem.Editor.StationOrthoCapture.Run();
+        Debug.Log("[SolarSetup] CaptureStationOrtho OK");
+    }
+
+    /// <summary>
+    /// ドッキングポート（+Z 端）の幾何を数値で測る (Step 13-3a)。**口の寸法は指名しない。**
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.ProbeStationPort
+    /// </summary>
+    public static void ProbeStationPort()
+    {
+        SolarSystem.Editor.StationPortProbe.Run();
+        Debug.Log("[SolarSetup] ProbeStationPort OK");
+    }
+
+    /// <summary>
+    /// 接近円錐のプローブ (Step 13-3b)。**球の仮定を実際の幾何へ置き換える。**
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.ProbeStationApproach
+    /// </summary>
+    public static void ProbeStationApproach()
+    {
+        SolarSystem.Editor.StationApproachProbe.Run();
+        Debug.Log("[SolarSetup] ProbeStationApproach OK");
+    }
+
+    /// <summary>シーンに置かれたステーションの実体を数える (Step 13-3b の切り分け)。</summary>
+    public static void ProbeSceneStation()
+    {
+        SolarSystem.Editor.SceneStationProbe.Run();
+        Debug.Log("[SolarSetup] ProbeSceneStation OK");
+    }
+
     /// <summary>発光しているメッシュが座席から見えるかを測る (Step 11-4a の調査)。</summary>
     public static void ProbeCockpitVisibility()
     {

@@ -198,6 +198,23 @@ clone しただけの環境では**箱コックピットにフォールバック
 
 ---
 
+### ステーションモデル (Demo 4)
+
+| | |
+| --- | --- |
+| アセット | Space Station Free 3D Asset (HDRP + URP + Built-In)（v1.2） |
+| 提供元 | Cobble Games（Unity Asset Store / 無料） |
+| 使っているもの | 13-2 の棚卸しで確定 |
+
+**リポジトリにはアセット本体が入っていません。**
+取り込んだアセットは **Standard Unity Asset Store EULA** に基づいて使用します。
+EULA は**アセット自体の再配布を禁じている**ため、**このリポジトリには含めません**
+（`unity/Assets/ThirdParty/` は追跡除外）。
+
+入手手順と取り込み先は [docs/asset-sources.md](docs/asset-sources.md) §5 にあります。
+
+---
+
 ### 星空 (スカイボックス)
 
 **NASA/Goddard Space Flight Center Scientific Visualization Studio**

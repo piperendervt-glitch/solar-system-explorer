@@ -51,6 +51,12 @@ namespace SolarSystem.Core
 
         public string Id { get; private set; }
         public string Label { get; private set; }
+
+        /// <summary>
+        /// **分類 (Step 13-3b 追補)。** パネルはこの単位で 1 画面ずつ出す。
+        /// `DebugPanelModel.Create` が追加時に押す。**項目側では指定しない。**
+        /// </summary>
+        public string Category { get; internal set; } = string.Empty;
         public DebugItemKind Kind { get; private set; }
 
         public bool BoolValue { get; set; }
@@ -243,6 +249,61 @@ namespace SolarSystem.Core
         public const string FillIntensityId = "num.fillIntensity";
 
         /// <summary>
+        /// **ステーションの倍率 (Step 13-3 コミット2)。**
+        ///
+        /// 定義の Scale に掛ける係数で、**絶対値ではない。**
+        /// 定義ごとに Scale の桁が違う（箱 1.0 / メートル単位のモデル 0.001 前後）ので、
+        /// 1 本の目盛で絶対値を振ると片方で使えない。
+        ///
+        /// **描画も判定も StationDefinition.EffectiveScale を読む**ので、
+        /// ここを振ると半径・ポート位置・MinStandoff が同時に動く。
+        /// </summary>
+        public const string StationScaleId = "num.stationScale";
+
+        /// <summary>
+        /// **太陽電池アレイのロール [度] (Step 13-3b)。**
+        /// 既定 0 でアレイの法線が太陽を向く。**明暗境界線ビューでの見栄えは
+        /// 目で決める値**なので、ポート方向のまわりに振れるようにしてある。
+        /// **値は決めていない。**
+        /// </summary>
+        public const string StationRollId = "num.stationRoll";
+
+        /// <summary>
+        /// **ドッキング要求ができる距離 [units] (Step 13-3b)。原点はポート位置。**
+        /// 遊びの感触と 13-5 の誘導灯の長さで決まる値なので、実際に飛んで決める。
+        /// **既定は出発点であって確定値ではない。**
+        /// </summary>
+        public const string RequestRangeId = "num.requestRange";
+
+        /// <summary>
+        /// **判定ビューの Scale (Step 13-3b)。** 0.001〜0.008 を刻み 0.00025 で連続に振る。
+        /// 段の切り替えにしないのは、境目がどこかを目で見るため。
+        /// **`StationDefinition` には書かない。** 値は人間が決める。
+        /// </summary>
+        public const string JudgeScaleId = "num.judgeScale";
+
+        /// <summary>判定ビューの視点 (Step 13-3b)。</summary>
+        public const string JudgeViewId = "judge.view";
+
+        /// <summary>
+        /// **判定ビューのドッキング距離 [units] (Step 13-3b 追補)。**
+        /// 下限 0.010 は Nearfield の near clip で、**ゲーム本体の制約**。
+        /// これより近い絵はこのゲームでは発生しないので、下限を下げない。
+        /// </summary>
+        public const string JudgeDistanceId = "num.judgeDistance";
+
+        public static readonly string[] JudgeViewOptions = { "ドッキング", "全景" };
+
+        /// <summary>船の断面枠 1.6075 x 1.6312 m (Step 13-3b)。**比較対象そのもの。**</summary>
+        public const string JudgeShipFrameId = "judge.shipFrame";
+
+        /// <summary>候補 3 円の輪 (Step 13-3b)。金 / 青 / 桃。</summary>
+        public const string JudgeRingsId = "judge.rings";
+
+        /// <summary>ポート面の 1 m グリッド (Step 13-3b)。</summary>
+        public const string JudgeGridId = "judge.grid";
+
+        /// <summary>
         /// **画面のテスト柄 (Step 11-3b の切り分け道具)。**
         /// ON にすると 5 面の RT の中身を計器の表示から生成したテスト柄へ差し替える。
         /// 枠線・格子・真円・四隅の印・基準線の文字が入っており、
@@ -412,7 +473,7 @@ namespace SolarSystem.Core
             m._items.Add(DebugItem.MakeNumber(BloomScatterId, "bloom 拡散",
                 bloomScatter, 0.0, 1.0, 0.05, "F2"));
             // ---- 計器の画面 (Step 11-3) ----
-            // **発光は bloom のしきい値 0.90 の下が既定。** 文字が滲まないことを優先する。
+            // **発光は bloom のしきい値（決めた当時 0.90 / **13-3b で 3.00 へ変更**） の下が既定。** 文字が滲まないことを優先する。
             m._items.Add(DebugItem.MakeNumber(ScreenEmissionId, "画面の発光強度",
                 screenEmission, 0.0, 2.0, 0.05, "F2"));
 
@@ -420,6 +481,33 @@ namespace SolarSystem.Core
             m._items.Add(DebugItem.MakeToggle(FillLightId, "補助光", true));
             m._items.Add(DebugItem.MakeNumber(FillIntensityId, "補助光の強さ",
                 fillIntensity, 0.0, 2.0, 0.05, "F2"));
+
+            // ---- ステーション (Step 13-3 コミット2) ----
+            // **既定は 1.0 = 定義の Scale そのまま。** 係数なので定義に依らず 1.0。
+            // 値は Core の定数から読む（パネル側で二重定義しない）。
+            m._items.Add(DebugItem.MakeNumber(StationScaleId, "ステーションの倍率 (x)",
+                StationDefinition.RuntimeScaleFactorDefault, 0.10, 4.00, 0.05, "F2"));
+            m._items.Add(DebugItem.MakeNumber(StationRollId, "アレイのロール [度]",
+                0.0, -180.0, 180.0, 5.0, "F0"));
+
+            // **0.2〜20.0 / 刻み 0.1（199 段）。** 20.0 は原点を揃える前の値で、
+            // 0.2 はポート面（Standoff 0.015）のすぐ外。
+            m._items.Add(DebugItem.MakeNumber(RequestRangeId, "要求可能距離 [units]",
+                StationCatalog.DefaultRequestRangeUnits, 0.2, 20.0, 0.1, "F1"));
+
+            // ---- 判定ビュー (Step 13-3b) ----
+            // **-stationJudge のときだけ効く。** 値は Core の定数から読む。
+            m._items.Add(DebugItem.MakeNumber(JudgeScaleId, "判定 Scale",
+                StationJudge.ScaleInitial, StationJudge.ScaleMin, StationJudge.ScaleMax,
+                StationJudge.ScaleStep, "F5"));
+            m._items.Add(DebugItem.MakeChoice(JudgeViewId, "判定の視点", JudgeViewOptions, 0));
+            m._items.Add(DebugItem.MakeNumber(JudgeDistanceId, "判定 距離 [units]",
+                StationJudge.ProvisionalStandoffUnits,
+                StationJudge.DockingDistanceMin, StationJudge.DockingDistanceMax,
+                StationJudge.DockingDistanceStep, "F3"));
+            m._items.Add(DebugItem.MakeToggle(JudgeShipFrameId, "判定 船の断面枠", true));
+            m._items.Add(DebugItem.MakeToggle(JudgeRingsId, "判定 候補 3 円", true));
+            m._items.Add(DebugItem.MakeToggle(JudgeGridId, "判定 1m グリッド", true));
 
             m._items.Add(DebugItem.MakeToggle(ScreenPatternId, "画面のテスト柄", false));
             m._items.Add(DebugItem.MakeToggle(ScreenRtViewId, "RT を直接表示", false));
@@ -451,7 +539,177 @@ namespace SolarSystem.Core
             m._items.Add(DebugItem.MakeNumber(ShakeId, "微振動の振幅 [rad]",
                 shakeAmplitude, 0.0, 5.0e-3, 2.5e-4, "E3"));
 
+            m.ApplyCategories();
             return m;
+        }
+
+        // ---- 分類 (Step 13-3b 追補) ----
+        //
+        // 項目 53 / 1080p のフォント段 10（MinFontSize）で 54 項目までしか収まらなかった。
+        // 13-4（航法灯の周期・位相・発光強度・距離帯）と 13-5（誘導灯の色）で
+        // 項目が増えるのは確実なので、増える前に手を打つ。
+        //
+        // **方式: 分類ごとに 1 画面。** カーソルは今までどおり全項目を 1 列で辿り、
+        // パネルは「カーソルがいる分類」だけを描く。↑↓ で分類の境目を跨ぐので、
+        // **新しいキーを増やさずに全項目へ到達できる**（起動引数の口も壊れない）。
+        // 並べ替えは分類の中では安定（追加した順＝これまでの並びを保つ）。
+
+        /// <summary>分類の並び。**この順に画面が出る。**</summary>
+        public static readonly string[] CategoryOrder =
+        {
+            "段と天体", "見た目", "コックピット", "ステーションと判定",
+        };
+
+        /// <summary>
+        /// 項目 id から分類を決める。**どの分類にも当たらない id は例外。**
+        /// 項目を足したときに黙って落ちないようにするため。
+        /// </summary>
+        public static string CategoryOf(string id)
+        {
+            if (id == SoloId || id.StartsWith("tier.") || id.StartsWith("body.")
+                || id.StartsWith("show."))
+            {
+                return CategoryOrder[0];
+            }
+
+            if (id == AtmosphereId || id == CloudId || id == FlareId || id == SunEmissionId
+                || id == CoronaSizeId || id == SpikeLengthId || id == SpikeCountId
+                || id == GhostId || id == SpikeThicknessId || id == CoronaFalloffId
+                || id == BloomIntensityId || id == BloomThresholdId || id == BloomScatterId)
+            {
+                return CategoryOrder[1];
+            }
+
+            if (id == ScreenEmissionId || id == FillLightId || id == FillIntensityId
+                || id == ScreenPatternId || id == ScreenRtViewId || id == ScreenRtFaceId
+                || id == ScreenModeId || id == EyeXId || id == EyeYId || id == EyeZId
+                || id == FovId || id == EngineLagId || id == ShakeId)
+            {
+                return CategoryOrder[2];
+            }
+
+            if (id == StationScaleId || id == StationRollId || id == RequestRangeId
+                || id.StartsWith("judge.") || id == JudgeScaleId
+                || id == JudgeDistanceId)
+            {
+                return CategoryOrder[3];
+            }
+
+            throw new System.ArgumentException(
+                "分類の無い項目がある。CategoryOf に足すこと: " + id, nameof(id));
+        }
+
+        /// <summary>分類を押して、分類の順に並べ替える（中は安定）。</summary>
+        void ApplyCategories()
+        {
+            foreach (DebugItem item in _items)
+            {
+                item.Category = CategoryOf(item.Id);
+            }
+
+            var sorted = new List<DebugItem>(_items.Count);
+            foreach (string category in CategoryOrder)
+            {
+                foreach (DebugItem item in _items)
+                {
+                    if (item.Category == category)
+                    {
+                        sorted.Add(item);
+                    }
+                }
+            }
+
+            if (sorted.Count != _items.Count)
+            {
+                throw new System.InvalidOperationException(
+                    "分類で項目が落ちた: " + sorted.Count + " != " + _items.Count);
+            }
+
+            _items.Clear();
+            _items.AddRange(sorted);
+        }
+
+        /// <summary>いまカーソルがいる分類。</summary>
+        public string CurrentCategory => Current != null ? Current.Category : string.Empty;
+
+        /// <summary>いまの分類の番号（0 起点）。</summary>
+        public int CurrentCategoryIndex
+        {
+            get
+            {
+                string c = CurrentCategory;
+                for (int i = 0; i < CategoryOrder.Length; i++)
+                {
+                    if (CategoryOrder[i] == c)
+                    {
+                        return i;
+                    }
+                }
+
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// **いまの分類の項目だけ。** パネルはこれを描く。
+        /// **毎回作り直す。** 使い回すと、呼び出しの途中でもう一度読んだときに
+        /// 中身が入れ替わる（OnGUI は元から GC を出すので気にしない）。
+        /// </summary>
+        public IReadOnlyList<DebugItem> VisibleItems
+        {
+            get
+            {
+                string c = CurrentCategory;
+                var visible = new List<DebugItem>();
+                foreach (DebugItem item in _items)
+                {
+                    if (item.Category == c)
+                    {
+                        visible.Add(item);
+                    }
+                }
+
+                return visible;
+            }
+        }
+
+        /// <summary>いまの分類の中でのカーソル位置。</summary>
+        public int CursorInCategory
+        {
+            get
+            {
+                string c = CurrentCategory;
+                int n = 0;
+                for (int i = 0; i < _items.Count; i++)
+                {
+                    if (i == Cursor)
+                    {
+                        return n;
+                    }
+
+                    if (_items[i].Category == c)
+                    {
+                        n++;
+                    }
+                }
+
+                return 0;
+            }
+        }
+
+        /// <summary>分類ごとの件数。**レイアウトはこの最大値で決まる。**</summary>
+        public int CountIn(string category)
+        {
+            int n = 0;
+            foreach (DebugItem item in _items)
+            {
+                if (item.Category == category)
+                {
+                    n++;
+                }
+            }
+
+            return n;
         }
 
         public static string BodyId(string bodyName, string part) => "body." + bodyName + "." + part;

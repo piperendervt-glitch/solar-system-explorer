@@ -177,6 +177,73 @@ Python の `tarfile` では開けない**（`ReadError: invalid compressed data`
 **プレハブ GUID が解決できるか**で行う。
 
 ---
+## 5. ステーションモデル（Demo 4 / Step 13-1b） — **取得済み・未取り込み**
+
+| | |
+| --- | --- |
+| アセット名 | Space Station Free 3D Asset (HDRP + URP + Built-In) |
+| 提供元 | Cobble Games |
+| Asset Store ID | 188734 |
+| バージョン | 1.2（公開 2021-12-14 / アセットが作られた Unity: 2019.4.22f1） |
+| カテゴリ | 3D Models/Vehicles/Space |
+| 入手日 | 2026-08-29 |
+| ライセンス | **Standard Unity Asset Store EULA**。ゲームに組み込んでの配布は可、**アセット自体の再配布は不可** |
+| ダウンロード物 | `Space Station Free 3D Asset HDRP URP Built-In.unitypackage`（1,966,313,357 バイト = 1875.22 MB） |
+| ダウンロード先 | `%APPDATA%\Unity\Asset Store-5.x\Cobble Games\3D ModelsVehiclesSpace\`（**リポジトリ外**） |
+| 取り込み先 | `unity/Assets/ThirdParty/CobbleGames/SpaceStationFree/`（**追跡除外**。13-2 で取り込み済み） |
+| プレハブ GUID | `0daf96c15d4c97b4e9e526f6acfce2f0`（`Prefabs/Space Station.prefab`） |
+
+#### 取り込みの再現手順（別マシンでの復元 / 2026-08-29 実施）
+
+**パッケージは入れ子。** 外側のトップレベルが Built-in 版で、
+`Assets/Cobble Games/Spaceship/URP/URP.unitypackage` と同 `HDRP/HDRP.unitypackage` を
+**中に `.unitypackage` ファイルとして持つ。** 素直に取り込むと 3 パイプライン分が
+`Assets/` に落ちる。
+
+**採った経路 C: 入れ子の URP だけを取り出して取り込む。**
+
+1. Package Manager の My Assets から再ダウンロードする（**GUI ホップ**。CLAUDE.md §0-B）。
+   置き場は `%APPDATA%\Unity\Asset Store-5.x\Cobble Games\3D ModelsVehiclesSpace\`
+2. `.\tools\run_unity.ps1 -Method SolarSetup.ImportStation`
+   （`-package <path>` で `.unitypackage` の場所を上書きできる）
+
+`StationImporter` が行うこと: 外側の `pathname` を走査 → 入れ子の URP の GUID を引く →
+その `asset` を **OS の temp** へ取り出す（**リポジトリ配下には置かない**）→
+`pathname` を `Assets/ThirdParty/CobbleGames/SpaceStationFree/` へ書き換え、除外分と
+`SourceRoot` より上のフォルダを落とす → 取り込み前に自己検査（全件が取り込み先の下か）→
+`AssetDatabase.ImportPackageImmediately`（internal / リフレクション）→ 一時ファイルを消す。
+
+取り込み結果（実測）: **130 ファイル / 2433.15 MB / 所要 98.9 秒。**
+マテリアル 15 件はすべて `Universal Render Pipeline/Lit`。
+詳細は [../verify/cobble-import-result.txt](../verify/cobble-import-result.txt)。
+
+**取り込まなかったもの（5 件）:** `Scenes/SampleScene.unity` / `hdri.mat` /
+`hdr.png` / `Prefabs/UniversalRenderPipelineAsset.asset` /
+`Prefabs/UniversalRenderPipelineAsset_Renderer.asset`。
+参照関係を実測してから決めた（`hdr.png` <- `hdri.mat` <- `SampleScene.unity` のみ。
+`hdri.mat` は**組み込みシェーダを使う唯一のマテリアル**なので、残すと
+「ThirdParty の全マテリアルが URP」を文字どおり通せない）。
+**モデルのテクスチャは 1 枚も消していない。**
+
+**アセット名・提供元・ID・バージョンは推測ではなく、`.unitypackage` の gzip FEXTRA に
+埋まっている Asset Store のメタ情報から読み出した値**（Hi-Rez と同じ経路）。
+
+```
+{"link":{"id":"188734","type":"content"},"unity_version":"2019.4.22f1",
+ "pubdate":"14 Dec 2021","version":"1.2","upload_id":"469614","version_id":"657706",
+ "category":{"id":"48","label":"3D Models/Vehicles/Space"},"id":"188734",
+ "title":"Space Station Free 3D Asset","publisher":{"id":"52339","label":"Cobble Games"}}
+```
+
+**採らなかった路線: ISS（NASA 3D Resources）。** 無料でパブリックドメイン、
+リポジトリに追跡できる唯一の候補だったが、13-0 で SF 路線を選んだので採らない。
+
+> **このリポジトリは PUBLIC。** EULA が再配布を禁じるので、
+> `unity/Assets/ThirdParty/` 配下は 1 ファイルも追跡しない。
+> `.gitignore` と EditMode テスト `ThirdPartyTrackingTests` がこれを縛っている。
+
+---
+
 ## 5. 未確認事項
 
 - [x] ~~freesound #343738 / #715475 のライセンス~~ → **不採用にしたので確認不要**（将来使うなら上の注記のとおり要確認）

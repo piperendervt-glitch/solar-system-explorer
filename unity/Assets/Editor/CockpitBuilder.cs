@@ -1439,7 +1439,7 @@ namespace SolarSystem.Editor
         }
         /// <summary>
         /// プローブのマテリアル。**Unlit で、最大成分は 0.85。**
-        /// bloom のしきい値 0.90 を超えると滲んで白へ寄り、色相での分類が効かなくなる。
+        /// bloom のしきい値（決めた当時 0.90 / **13-3b で 3.00 へ変更**） を超えると滲んで白へ寄り、色相での分類が効かなくなる。
         /// </summary>
         static Material GetOrCreateProbeMaterial(SolarSystem.Core.XrLayer layer)
         {

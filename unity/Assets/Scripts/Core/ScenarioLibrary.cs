@@ -65,6 +65,13 @@ namespace SolarSystem.Core
             // Deep と Near は距離が大きすぎて、配布の有無で何も変わらない。
             list.Add(CreateStationClose(model));
 
+            // **動く場面 (Step 13-0b)。** フレーム時間の基準値を取る場面。
+            // 候補 5 件から 2 件に絞った（cruise-c / d / e は削除済み）。
+            foreach (Scenario moving in CreateMovingScenarios())
+            {
+                list.Add(moving);
+            }
+
             // LOD と実スケール引き渡しの確認 (Step 2 / 3b から移設)。
             list.Add(CreateLod(model, "lod-from-earth", 2.0e4, fromEarth: true,
                 "地球近傍 (地球から 2e4 units) から火星方向"));
@@ -218,6 +225,7 @@ namespace SolarSystem.Core
                 TargetStationIndex = 0,
                 ElapsedSeconds = 0.0,
                 VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Static(),
                 DebugHudVisible = false,
                 SunDirectionOverride = offset * -1.0, // 昼側。earth-close-day と同じ
             };
@@ -227,6 +235,76 @@ namespace SolarSystem.Core
                 "窓の外に地球が見えている (窓枠に隠れていない)",
                 "正面窓の上端が画面の上端より上、計器盤の上端が下 1/3 より下",
                 "ガラス越しの景色が暗くなりすぎていない",
+            });
+        }
+
+        // ---- 動く場面 (Step 13-0b) ----
+        //
+        // **β は最上段の 0.9**（`DefaultCruiseBeta`）。1 km/s では 1 フレームで
+        // 0.0167 units しか進まず、実質もう 1 枚の静止画になる。
+        // 0.9c は dt=1/60 で **1 フレーム 4,496.887 units**。
+        //
+        // ■ **開始位置は絶対座標の数値リテラルで固定する。**
+        // ステーションやポートの定数から導出すると、13-1a で PortStandoff が
+        // StationDefinition へ移り、13-3 で配置とスケールが変わった時点で、
+        // **基準値を取った場面そのものが動いてしまう。**
+        // フレーム時間の基準値は「同じ場面を測り直せること」が前提なので、
+        // ここだけは定数に追従させない。
+        //
+        // リテラル化しても値は変わっていない（導出値との差は 0.000e+00 / 13-0b で実測）:
+        //   departure  (149597870.7, 12000.3, 0) = 地球St のポート位置
+        //              12000.3 = 12000 (StationDistance) + 0.3 (PortStandoff = 0.25*1.2)
+        //   cruise-b   (188597870.7, 0, 0)       = 地球-火星の中間点
+
+        /// <summary>出港直後。**窓 120 フレーム**（→ CLAUDE.md §0 の Step 13）。</summary>
+        public const string DepartureName = "departure";
+
+        /// <summary>深宇宙の巡航。**窓 300 フレーム**。帰無対照。</summary>
+        public const string CruiseBName = "cruise-b";
+
+        static List<Scenario> CreateMovingScenarios()
+        {
+            return new List<Scenario>
+            {
+                // **出港直後。** frame 0 でステーションまで 0.3 units・地球 993 px、
+                // frame 7〜10 で地球の引き渡し帯 (5e4 -> 3e4) を跨ぐ。
+                // 情報が頭の 20 フレームに集中するので、系列で見る場面。
+                Moving(DepartureName, "出港直後（地球Stのポート -> 火星St）",
+                       new Vec3d(149597870.7, 12000.3, 0.0),
+                       new Vec3d(227597870.7, 8000.0, 0.0), 1),
+
+                // **深宇宙。帰無対照。** ステーションから 3.9e7 units 離れており、
+                // 地球も火星も 0.3 px 未満。Demo 4 の追加物が画面に無い場面。
+                Moving(CruiseBName, "深宇宙の巡航（中間点 -> 火星）",
+                       new Vec3d(188597870.7, 0.0, 0.0),
+                       new Vec3d(227597870.7, 0.0, 0.0), 1),
+            };
+        }
+
+        /// <summary>
+        /// 動く場面を 1 件作る。**β は `DefaultCruiseBeta` で固定。**
+        /// 開始点と視線だけが場面ごとに違う。
+        /// </summary>
+        static Scenario Moving(string name, string description,
+                               Vec3d position, Vec3d lookAt, int targetStationIndex)
+        {
+            var start = new ScenarioStart
+            {
+                Position = position,
+                LookAt = lookAt,
+                Up = new Vec3d(0.0, 1.0, 0.0),
+                TargetStationIndex = targetStationIndex,
+                ElapsedSeconds = 0.0,
+                VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Cruise(UniverseConstants.DefaultCruiseBeta),
+                DebugHudVisible = false,
+                SunDirectionOverride = null,
+            };
+
+            return new Scenario(name, description, start, new[]
+            {
+                "船が視線方向へ進んでいる（HUD の速度が 0 でない）",
+                "フレーム時間の計測に使う場面であって、絵の良し悪しは見ない",
             });
         }
 
@@ -254,6 +332,7 @@ namespace SolarSystem.Core
                 TargetStationIndex = 0,
                 ElapsedSeconds = 0.0,
                 VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Static(),
                 DebugHudVisible = false,
 
                 // ステーションを正面から照らす（陰にして測れなくならないように）。
@@ -326,6 +405,7 @@ namespace SolarSystem.Core
                 TargetStationIndex = 0,
                 ElapsedSeconds = 0.0,
                 VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Static(),
                 DebugHudVisible = false,
                 SunDirectionOverride = sun,
             };
@@ -368,6 +448,7 @@ namespace SolarSystem.Core
                 TargetStationIndex = 0,
                 ElapsedSeconds = 0.0,
                 VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Static(),
                 DebugHudVisible = false,
                 SunDirectionOverride = offset * -1.0, // 昼側。模様の一致が見やすい
             };
@@ -411,6 +492,7 @@ namespace SolarSystem.Core
                 TargetStationIndex = 0,
                 ElapsedSeconds = elapsedSeconds,
                 VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Static(),
                 DebugHudVisible = false,
                 SunDirectionOverride = offset * -1.0, // 昼側
             };
@@ -506,6 +588,7 @@ namespace SolarSystem.Core
                 TargetStationIndex = 0,
                 ElapsedSeconds = 0.0,
                 VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Static(),
                 DebugHudVisible = false,
                 SunDirectionOverride = null, // 本物の幾何で判定させる
             };
@@ -536,6 +619,7 @@ namespace SolarSystem.Core
                 TargetStationIndex = 0,
                 ElapsedSeconds = 0.0,
                 VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Static(),
                 DebugHudVisible = false,
                 SunDirectionOverride = null, // 本物の幾何で判定させる
             };
@@ -577,6 +661,7 @@ namespace SolarSystem.Core
                 TargetStationIndex = 0,
                 ElapsedSeconds = 0.0,
                 VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Static(),
                 DebugHudVisible = false,
                 SunDirectionOverride = null,
             };
@@ -626,6 +711,7 @@ namespace SolarSystem.Core
                 TargetStationIndex = 1, // 火星ステーション
                 ElapsedSeconds = 0.0,
                 VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Static(),
                 DebugHudVisible = false,
                 SunDirectionOverride = null,
             };
@@ -663,6 +749,7 @@ namespace SolarSystem.Core
                 TargetStationIndex = 0,
                 ElapsedSeconds = 0.0,
                 VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Static(),
                 DebugHudVisible = false,
                 SunDirectionOverride = null, // 8-0 では使わない
             };
