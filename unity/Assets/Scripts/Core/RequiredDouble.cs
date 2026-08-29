@@ -47,6 +47,30 @@ namespace SolarSystem.Core
             return new RequiredDouble(value);
         }
 
+        /// <summary>
+        /// **0 以上を受ける (Step 13-3b)。**
+        ///
+        /// `Positive` が使えない項目のためにある。`HullAheadOfPort` は
+        /// **0 が正しい値**（ポート面が構造全体の最前端で、前方へのはみ出しが無い）。
+        /// **それでも `default` は弾く**ので、書き忘れは読んだ時点で例外になる。
+        ///
+        /// **安易にこちらへ逃げないこと。** 0 が意味を持たない項目は `Positive` を使う。
+        /// </summary>
+        public static RequiredDouble NonNegative(double value)
+        {
+            if (!(value >= 0.0))
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "0 以上であること");
+            }
+
+            if (double.IsInfinity(value) || double.IsNaN(value))
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "有限の数であること");
+            }
+
+            return new RequiredDouble(value);
+        }
+
         /// <summary>設定されているか。**検査用。** 値を読むなら例外に任せてよい。</summary>
         public bool IsSet => _set;
 

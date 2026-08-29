@@ -57,6 +57,17 @@ namespace SolarSystem.Core
         /// 同じ (1, 0, 0) を選ぶ。**推測ではなく `StationBasisTests` で突き合わせてある。**
         /// </summary>
         public static StationBasis FromPortDirection(Vec3d portDirection)
+            => FromPortDirection(portDirection, new Vec3d(0.0, 1.0, 0.0));
+
+        /// <summary>
+        /// **上方向を指定して基底を作る (Step 13-3b)。**
+        ///
+        /// ロールを決める自由度がここにある。Cobble では**太陽電池アレイの法線
+        /// （プレハブ +Y = `PortUp`）を太陽の方向へ向ける**ために使う。
+        /// `upHint` が `portDirection` と平行なときは縮退するので (1, 0, 0) へ逃げる
+        /// （`Quaternion.LookRotation` と同じ挙動 / `StationBasisTests` で突き合わせ済み）。
+        /// </summary>
+        public static StationBasis FromPortDirection(Vec3d portDirection, Vec3d upHint)
         {
             Vec3d z = portDirection.Normalized;
             if (z.SqrMagnitude <= 0.0)
@@ -64,8 +75,8 @@ namespace SolarSystem.Core
                 throw new ArgumentException("ポート方向が 0 ベクトル", nameof(portDirection));
             }
 
-            var worldUp = new Vec3d(0.0, 1.0, 0.0);
-            Vec3d cross = Vec3d.Cross(worldUp, z);
+            Vec3d up = upHint.SqrMagnitude > 0.0 ? upHint.Normalized : new Vec3d(0.0, 1.0, 0.0);
+            Vec3d cross = Vec3d.Cross(up, z);
 
             Vec3d x = cross.Magnitude <= DegenerateEpsilon
                 ? DegenerateRight
@@ -73,6 +84,26 @@ namespace SolarSystem.Core
 
             Vec3d y = Vec3d.Cross(z, x);
             return new StationBasis(x, y, z);
+        }
+
+        /// <summary>
+        /// **軸まわりに回す（ロドリゲス）(Step 13-3b)。**
+        /// 太陽電池アレイの向きを F4 で振るために、上方向のヒントをポート方向の
+        /// まわりに回す。**軸は正規化して使う。**
+        /// </summary>
+        public static Vec3d RotateAbout(Vec3d v, Vec3d axis, double degrees)
+        {
+            if (axis.SqrMagnitude <= 0.0 || degrees == 0.0)
+            {
+                return v;
+            }
+
+            Vec3d k = axis.Normalized;
+            double rad = degrees * Math.PI / 180.0;
+            double c = Math.Cos(rad);
+            double sn = Math.Sin(rad);
+
+            return v * c + Vec3d.Cross(k, v) * sn + k * (Vec3d.Dot(k, v) * (1.0 - c));
         }
 
         /// <summary>ローカル座標をワールドへ写す（平行移動は含まない）。</summary>

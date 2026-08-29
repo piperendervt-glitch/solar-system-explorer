@@ -189,6 +189,24 @@ public static class SolarSetup
         Debug.Log("[SolarSetup] ProbeStationPort OK");
     }
 
+    /// <summary>
+    /// 接近円錐のプローブ (Step 13-3b)。**球の仮定を実際の幾何へ置き換える。**
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.ProbeStationApproach
+    /// </summary>
+    public static void ProbeStationApproach()
+    {
+        SolarSystem.Editor.StationApproachProbe.Run();
+        Debug.Log("[SolarSetup] ProbeStationApproach OK");
+    }
+
+    /// <summary>シーンに置かれたステーションの実体を数える (Step 13-3b の切り分け)。</summary>
+    public static void ProbeSceneStation()
+    {
+        SolarSystem.Editor.SceneStationProbe.Run();
+        Debug.Log("[SolarSetup] ProbeSceneStation OK");
+    }
+
     /// <summary>発光しているメッシュが座席から見えるかを測る (Step 11-4a の調査)。</summary>
     public static void ProbeCockpitVisibility()
     {

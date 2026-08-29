@@ -15,7 +15,15 @@ namespace SolarSystem.Tests.EditMode
     {
         static StationDefinition Box() => StationCatalog.Box();
 
-        static SolarSystemModel Model() => SolarSystemModel.CreateOpposition();
+        /// <summary>
+        /// **箱で組んだモデル。** 本番は Cobble になった (13-3b) ので、
+        /// 箱の数表を見るテストは明示的に箱を渡す。
+        /// </summary>
+        static SolarSystemModel Model()
+            => SolarSystemModel.CreateOpposition(StationCatalog.Box());
+
+        /// <summary>**本番のモデル。** 既定は Cobble。</summary>
+        static SolarSystemModel DefaultModel() => SolarSystemModel.CreateOpposition();
 
         // ---- 定義の値が現行と厳密一致 ----
 
@@ -42,6 +50,61 @@ namespace SolarSystem.Tests.EditMode
         }
 
         [Test]
+        public void Cobbleの定義の数表()
+        {
+            // **13-3b で人間が実機で判定して確定した値。**
+            //   項目             値            出所
+            //   Scale            0.00800       判定（接続面 = 中央の金色の円）
+            //   ModelRadius     45.0777        13-3a の実測（ピボット基準の外接球）
+            //   HullAheadOfPort  0.0           13-3a の実測（z > 24.7182 の頂点 0 件）
+            //   PortLocal       (0.0300, 0.2400, 24.7182)  13-3a の実測
+            //   PortForward     +Z / PortUp +Y
+            //   PortStandoff     0.015         MinStandoff 0.010 + 余裕 0.005
+            //   RequestRange    20.0           **まだ箱と同じ。13-5 で決める**
+            StationDefinition c = StationCatalog.Cobble();
+
+            Assert.That(c.Id, Is.EqualTo(StationCatalog.CobbleId));
+            Assert.That(c.NeedsPrefab, Is.True);
+            Assert.That(c.PrefabGuid, Is.EqualTo("0daf96c15d4c97b4e9e526f6acfce2f0"));
+            Assert.That(c.FallbackId, Is.EqualTo(StationDefinition.BoxId));
+
+            Assert.That(c.Scale, Is.EqualTo(0.008));
+            Assert.That(c.ModelRadius, Is.EqualTo(45.0777));
+            Assert.That(c.HullAheadOfPortLocal, Is.EqualTo(0.0));
+
+            Assert.That(c.PortLocal.X, Is.EqualTo(0.0300));
+            Assert.That(c.PortLocal.Y, Is.EqualTo(0.2400));
+            Assert.That(c.PortLocal.Z, Is.EqualTo(24.7182));
+            Assert.That(c.PortForward.Z, Is.EqualTo(1.0));
+            Assert.That(c.PortUp.Y, Is.EqualTo(1.0));
+
+            Assert.That(c.PortStandoff, Is.EqualTo(0.015).Within(1e-15));
+            Assert.That(c.RequestRange, Is.EqualTo(20.0), "13-5 で決めるまで箱と同じ");
+        }
+
+        [Test]
+        public void Cobbleの実寸の数表()
+        {
+            // Scale 0.008 / 1 unit = 1 km なので 実寸 [m] = プレハブ単位 x 8。
+            //   全長      62.5408 -> 500.33 m
+            //   アレイ幅  41.9387 -> 335.51 m
+            //   リング径  24.8580 -> 198.86 m
+            //   金の円     0.5241 ->   4.193 m   船の全幅 1.6075 m の 2.61 倍
+            //   半径      45.0777 ->   0.36062 units
+            //   ポート     24.7182 ->  0.19775 units（中心から 197.7 m 前方）
+            StationDefinition c = StationCatalog.Cobble();
+
+            Assert.That(62.5408 * c.Scale * 1000.0, Is.EqualTo(500.33).Within(0.01));
+            Assert.That(41.9387 * c.Scale * 1000.0, Is.EqualTo(335.51).Within(0.01));
+            Assert.That(24.8580 * c.Scale * 1000.0, Is.EqualTo(198.86).Within(0.01));
+            Assert.That(0.5241 * c.Scale * 1000.0, Is.EqualTo(4.193).Within(0.001));
+            Assert.That(0.5241 * c.Scale * 1000.0 / 1.6075, Is.EqualTo(2.61).Within(0.01));
+
+            Assert.That(c.RadiusUnits, Is.EqualTo(0.36062).Within(1e-5));
+            Assert.That(c.PortLocalUnits.Z, Is.EqualTo(0.19775).Within(1e-5));
+        }
+
+        [Test]
         public void 地球と火星は同じ定義を共有する()
         {
             SolarSystemModel model = Model();
@@ -49,6 +112,13 @@ namespace SolarSystem.Tests.EditMode
             // **同一インスタンス。** 差別化（灯の色・周期）は 13-4 の定数で行う。
             Assert.That(model.Stations[0].Definition,
                         Is.SameAs(model.Stations[1].Definition));
+
+            // 本番（Cobble）でも共有される。
+            SolarSystemModel cobble = DefaultModel();
+            Assert.That(cobble.Stations[0].Definition,
+                        Is.SameAs(cobble.Stations[1].Definition));
+            Assert.That(cobble.Stations[0].Definition.Id,
+                        Is.EqualTo(StationCatalog.CobbleId));
 
             foreach (SpaceStation station in model.Stations)
             {
@@ -74,6 +144,32 @@ namespace SolarSystem.Tests.EditMode
             Assert.That(mars.AbsolutePosition.Y, Is.EqualTo(8000.0).Within(1e-9));
             Assert.That(mars.PortPosition.Y, Is.EqualTo(8000.3).Within(1e-9));
             Assert.That(mars.PortPosition.X, Is.EqualTo(227597870.7).Within(1e-6));
+        }
+
+        [Test]
+        public void Cobbleのポート位置の数表()
+        {
+            // ポート位置 = 中心 + 基底(PortLocal * Scale) + ポート方向 * PortStandoff
+            //   PortLocal.Z 24.7182 * 0.008 = 0.1977456 units（ローカル +Z -> ワールド +Y）
+            //   PortStandoff                 0.015 units
+            //   合計                         0.2127456 units
+            //   Earth Station  12000 -> 12000.2127456
+            //   Mars  Station   8000 ->  8000.2127456
+            SolarSystemModel model = DefaultModel();
+
+            SpaceStation earth = model.Stations[0];
+            Assert.That(earth.PortPosition.Y - earth.AbsolutePosition.Y,
+                        Is.EqualTo(0.2127456).Within(1e-9));
+            Assert.That(earth.PortPosition.Y, Is.EqualTo(12000.2127456).Within(1e-7));
+
+            SpaceStation mars = model.Stations[1];
+            Assert.That(mars.PortPosition.Y, Is.EqualTo(8000.2127456).Within(1e-7));
+
+            // **ドッキング後の目から構造物までの隙間。**
+            //   PortStandoff 0.015 - HullAheadOfPort 0 = 0.015 units = 15 m
+            Assert.That(earth.Definition.DockedClearance, Is.EqualTo(0.015).Within(1e-15));
+            Assert.That(earth.Definition.DockedClearance,
+                        Is.GreaterThanOrEqualTo(StationCatalog.NearfieldNearClipUnits));
         }
 
         // ---- 解析判定の境界（移設前と厳密一致）----
@@ -203,7 +299,7 @@ namespace SolarSystem.Tests.EditMode
 
             // 定義に書き忘れても、**読んだ時点で**落ちる。
             StationDefinition broken = StationDefinition.Create(
-                "broken", null, default, default,
+                "broken", null, default, default, default,
                 Vec3d.Zero, new Vec3d(0, 1, 0), new Vec3d(0, 0, 1),
                 default, default, null, null, null);
 
@@ -262,6 +358,7 @@ namespace SolarSystem.Tests.EditMode
         static StationDefinition Varied() => StationDefinition.Create(
             "test-varied", null,
             RequiredDouble.Positive(TestScale),
+            RequiredDouble.Positive(SolarSystemModel.StationRadiusKm),
             RequiredDouble.Positive(SolarSystemModel.StationRadiusKm),
             Vec3d.Zero, new Vec3d(0.0, 1.0, 0.0), new Vec3d(0.0, 0.0, 1.0),
             RequiredDouble.Positive(TestStandoff),
@@ -470,6 +567,7 @@ namespace SolarSystem.Tests.EditMode
                 "test-port", null,
                 RequiredDouble.Positive(scale),
                 RequiredDouble.Positive(SolarSystemModel.StationRadiusKm),
+                RequiredDouble.Positive(SolarSystemModel.StationRadiusKm),
                 portLocal, new Vec3d(0.0, 0.0, 1.0), new Vec3d(0.0, 1.0, 0.0),
                 RequiredDouble.Positive(TestStandoff),
                 RequiredDouble.Positive(TestRange),
@@ -481,6 +579,15 @@ namespace SolarSystem.Tests.EditMode
             // **実行時のカタログを汚さない。** 試験用はテストの中だけで作る。
             Assert.That(Box().Id, Is.EqualTo(StationDefinition.BoxId));
             Assert.That(Varied().Id, Is.Not.EqualTo(Box().Id));
+
+            // **本番のモデルはカタログの定義しか使わない。**
+            // 試験用（test-varied / test-port）が紛れ込んでいたらここで落ちる。
+            foreach (SpaceStation station in DefaultModel().Stations)
+            {
+                Assert.That(station.Definition.Id,
+                            Is.EqualTo(StationCatalog.CobbleId),
+                            station.Name + " が本番の定義を使っていない");
+            }
 
             foreach (SpaceStation station in Model().Stations)
             {

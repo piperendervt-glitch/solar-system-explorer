@@ -74,6 +74,7 @@ namespace SolarSystem.Core
 
         readonly RequiredDouble _scale;
         readonly RequiredDouble _modelRadius;
+        readonly RequiredDouble _hullAheadOfPort;
         readonly RequiredDouble _portStandoff;
         readonly RequiredDouble _requestRange;
         readonly NavLight[] _navLights;
@@ -86,7 +87,7 @@ namespace SolarSystem.Core
         double? _runtimeScale;
 
         StationDefinition(string id, string prefabGuid, RequiredDouble scale,
-                          RequiredDouble modelRadius,
+                          RequiredDouble modelRadius, RequiredDouble hullAheadOfPort,
                           Vec3d portLocal, Vec3d portForward, Vec3d portUp,
                           RequiredDouble portStandoff, RequiredDouble requestRange,
                           NavLight[] navLights, WindowEmissive[] windowEmissives,
@@ -96,6 +97,7 @@ namespace SolarSystem.Core
             PrefabGuid = prefabGuid;
             _scale = scale;
             _modelRadius = modelRadius;
+            _hullAheadOfPort = hullAheadOfPort;
             PortLocal = portLocal;
             PortForward = portForward;
             PortUp = portUp;
@@ -114,6 +116,7 @@ namespace SolarSystem.Core
         /// </summary>
         public static StationDefinition Create(
             string id, string prefabGuid, RequiredDouble scale, RequiredDouble modelRadius,
+            RequiredDouble hullAheadOfPort,
             Vec3d portLocal, Vec3d portForward, Vec3d portUp,
             RequiredDouble portStandoff, RequiredDouble requestRange,
             NavLight[] navLights, WindowEmissive[] windowEmissives, string fallbackId)
@@ -123,7 +126,7 @@ namespace SolarSystem.Core
                 throw new ArgumentException("Id が空", nameof(id));
             }
 
-            return new StationDefinition(id, prefabGuid, scale, modelRadius,
+            return new StationDefinition(id, prefabGuid, scale, modelRadius, hullAheadOfPort,
                                          portLocal, portForward, portUp,
                                          portStandoff, requestRange,
                                          navLights, windowEmissives, fallbackId);
@@ -162,8 +165,24 @@ namespace SolarSystem.Core
             _runtimeScale = value;
         }
 
+        /// <summary>
+        /// **太陽電池アレイのロール [度] (Step 13-3b)。**
+        ///
+        /// 姿勢は「ポート方向 = `PortDirection`」「`PortUp` = 太陽の方向」で決まるが、
+        /// **明暗境界線ビューでの見栄えは目で決める値**なので、ポート方向のまわりに
+        /// 振れるようにしてある。**既定は 0（アレイの法線がちょうど太陽を向く）。**
+        /// **値は決めていない。** F4 で振って人間が決める。
+        /// </summary>
+        public double ArrayRollDegrees { get; private set; }
+
+        /// <summary>F4 が実行時に振るときだけ呼ぶ。**アセットには書き戻さない。**</summary>
+        public void SetArrayRoll(double degrees) => ArrayRollDegrees = degrees;
+
         /// <summary>F4 の R（既定へ戻す）で呼ぶ。</summary>
         public void ResetRuntimeScale() => _runtimeScale = null;
+
+        /// <summary>F4 の R。アレイのロールも既定へ戻す。</summary>
+        public void ResetArrayRoll() => ArrayRollDegrees = 0.0;
 
         /// <summary>F4 で振られているか。**HUD とテストが「振ったまま」を見分ける口。**</summary>
         public bool HasRuntimeScale => _runtimeScale.HasValue;
@@ -182,10 +201,37 @@ namespace SolarSystem.Core
         public double RadiusUnits => ModelRadius * EffectiveScale;
 
         /// <summary>
-        /// near clip を満たす `PortStandoff` の下限 [units]。
-        /// **半径は Scale を掛けた後の値**（`RadiusUnits`）から出す。
+        /// **ポートより前方へ構造物がはみ出している量 [プレハブ単位]。**
+        ///
+        /// 箱はポートが中心にあるので、半径ぶん（0.25）はみ出す。
+        /// Cobble はポート面が構造全体の最前端なので **0**
+        /// （13-3a の実測: z > 24.7182 に頂点を持つレンダラーは 0 件）。
         /// </summary>
-        public double MinStandoff(double nearClip) => RadiusUnits + nearClip;
+        public double HullAheadOfPortLocal => _hullAheadOfPort.Value;
+
+        /// <summary>同 [units]。`HullAheadOfPortLocal * EffectiveScale`。</summary>
+        public double HullAheadOfPortUnits => HullAheadOfPortLocal * EffectiveScale;
+
+        /// <summary>
+        /// near clip を満たす `PortStandoff` の下限 [units]。
+        ///
+        /// ■ **式を差し替えた (Step 13-3b)**
+        /// 旧: `RadiusUnits + nearClip`。**`PortLocal = 0`（ポートが構造物の中心）**
+        /// を前提にした箱の式で、ポートが端にあるモデルでは過大になる
+        /// （Scale 0.008 で 0.371 units = 371 m。直径 4.19 m の口の 371 m 手前）。
+        ///
+        /// 新: **`HullAheadOfPortUnits + nearClip`。**
+        /// 制約は「目から最も近い構造物までが near clip 以上」。
+        /// 目はポート面から `PortStandoff` だけ前方にいるので、
+        /// 最近傍までの距離は `PortStandoff - HullAheadOfPortUnits`。
+        /// これが `nearClip` 以上、を解いた形。
+        ///
+        /// **箱では値が変わらない**（`HullAheadOfPort` = 半径 0.25 なので 0.26 のまま）。
+        /// </summary>
+        public double MinStandoff(double nearClip) => HullAheadOfPortUnits + nearClip;
+
+        /// <summary>ドッキング後の目から最も近い構造物までの距離 [units]。</summary>
+        public double DockedClearance => PortStandoff - HullAheadOfPortUnits;
 
         /// <summary>ポート位置（プレハブ原点基準）。</summary>
         public Vec3d PortLocal { get; }
@@ -231,6 +277,7 @@ namespace SolarSystem.Core
 
         public override string ToString()
             => $"{Id} (scale={_scale} / modelRadius={_modelRadius}"
+               + $" / hullAhead={_hullAheadOfPort}"
                + $" / standoff={_portStandoff} / range={_requestRange}"
                + $" / navLights={_navLights.Length} / emissives={_windowEmissives.Length})";
     }

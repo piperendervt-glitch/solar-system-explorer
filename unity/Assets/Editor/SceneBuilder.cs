@@ -117,7 +117,23 @@ namespace SolarSystem.Editor
             bodiesGo.transform.SetParent(rootGo.transform, false);
             var solarSystemView = bodiesGo.AddComponent<SolarSystemView>();
 
-            SolarSystemModel model = SolarSystemModel.CreateOpposition();
+            // **ステーションの定義をここで 1 回だけ決める (Step 13-3b)。**
+            // アセット（追跡除外）が無ければ箱へ落とす。落ちたことは
+            // `StationIdentity` に焼いて、実行時のモデルも同じ定義を使う。
+            StationDefinition requested = StationCatalog.Default();
+            bool stationAvailable = requested.NeedsPrefab
+                && !string.IsNullOrEmpty(AssetDatabase.GUIDToAssetPath(requested.PrefabGuid));
+            StationDefinition stationDefinition = stationAvailable
+                ? requested
+                : StationCatalog.Box();
+
+            if (!stationAvailable)
+            {
+                Debug.LogWarning("[SceneBuilder] ステーションのプレハブが無いので箱へ落とす: "
+                                 + requested.Id + " / GUID " + requested.PrefabGuid);
+            }
+
+            SolarSystemModel model = SolarSystemModel.CreateOpposition(stationDefinition);
             foreach (CelestialBody body in model.Bodies)
             {
                 solarSystemView.Register(CreateBodyView(body, bodiesGo.transform, deepLayer));
@@ -127,6 +143,9 @@ namespace SolarSystem.Editor
             var stationsGo = new GameObject("Stations");
             stationsGo.transform.SetParent(rootGo.transform, false);
             var stationSet = stationsGo.AddComponent<StationViewSet>();
+
+            StationIdentity stationIdentity = stationsGo.AddComponent<StationIdentity>();
+            stationIdentity.Bind(stationDefinition.Id, requested.Id, !stationAvailable);
 
             foreach (SpaceStation station in model.Stations)
             {
@@ -308,6 +327,17 @@ namespace SolarSystem.Editor
             root.transform.SetParent(parent, false);
             root.layer = layer;
 
+            // **プレハブを持つ定義ならプレハブを置く (Step 13-3b)。**
+            // 形はプレハブ単位のまま。units への換算は `StationView` が
+            // `EffectiveScale` を transform に掛ける（箱と同じ扱い）。
+            if (station.Definition.NeedsPrefab
+                && AddStationPrefab(root.transform, station.Definition.PrefabGuid, layer))
+            {
+                var prefabView = root.AddComponent<StationView>();
+                prefabView.Bind(station);
+                return prefabView;
+            }
+
             // **形はプレハブ単位で組む (Step 13-3 コミット2)。**
             // units への換算は `StationView` が `EffectiveScale` を transform に掛ける。
             // ここで `RadiusKm`（= ModelRadius * Scale）を使うと倍率が二重に掛かる。
@@ -339,6 +369,48 @@ namespace SolarSystem.Editor
             var view = root.AddComponent<StationView>();
             view.Bind(station);
             return view;
+        }
+
+        /// <summary>
+        /// ステーションのプレハブを置く (Step 13-3b)。解決できなければ false。
+        /// **当たり判定は落とす**（このゲームは Collider を使わない / §5）。
+        /// </summary>
+        static bool AddStationPrefab(Transform parent, string guid, int layer)
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            if (string.IsNullOrEmpty(path))
+            {
+                return false;
+            }
+
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (asset == null)
+            {
+                return false;
+            }
+
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(asset, parent);
+            instance.name = "Model";
+            instance.transform.localPosition = Vector3.zero;
+            instance.transform.localRotation = Quaternion.identity;
+            instance.transform.localScale = Vector3.one;
+            SetLayerRecursively(instance, layer);
+
+            foreach (Collider c in instance.GetComponentsInChildren<Collider>(true))
+            {
+                Object.DestroyImmediate(c);
+            }
+
+            return true;
+        }
+
+        static void SetLayerRecursively(GameObject go, int layer)
+        {
+            go.layer = layer;
+            foreach (Transform child in go.transform)
+            {
+                SetLayerRecursively(child.gameObject, layer);
+            }
         }
 
         static void AddPart(Transform parent, string name, PrimitiveType type, Vector3 position,

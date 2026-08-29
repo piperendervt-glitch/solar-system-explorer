@@ -44,7 +44,7 @@ namespace SolarSystem.Tests.EditMode
         }
 
         [Test]
-        public void 項目数は53件()
+        public void 項目数は54件()
         {
             // 43 - 音量 4 + 画面の発光 1 + 割り当て 1 = 41 (Step 11-3)。
             // 割り当ての 3 択は 11-3c で外した（案 A に確定）ので 40。
@@ -52,7 +52,8 @@ namespace SolarSystem.Tests.EditMode
             // 13-3 コミット2 でステーションの倍率を 1 つ足して 47。
             // 13-3b で判定ビューの 5 項目を足して 52。
             // 13-3b の追補で「判定 距離」を 1 つ足して 53。
-            Assert.That(RealItemCount(), Is.EqualTo(53));
+            // 13-3b でアレイのロールを 1 つ足して 54。
+            Assert.That(RealItemCount(), Is.EqualTo(54));
         }
 
         [Test]
@@ -66,11 +67,11 @@ namespace SolarSystem.Tests.EditMode
             //   見た目               13     惑星・太陽・フレア 10 + bloom 3
             //   コックピット         13     画面 4 + 補助光 2 + 計器の向き 1
             //                               + 目 3 + 画角 1 + 音 1 + 微振動 1
-            //   ステーションと判定    7     倍率 1 + 判定 6
+            //   ステーションと判定    8     倍率 1 + ロール 1 + 判定 6
             Assert.That(m.CountIn("段と天体"), Is.EqualTo(20));
             Assert.That(m.CountIn("見た目"), Is.EqualTo(13));
             Assert.That(m.CountIn("コックピット"), Is.EqualTo(13));
-            Assert.That(m.CountIn("ステーションと判定"), Is.EqualTo(7));
+            Assert.That(m.CountIn("ステーションと判定"), Is.EqualTo(8));
 
             Assert.That(LargestCategoryCount(), Is.EqualTo(20));
         }

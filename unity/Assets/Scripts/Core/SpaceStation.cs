@@ -62,7 +62,29 @@ namespace SolarSystem.Core
         /// ローカル軸をワールドへ写す基底 (Step 13-3 コミット2)。
         /// **描画側（`StationView`）も同じものを読む。**
         /// </summary>
-        public StationBasis Basis => StationBasis.FromPortDirection(PortDirection);
+        public StationBasis Basis => StationBasis.FromPortDirection(
+            PortDirection,
+            StationBasis.RotateAbout(SunDirection, PortDirection,
+                                     Definition.ArrayRollDegrees));
+
+        /// <summary>
+        /// **ステーションから太陽への向き (Step 13-3b)。**
+        ///
+        /// **太陽は絶対座標の原点**（`SolarSystemModel.CreateOpposition` が
+        /// `Vec3d.Zero` に置く）。ここはその前提に乗っている。
+        ///
+        /// 配置が位相角 90 度（惑星は +X、ステーションは +Y にオフセット）なので、
+        /// この向きはほぼ -X の定数になる。**太陽電池アレイの法線（`PortUp`）を
+        /// ここへ向ける。**
+        /// </summary>
+        public Vec3d SunDirection
+        {
+            get
+            {
+                Vec3d toSun = Vec3d.Zero - AbsolutePosition;
+                return toSun.SqrMagnitude > 0.0 ? toSun.Normalized : new Vec3d(-1.0, 0.0, 0.0);
+            }
+        }
 
         /// <summary>
         /// ポート面の位置。ドッキング完了時に船が座る場所。

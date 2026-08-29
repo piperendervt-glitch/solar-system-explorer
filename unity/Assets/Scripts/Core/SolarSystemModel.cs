@@ -51,7 +51,21 @@ namespace SolarSystem.Core
 
         /// <summary>衝の配置を作る。テクスチャは使わない (決定 D-22) ので色は単色。</summary>
         public static SolarSystemModel CreateOpposition()
+            => CreateOpposition(StationCatalog.Default());
+
+        /// <summary>
+        /// ステーションの定義を明示して作る (Step 13-3b)。
+        /// **アセットが無いクローンでは組む側が箱を渡す。**
+        /// 絵（プレハブか箱か）と数（Scale・Standoff）を必ず一致させるため、
+        /// **どちらを使うかは 1 箇所で決めてここへ渡す。**
+        /// </summary>
+        public static SolarSystemModel CreateOpposition(StationDefinition definition)
         {
+            if (definition == null)
+            {
+                throw new System.ArgumentNullException(nameof(definition));
+            }
+
             var model = new SolarSystemModel();
 
             model.Sun = new CelestialBody(
@@ -82,7 +96,7 @@ namespace SolarSystem.Core
 
             // **地球と火星は同じ定義を共有する (Step 13-1a)。**
             // 差別化（灯の色・周期）は 13-4 の定数で行う。ここでは入れない。
-            StationDefinition definition = StationCatalog.Box();
+            // **定義は呼び手から来る**（13-3b）。ここでカタログを引かない。
 
             // **半径は定義から導く (Step 13-3 コミット2)。** ここでは渡さない。
             // `StationRadiusKm` は `StationCatalog.Box()` の `modelRadius` の出所。

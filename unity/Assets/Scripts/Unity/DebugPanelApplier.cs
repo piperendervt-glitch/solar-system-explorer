@@ -116,6 +116,7 @@ namespace SolarSystem.Unity
                 // 描画（`StationView` の localScale）も判定（半径・ポート位置・
                 // MinStandoff）も `EffectiveScale` を読むので、両方が同時に動く。
                 double factor = model.NumberOf(DebugPanelModel.StationScaleId);
+                double roll = model.NumberOf(DebugPanelModel.StationRollId);
                 foreach (StationView v in _stations.Views)
                 {
                     StationDefinition def = v != null && v.Station != null
@@ -134,6 +135,9 @@ namespace SolarSystem.Unity
                     {
                         def.SetRuntimeScale(def.Scale * factor);
                     }
+
+                    // **アレイのロール (13-3b)。** 既定 0 で法線が太陽を向く。
+                    def.SetArrayRoll(roll);
                 }
 
                 bool visible = model.BoolOf("show.stations");

@@ -261,6 +261,14 @@ namespace SolarSystem.Core
         public const string StationScaleId = "num.stationScale";
 
         /// <summary>
+        /// **太陽電池アレイのロール [度] (Step 13-3b)。**
+        /// 既定 0 でアレイの法線が太陽を向く。**明暗境界線ビューでの見栄えは
+        /// 目で決める値**なので、ポート方向のまわりに振れるようにしてある。
+        /// **値は決めていない。**
+        /// </summary>
+        public const string StationRollId = "num.stationRoll";
+
+        /// <summary>
         /// **判定ビューの Scale (Step 13-3b)。** 0.001〜0.008 を刻み 0.00025 で連続に振る。
         /// 段の切り替えにしないのは、境目がどこかを目で見るため。
         /// **`StationDefinition` には書かない。** 値は人間が決める。
@@ -472,6 +480,8 @@ namespace SolarSystem.Core
             // 値は Core の定数から読む（パネル側で二重定義しない）。
             m._items.Add(DebugItem.MakeNumber(StationScaleId, "ステーションの倍率 (x)",
                 StationDefinition.RuntimeScaleFactorDefault, 0.10, 4.00, 0.05, "F2"));
+            m._items.Add(DebugItem.MakeNumber(StationRollId, "アレイのロール [度]",
+                0.0, -180.0, 180.0, 5.0, "F0"));
 
             // ---- 判定ビュー (Step 13-3b) ----
             // **-stationJudge のときだけ効く。** 値は Core の定数から読む。
@@ -566,7 +576,8 @@ namespace SolarSystem.Core
                 return CategoryOrder[2];
             }
 
-            if (id == StationScaleId || id.StartsWith("judge.") || id == JudgeScaleId
+            if (id == StationScaleId || id == StationRollId
+                || id.StartsWith("judge.") || id == JudgeScaleId
                 || id == JudgeDistanceId)
             {
                 return CategoryOrder[3];

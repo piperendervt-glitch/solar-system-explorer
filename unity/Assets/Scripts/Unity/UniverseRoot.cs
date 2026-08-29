@@ -39,6 +39,9 @@ namespace SolarSystem.Unity
         /// **-stationJudge が無ければ非アクティブのまま。**
         /// </summary>
         [SerializeField] StationJudgeRig _stationJudge;
+
+        /// <summary>どの定義で組まれたか (Step 13-3b)。**箱へ落ちたかもここで分かる。**</summary>
+        [SerializeField] StationIdentity _stationIdentity;
         [SerializeField] StationViewSet _stations;
         [SerializeField] PostProcessPreset _post;
         [SerializeField] AudioRouting _audio;
@@ -188,7 +191,17 @@ namespace SolarSystem.Unity
             Ship = new AbsoluteMotion();
             Ship.SetVelocity(new Vec3d(_initialVelocityX, _initialVelocityY, _initialVelocityZ));
 
-            Model = SolarSystemModel.CreateOpposition();
+            // **ステーションの定義はシーンに焼かれた Id から引く (Step 13-3b)。**
+            // アセットが無いクローンでは `SceneBuilder` が箱で組み、Id も箱になる。
+            // **絵と数字を必ず一致させる**（Cobble の値で箱を描かない）。
+            if (_stationIdentity == null)
+            {
+                _stationIdentity = GetComponentInChildren<StationIdentity>();
+            }
+
+            Model = _stationIdentity != null
+                ? SolarSystemModel.CreateOpposition(_stationIdentity.Resolve())
+                : SolarSystemModel.CreateOpposition();
             RadiansPerPixel = AngularSizeSolver.RadiansPerPixel(
                 UniverseConstants.ReferenceVerticalFovDegrees,
                 UniverseConstants.ReferencePixelHeight);
