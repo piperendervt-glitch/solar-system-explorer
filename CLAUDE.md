@@ -17,9 +17,15 @@
 | 最小デモ | 0〜7 | `step-0`〜`step-7` / `v0.1-minimal-demo` |
 | Demo 2（見た目） | 8〜10 | `step8-0`〜`step10-4` / `demo2` |
 | Demo 3（コックピット） | 11-0〜11-5 | `step11-0`〜`step11-5` / `demo3` |
+| Step 12（XR スパイク） | 12-0〜E | `spike-xr`（判定 go。→ §0-A2） |
 
 **Demo 3 は完了。** [docs/03-demo3-plan.md](docs/03-demo3-plan.md) §0-A に完了状態と決定値がある。
-確定した値は下の §0-A にもまとめてある。**次は Demo 4（ステーションの3Dモデル）。**
+確定した値は下の §0-A にもまとめてある。
+
+### Step 13（Demo 4: ステーション3Dモデル＋ドッキング演出）
+
+計画書は [docs/plans/step13-demo4.md](docs/plans/step13-demo4.md)。**現在地は S0（13-0）を実施中**
+（路線の決定と、13-0b のフレーム時間の基準値取り）。ブランチは `demo4/station`。
 
 Demo 3 の区切りは次のとおりだった。
 
