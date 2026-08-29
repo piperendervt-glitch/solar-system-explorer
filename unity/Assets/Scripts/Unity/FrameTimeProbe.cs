@@ -42,6 +42,28 @@ namespace SolarSystem.Unity
         /// <summary>**対照。** 計測そのものを載せない（計測コストを見るため）。</summary>
         public const string OffArg = "-frameTimeOff";
 
+        /// <summary>
+        /// **対照 (Step 13-0b / 案 D)。** 固定ステップの自動実行を止める。
+        ///
+        /// `captureFramerate = 60` はゲーム内時計を毎フレーム 1/60 秒進めるので、
+        /// **0.02 秒周期の固定ステップが 6 フレームに 5 回走る**（実測: 重いフレームの
+        /// 間隔の最頻値が 6）。固定なしでは 1 フレーム約 1.35 ms しか進まないので
+        /// 約 15 フレームに 1 回にしかならない。**この差が読み値の差の原因かを見る。**
+        /// </summary>
+        public const string NoFixedStepArg = "-frameTimeNoFixedStep";
+
+        /// <summary>
+        /// **対照 (Step 13-0b / 案 D)。** `Time.fixedDeltaTime` を窓より長くして、
+        /// **固定ステップの回数を両条件で 0 に揃える。**
+        ///
+        /// `simulationMode = Script` は物理の中身を止めるだけで
+        /// **FixedUpdate の回数は変えない**（実測: 250 / 19 のまま）。
+        /// 回数そのものを揃えないと、回数が原因かどうかを切り分けられない。
+        ///
+        /// **プロセス内だけの変更**で、`ProjectSettings/TimeManager.asset` は触らない。
+        /// </summary>
+        public const string BigFixedStepArg = "-frameTimeBigFixedStep";
+
         /// <summary>既定の窓 [フレーム]。</summary>
         public const int DefaultFrames = 300;
 
@@ -57,6 +79,19 @@ namespace SolarSystem.Unity
 
         /// <summary>計測を載せているか。`-frameTimeOff` で false。</summary>
         public static bool Enabled { get; private set; }
+
+        /// <summary>窓の中で FixedUpdate が走った回数。**直接数える。**</summary>
+        int _fixedSteps;
+        bool _countFixed;
+        bool _bigFixedStep;
+
+        void FixedUpdate()
+        {
+            if (_countFixed)
+            {
+                _fixedSteps++;
+            }
+        }
 
         readonly List<double> _cpu = new List<double>();
         readonly List<int> _frames = new List<int>();
@@ -129,6 +164,21 @@ namespace SolarSystem.Unity
                 Time.captureFramerate = 60;
             }
 
+            bool noFixedStep = StandaloneCapture.HasArg(NoFixedStepArg);
+            if (noFixedStep)
+            {
+                // **対照。** 自動の物理ステップを止める（Script モードでは呼ばれない）。
+                Physics.simulationMode = SimulationMode.Script;
+                Physics2D.simulationMode = SimulationMode2D.Script;
+            }
+
+            _bigFixedStep = StandaloneCapture.HasArg(BigFixedStepArg);
+            if (_bigFixedStep)
+            {
+                // **対照。** 窓より長くして固定ステップを 0 回にする。
+                Time.fixedDeltaTime = 1000f;
+            }
+
             // ---- 値が埋まるまで待つ（フレーム数で待たない）----
             int waited = 0;
             while (waited < MaxWaitFrames)
@@ -168,6 +218,8 @@ namespace SolarSystem.Unity
 
             int waitedFrames = waited;
             int startFrame = Time.frameCount;
+            _fixedSteps = 0;
+            _countFixed = true;
 
             // ---- 窓 ----
             for (int i = 0; i < frames; i++)
@@ -191,13 +243,14 @@ namespace SolarSystem.Unity
                 yield return new WaitForEndOfFrame();
             }
 
-            Write(dir, frames, waitedFrames, freeRun);
+            _countFixed = false;
+            Write(dir, frames, waitedFrames, freeRun, noFixedStep);
 
             yield return null;
             Application.Quit(_cpu.Count > 0 ? 0 : 5);
         }
 
-        void Write(string dir, int frames, int waitedFrames, bool freeRun)
+        void Write(string dir, int frames, int waitedFrames, bool freeRun, bool noFixedStep)
         {
             Directory.CreateDirectory(dir);
 
@@ -213,6 +266,12 @@ namespace SolarSystem.Unity
                               + (freeRun ? "**していない** (-frameTimeFreeRun)" : "captureFramerate = 60"));
             report.AppendLine("  埋まるまで待った  : " + waitedFrames + " フレーム");
             report.AppendLine("  計測              : " + (Enabled ? "ON" : "OFF"));
+            report.AppendLine("  Time.fixedDeltaTime : " + Time.fixedDeltaTime.ToString(CultureInfo.InvariantCulture));
+            report.AppendLine("  固定ステップ      : "
+                              + (noFixedStep ? "**物理を止めた** (simulationMode = Script)" : "自動")
+                              + (_bigFixedStep ? " / **fixedDeltaTime = 1000**" : ""));
+            report.AppendLine("  窓の中の FixedUpdate 回数 : " + _fixedSteps
+                              + " (窓 " + frames + " フレーム)");
             report.AppendLine("  FrameTimingManager: "
                               + (HasLatest ? "値が入った" : "**値が入らなかった**"));
             report.AppendLine();
