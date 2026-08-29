@@ -1,0 +1,283 @@
+Cobble Games / Space Station Free 3D Asset (HDRP + URP + Built-In) の棚卸し
+Step 13-1b / 2026-08-29 / **取り込み前。ファイル名だけで、アセット本体は含まない。**
+
+入手物 : C:\Users\pipe_render\AppData\Roaming\Unity\Asset Store-5.x\Cobble Games\3D ModelsVehiclesSpace\Space Station Free 3D Asset HDRP URP Built-In.unitypackage
+バイト数 : 1966313357 (1875.22 MB)
+Asset Store メタ情報 (gzip FEXTRA): id=188734 / version=1.2 / pubdate=14 Dec 2021
+                                   / unity_version=2019.4.22f1 / publisher=Cobble Games
+
+**構造が「3 パイプラインのフォルダ」ではない。**
+HDRP と URP は**入れ子の .unitypackage** で、外側のトップレベルが Built-in 版。
+
+== 外側（トップレベル = Built-in 版 + 入れ子 2 件） ==
+エントリ 76（実ファイル 68 / フォルダ 8）
+実ファイルの合計（非圧縮） 3662.45 MB
+
+拡張子              件数       サイズ MB
+.tga             46      2432.00
+.unitypackage      2      1211.08
+.png              1        18.33
+.fbx              1         0.96
+.prefab           1         0.04
+.mat             16         0.03
+.unity            1         0.01
+
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship/HDRP
+    571.11 MB  file  Assets/Cobble Games/Spaceship/HDRP/HDRP.unitypackage
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship/Materials
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/MOdule8MetallicSmoothness.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module1.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module10.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module11.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module12.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module13.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module14.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module15.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module3.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module4.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module5.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module6.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module7.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module8.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module9.mat
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship/Meshes
+      0.96 MB  file  Assets/Cobble Games/Spaceship/Meshes/Spaceship.fbx
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship/Prefabs
+      0.04 MB  file  Assets/Cobble Games/Spaceship/Prefabs/Space Station.prefab
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship/Scenes
+      0.01 MB  file  Assets/Cobble Games/Spaceship/Scenes/SampleScene.unity
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship/Textures
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module10_AlbedoTransparency.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module10_Emission.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module10_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module10_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module11_AlbedoTransparency.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module11_Emission.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module11_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module11_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module12_AlbedoTransparency.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module12_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module12_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module13_AlbedoTransparency.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module13_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module13_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module14_AlbedoTransparency.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module14_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module14_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module1_AlbedoTransparency.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module1_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module1_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module3_AlbedoTransparency.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module3_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module3_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module4_AlbedoTransparency.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module4_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module4_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module5_AlbedoTransparency.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module5_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module5_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module6_AlbedoTransparency.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module6_Emission.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module6_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module6_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module7_AlbedoTransparency.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module7_Emission.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module7_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module7_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module8_AlbedoTransparency.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module8_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module8_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module9_AlbedoTransparency.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module9_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module9_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/thruster_Material.006_AlbedoTransparency.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/thruster_Material.006_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/thruster_Material.006_Normal.tga
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship/URP
+    639.97 MB  file  Assets/Cobble Games/Spaceship/URP/URP.unitypackage
+     18.33 MB  file  Assets/Cobble Games/Spaceship/hdr.png
+      0.00 MB  file  Assets/Cobble Games/Spaceship/hdri.mat
+
+== 入れ子: URP/URP.unitypackage ==
+エントリ 75（実ファイル 68 / フォルダ 7）
+実ファイルの合計（非圧縮） 2451.39 MB
+
+拡張子              件数       サイズ MB
+.tga             46      2432.00
+.png              1        18.33
+.fbx              1         0.96
+.mat             16         0.05
+.prefab           1         0.04
+.unity            1         0.01
+.asset            2         0.00
+
+      0.00 MB  DIR   Assets/Cobble Games
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship/Materials
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/MOdule8MetallicSmoothness.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module1.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module10.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module11.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module12.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module13.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module14.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module15.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module3.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module4.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module5.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module6.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module7.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module8.mat
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Materials/module9.mat
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship/Meshes
+      0.96 MB  file  Assets/Cobble Games/Spaceship/Meshes/Spaceship.fbx
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship/Prefabs
+      0.04 MB  file  Assets/Cobble Games/Spaceship/Prefabs/Space Station.prefab
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Prefabs/UniversalRenderPipelineAsset.asset
+      0.00 MB  file  Assets/Cobble Games/Spaceship/Prefabs/UniversalRenderPipelineAsset_Renderer.asset
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship/Scenes
+      0.01 MB  file  Assets/Cobble Games/Spaceship/Scenes/SampleScene.unity
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship/Textures
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module10_AlbedoTransparency.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module10_Emission.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module10_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module10_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module11_AlbedoTransparency.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module11_Emission.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module11_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module11_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module12_AlbedoTransparency.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module12_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module12_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module13_AlbedoTransparency.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module13_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module13_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module14_AlbedoTransparency.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module14_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module14_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module1_AlbedoTransparency.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module1_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module1_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module3_AlbedoTransparency.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module3_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module3_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module4_AlbedoTransparency.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module4_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module4_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module5_AlbedoTransparency.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module5_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module5_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module6_AlbedoTransparency.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module6_Emission.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module6_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module6_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module7_AlbedoTransparency.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module7_Emission.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module7_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module7_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module8_AlbedoTransparency.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module8_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module8_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module9_AlbedoTransparency.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module9_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/module9_Normal.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/thruster_Material.006_AlbedoTransparency.tga
+     64.00 MB  file  Assets/Cobble Games/Spaceship/Textures/thruster_Material.006_MetallicSmoothness.tga
+     48.00 MB  file  Assets/Cobble Games/Spaceship/Textures/thruster_Material.006_Normal.tga
+     18.33 MB  file  Assets/Cobble Games/Spaceship/hdr.png
+      0.00 MB  file  Assets/Cobble Games/Spaceship/hdri.mat
+
+== 入れ子: HDRP/HDRP.unitypackage ==
+エントリ 80（実ファイル 72 / フォルダ 8）
+実ファイルの合計（非圧縮） 574.05 MB
+
+拡張子              件数       サイズ MB
+.png             47       572.84
+.fbx              1         0.96
+.mat             16         0.15
+.prefab           2         0.05
+.asset            5         0.03
+.unity            1         0.02
+
+      0.00 MB  DIR   Assets/Cobble Games
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship/HDRPDefaultResources
+      0.01 MB  file  Assets/Cobble Games/Spaceship/HDRPDefaultResources/DefaultSceneRoot.prefab
+      0.01 MB  file  Assets/Cobble Games/Spaceship/HDRPDefaultResources/DefaultSettingsVolumeProfile.asset
+      0.00 MB  file  Assets/Cobble Games/Spaceship/HDRPDefaultResources/Foliage Diffusion Profile.asset
+      0.01 MB  file  Assets/Cobble Games/Spaceship/HDRPDefaultResources/HDRenderPipelineAsset.asset
+      0.00 MB  file  Assets/Cobble Games/Spaceship/HDRPDefaultResources/Skin Diffusion Profile.asset
+      0.00 MB  file  Assets/Cobble Games/Spaceship/HDRPDefaultResources/Sky and Fog Settings Profile.asset
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship/Materials
+      0.01 MB  file  Assets/Cobble Games/Spaceship/Materials/MOdule8MetallicSmoothness.mat
+      0.01 MB  file  Assets/Cobble Games/Spaceship/Materials/module1.mat
+      0.01 MB  file  Assets/Cobble Games/Spaceship/Materials/module10.mat
+      0.01 MB  file  Assets/Cobble Games/Spaceship/Materials/module11.mat
+      0.01 MB  file  Assets/Cobble Games/Spaceship/Materials/module12.mat
+      0.01 MB  file  Assets/Cobble Games/Spaceship/Materials/module13.mat
+      0.01 MB  file  Assets/Cobble Games/Spaceship/Materials/module14.mat
+      0.01 MB  file  Assets/Cobble Games/Spaceship/Materials/module15.mat
+      0.01 MB  file  Assets/Cobble Games/Spaceship/Materials/module3.mat
+      0.01 MB  file  Assets/Cobble Games/Spaceship/Materials/module4.mat
+      0.01 MB  file  Assets/Cobble Games/Spaceship/Materials/module5.mat
+      0.01 MB  file  Assets/Cobble Games/Spaceship/Materials/module6.mat
+      0.01 MB  file  Assets/Cobble Games/Spaceship/Materials/module7.mat
+      0.01 MB  file  Assets/Cobble Games/Spaceship/Materials/module8.mat
+      0.01 MB  file  Assets/Cobble Games/Spaceship/Materials/module9.mat
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship/Meshes
+      0.96 MB  file  Assets/Cobble Games/Spaceship/Meshes/Spaceship.fbx
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship/Prefabs
+      0.04 MB  file  Assets/Cobble Games/Spaceship/Prefabs/Space Station.prefab
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship/Scenes
+      0.02 MB  file  Assets/Cobble Games/Spaceship/Scenes/SampleScene.unity
+      0.00 MB  DIR   Assets/Cobble Games/Spaceship/Textures
+     13.10 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module10_BaseMap.png
+      0.07 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module10_Emissive.png
+      7.92 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module10_MaskMap.png
+     20.15 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module10_Normal.png
+     14.39 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module11_BaseMap.png
+      0.24 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module11_Emissive.png
+     13.75 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module11_MaskMap.png
+     20.62 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module11_Normal.png
+     15.59 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module12_BaseMap.png
+     11.94 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module12_MaskMap.png
+     10.90 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module12_Normal.png
+      9.07 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module13_BaseMap.png
+     10.48 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module13_MaskMap.png
+     10.54 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module13_Normal.png
+      7.62 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module14_BaseMap.png
+      8.20 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module14_MaskMap.png
+     15.50 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module14_Normal.png
+      8.63 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module15_BaseMap.png
+     13.85 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module15_MaskMap.png
+     13.81 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module15_Normal.png
+     14.78 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module1_BaseMap.png
+      8.53 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module1_MaskMap.png
+     24.70 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module1_Normal.png
+     16.11 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module3_BaseMap.png
+     11.21 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module3_MaskMap.png
+     15.25 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module3_Normal.png
+     18.81 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module4_BaseMap.png
+     19.58 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module4_MaskMap.png
+     22.11 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module4_Normal.png
+     15.55 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module5_BaseMap.png
+     16.65 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module5_MaskMap.png
+     16.27 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module5_Normal.png
+     14.13 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module6_BaseMap.png
+      0.11 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module6_Emissive.png
+      9.65 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module6_MaskMap.png
+     15.61 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module6_Normal.png
+      8.58 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module7_BaseMap.png
+      0.36 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module7_Emissive.png
+      8.15 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module7_MaskMap.png
+     11.36 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module7_Normal.png
+     10.93 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module8_BaseMap.png
+     10.06 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module8_MaskMap.png
+     13.51 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module8_Normal.png
+      4.05 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module9_BaseMap.png
+      4.27 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module9_MaskMap.png
+     17.85 MB  file  Assets/Cobble Games/Spaceship/Textures/Spacecraft free_module9_Normal.png
+     18.33 MB  file  Assets/Cobble Games/Spaceship/hdr.png
+      0.00 MB  file  Assets/Cobble Games/Spaceship/hdri.mat
+
