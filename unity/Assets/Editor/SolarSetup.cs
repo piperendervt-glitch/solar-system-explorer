@@ -137,6 +137,25 @@ public static class SolarSetup
         Debug.Log("[SolarSetup] MeasureCockpitLighting OK");
     }
 
+    /// <summary>
+    /// ステーションアセットを取り込む (Step 13-2)。**経路 C**（入れ子の URP だけ）。
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.ImportStation
+    ///   run_unity.ps1 -Method SolarSetup.ImportStation -ExtraArgs "-package","&lt;path&gt;"
+    /// </summary>
+    public static void ImportStation()
+    {
+        SolarSystem.Editor.StationImporter.Run();
+        Debug.Log("[SolarSetup] ImportStation OK");
+    }
+
+    /// <summary>取り込んだステーションアセットの棚卸し (Step 13-2)。</summary>
+    public static void InventoryStation()
+    {
+        SolarSystem.Editor.StationInventory.Report();
+        Debug.Log("[SolarSetup] InventoryStation OK");
+    }
+
     /// <summary>発光しているメッシュが座席から見えるかを測る (Step 11-4a の調査)。</summary>
     public static void ProbeCockpitVisibility()
     {

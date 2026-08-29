@@ -194,6 +194,177 @@ namespace SolarSystem.Editor
             return map;
         }
 
+        // ---- ストリーミング (Step 13-2) ----
+        //
+        // **`Read` は全エントリを中身ごとメモリに載せる。**
+        // Cobble の外側は非圧縮で 3.6 GB あり、載せられない。
+        // 下の 3 つは中身をメモリに溜めずに 1 パスで処理する。
+
+        /// <summary>CR / LF。**エスケープを書かずに持つ**（コード生成でつぶれたことがある）。</summary>
+        static readonly char[] NewlineChars = { (char)13, (char)10 };
+
+        /// <summary>`pathname` だけを拾う。**中身は捨てるのでメモリを食わない。**</summary>
+        public static Dictionary<string, string> ScanPathnames(string packagePath)
+        {
+            var map = new Dictionary<string, string>();
+            ForEachEntry(packagePath, (name, size, body) =>
+            {
+                string[] parts = name.Split(new[] { '/' });
+                if (parts.Length >= 2 && parts[parts.Length - 1] == "pathname")
+                {
+                    var buffer = new byte[size];
+                    ReadExactly(body, buffer, (int)size);
+
+                    // **pathname は 2 行あることがある**（2 行目は "00"）。
+                    // Trim() では内側の改行が残るので、1 行目だけを取る。
+                    string text = Encoding.UTF8.GetString(buffer);
+                    int newline = text.IndexOfAny(NewlineChars);
+                    map[parts[0]] = (newline >= 0 ? text.Substring(0, newline) : text).Trim();
+                    return size;
+                }
+
+                return 0L;
+            });
+
+            return map;
+        }
+
+        /// <summary>
+        /// 指定 GUID の `asset` をファイルへ書き出す。**入れ子の `.unitypackage` を
+        /// 取り出すため (Step 13-2)。** 見つかれば true。
+        /// </summary>
+        public static bool ExtractAssetTo(string packagePath, string guid, string destinationPath)
+        {
+            string want = guid + "/asset";
+            bool found = false;
+
+            ForEachEntry(packagePath, (name, size, body) =>
+            {
+                if (name != want)
+                {
+                    return 0L;
+                }
+
+                using (FileStream outFile = File.Create(destinationPath))
+                {
+                    var buffer = new byte[1 << 20];
+                    long remaining = size;
+                    while (remaining > 0)
+                    {
+                        int want2 = (int)Math.Min(buffer.Length, remaining);
+                        ReadExactly(body, buffer, want2);
+                        outFile.Write(buffer, 0, want2);
+                        remaining -= want2;
+                    }
+                }
+
+                found = true;
+                return size;
+            });
+
+            return found;
+        }
+
+        /// <summary>
+        /// `pathname` を差し替えつつ、`skipGuids` の GUID を**丸ごと落として**書き出す。
+        /// **中身をメモリに溜めない**（Cobble の URP は非圧縮で 2.4 GB）。
+        /// 戻り値は書き換えた `pathname` の数。
+        /// </summary>
+        public static int RewriteFiltered(string sourcePath, string destinationPath,
+                                          Func<string, string> mapPathname,
+                                          HashSet<string> skipGuids, out int skipped)
+        {
+            int rewritten = 0;
+            int dropped = 0;
+
+            using (FileStream outFile = File.Create(destinationPath))
+            using (var gz = new GZipStream(outFile, CompressionLevel.Fastest))
+            {
+                ForEachEntry(sourcePath, (name, size, body) =>
+                {
+                    string[] parts = name.Split(new[] { '/' });
+                    string guid = parts[0];
+
+                    if (skipGuids != null && skipGuids.Contains(guid))
+                    {
+                        dropped++;
+                        return 0L;   // 読み飛ばす（呼び出し側が本文をスキップする）
+                    }
+
+                    var content = new byte[size];
+                    ReadExactly(body, content, (int)size);
+
+                    if (parts.Length >= 2 && parts[parts.Length - 1] == "pathname")
+                    {
+                        string original = Encoding.UTF8.GetString(content);
+                        string mapped = mapPathname(original);
+                        if (mapped != original)
+                        {
+                            content = Encoding.UTF8.GetBytes(mapped);
+                            rewritten++;
+                        }
+                    }
+
+                    WriteEntry(gz, new Entry { Name = name, Content = content });
+                    return size;
+                });
+
+                var end = new byte[BlockSize * 2];
+                gz.Write(end, 0, end.Length);
+            }
+
+            skipped = dropped;
+            return rewritten;
+        }
+
+        /// <summary>
+        /// tar を 1 パスで舐める。`handler` は「本文を何バイト読んだか」を返す。
+        /// 0 を返したら本文はこちらが読み飛ばす。
+        /// </summary>
+        static void ForEachEntry(string packagePath, Func<string, long, Stream, long> handler)
+        {
+            using (FileStream raw = File.OpenRead(packagePath))
+            using (Stream tar = OpenDeflate(raw, out byte[] _))
+            {
+                var header = new byte[BlockSize];
+                while (true)
+                {
+                    if (!TryReadBlock(tar, header) || IsAllZero(header))
+                    {
+                        break;
+                    }
+
+                    string name = ReadString(header, 0, 100);
+                    long size = ReadOctal(header, 124, 12);
+                    char type = (char)header[156];
+
+                    long consumed = 0;
+                    if (type == '0' || type == '\0')
+                    {
+                        consumed = handler(name, size, tar);
+                    }
+
+                    if (consumed < size)
+                    {
+                        Skip(tar, size - consumed);
+                    }
+
+                    SkipPadding(tar, size);
+                }
+            }
+        }
+
+        static void Skip(Stream s, long count)
+        {
+            var buffer = new byte[1 << 16];
+            while (count > 0)
+            {
+                int want = (int)Math.Min(buffer.Length, count);
+                ReadExactly(s, buffer, want);
+                count -= want;
+            }
+        }
+
         // ---- tar の下回り ----
 
         static void WriteEntry(Stream output, Entry e)
