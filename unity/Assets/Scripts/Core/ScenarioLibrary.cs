@@ -65,6 +65,13 @@ namespace SolarSystem.Core
             // Deep と Near は距離が大きすぎて、配布の有無で何も変わらない。
             list.Add(CreateStationClose(model));
 
+            // **巡航中の候補 (Step 13-0b)。人間が 1 件を選ぶまでの仮置き。**
+            // 選ばれなかったものは削除する（「選ばれなかったものを残さない」）。
+            foreach (Scenario cruise in CreateCruiseCandidates(model))
+            {
+                list.Add(cruise);
+            }
+
             // LOD と実スケール引き渡しの確認 (Step 2 / 3b から移設)。
             list.Add(CreateLod(model, "lod-from-earth", 2.0e4, fromEarth: true,
                 "地球近傍 (地球から 2e4 units) から火星方向"));
@@ -228,6 +235,80 @@ namespace SolarSystem.Core
                 "窓の外に地球が見えている (窓枠に隠れていない)",
                 "正面窓の上端が画面の上端より上、計器盤の上端が下 1/3 より下",
                 "ガラス越しの景色が暗くなりすぎていない",
+            });
+        }
+
+        // ---- 巡航中の候補 (Step 13-0b) ----
+        //
+        // **β は最上段の 0.9**（`DefaultCruiseBeta`）。1 km/s では 1 フレームで
+        // 0.0167 units しか進まず、実質もう 1 枚の静止画になる。
+        // 0.9c は dt=1/60 で **1 フレーム 4,496.887 units**。
+        //
+        // **どれを使うかは人間が選ぶ。** 選ばれなかった候補は削除する。
+
+        public const string CruiseAName = "cruise-a";
+        public const string CruiseBName = "cruise-b";
+        public const string CruiseCName = "cruise-c";
+        public const string CruiseDName = "cruise-d";
+        public const string CruiseEName = "cruise-e";
+
+        static List<Scenario> CreateCruiseCandidates(SolarSystemModel model)
+        {
+            Vec3d earth = model.Earth.AbsolutePosition;
+            Vec3d mars = model.Mars.AbsolutePosition;
+            Vec3d towardMars = (mars - earth).Normalized;
+            SpaceStation earthStation = model.Stations[0];
+            SpaceStation marsStation = model.Stations[1];
+
+            return new List<Scenario>
+            {
+                // 出港直後。ステーションが背後へ抜け、地球が引き渡し帯を通る。
+                Cruise(CruiseAName, "出港直後（地球Stのポート -> 火星St）",
+                       earthStation.PortPosition, marsStation.AbsolutePosition, 1),
+
+                // 深宇宙。前後に何も無い（地球も火星も 0.3 px 未満）。
+                Cruise(CruiseBName, "深宇宙の巡航（中間点 -> 火星）",
+                       earth + (towardMars * (SolarSystemModel.EarthToMarsKm * 0.5)), mars, 1),
+
+                // 火星の引き渡し帯に入った状態から。開始時に火星が 126.8 px。
+                Cruise(CruiseCName, "火星の引き渡し帯から（5e4 -> 通過）",
+                       mars - (towardMars * 5.0e4), mars, 1),
+
+                // 地球を離れる。前方は星空だけ。
+                Cruise(CruiseDName, "地球を離れる（前方は星空）",
+                       earth + new Vec3d(SolarSystemModel.EarthRadiusKm * EarthCloseRadii, 0.0, 0.0),
+                       earth + new Vec3d(SolarSystemModel.EarthToMarsKm, 0.0, 0.0), 0),
+
+                // 地球へ接近して通過する。引き渡し帯を frame 0〜22 で跨ぐ。
+                Cruise(CruiseEName, "地球へ接近して通過（5e4 -> 通過）",
+                       earth + (towardMars * 5.0e4), earth, 0),
+            };
+        }
+
+        /// <summary>
+        /// 巡航の候補を 1 件作る。**β は `DefaultCruiseBeta` で固定。**
+        /// 開始点と視線だけが候補ごとに違う。
+        /// </summary>
+        static Scenario Cruise(string name, string description,
+                               Vec3d position, Vec3d lookAt, int targetStationIndex)
+        {
+            var start = new ScenarioStart
+            {
+                Position = position,
+                LookAt = lookAt,
+                Up = new Vec3d(0.0, 1.0, 0.0),
+                TargetStationIndex = targetStationIndex,
+                ElapsedSeconds = 0.0,
+                VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Cruise(UniverseConstants.DefaultCruiseBeta),
+                DebugHudVisible = false,
+                SunDirectionOverride = null,
+            };
+
+            return new Scenario(name, description, start, new[]
+            {
+                "船が視線方向へ進んでいる（HUD の速度が 0 でない）",
+                "フレーム時間の計測に使う場面であって、絵の良し悪しは見ない",
             });
         }
 
