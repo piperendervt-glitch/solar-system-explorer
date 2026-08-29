@@ -65,6 +65,19 @@ namespace SolarSystem.Unity
         /// </summary>
         public const string EyeTextureArg = "-xrCapEyeTexture";
 
+        /// <summary>
+        /// **セッション D の測定を回す (量ベース)。**
+        ///
+        /// 正常 -> 層アイソレーション -> 故意破壊 を**1 回のプロセスの中で**行う。
+        /// 12-2c の未解決の雑音（実行をまたぐと ±1 の揺れが 76,000 画素）は
+        /// **実行内では出ない**（同じフレームで左目を 2 回撮ると 0 画素）ので、
+        /// 比較を全部実行内に閉じれば迂回できる。
+        ///
+        /// **位置ベースの指標は出さない。** ミラーと目テクスチャの対応が未知で、
+        /// 重心の差は 4 段とも同じ値になり視差を測れていない（→ CLAUDE.md §0-B）。
+        /// </summary>
+        public const string SessionDArg = "-xrSessionD";
+
         /// <summary>既定の待ちフレーム。シーンとポストプロセスが落ち着くまで待つ。</summary>
         public const int DefaultFrames = 150;
 
@@ -186,6 +199,16 @@ namespace SolarSystem.Unity
             report.AppendLine("通過。");
             report.AppendLine();
 
+            if (StandaloneCapture.HasArg(SessionDArg))
+            {
+                yield return RunSessionD(dir, report);
+                Save(dir, report);
+                Debug.Log("[XrSessionD] 終わった");
+                yield return null;
+                Application.Quit(0);
+                yield break;
+            }
+
             // ---- 1. 目ごとのスクリーンショット ----
             //
             // **左右は同じフレームで撮る。** フレームをまたぐと、船の微振動や
@@ -246,6 +269,294 @@ namespace SolarSystem.Unity
             yield return null;
             Application.Quit(ok ? 0 : CaptureFailedExitCode);
         }
+
+        // ================= セッション D =================
+
+        /// <summary>1 件ぶんの測定結果。**量だけ。位置は持たない。**</summary>
+        sealed class Amounts
+        {
+            public string Case = string.Empty;
+            public double MeanLeft;
+            public double MeanRight;
+            public int NonBlackLeft;
+            public int NonBlackRight;
+            public int Total;
+
+            /// <summary>左右比。**小 / 大**。片目落ちは 0 に落ちる。</summary>
+            public double Ratio
+            {
+                get
+                {
+                    int max = System.Math.Max(NonBlackLeft, NonBlackRight);
+                    return max == 0 ? 1.0 : System.Math.Min(NonBlackLeft, NonBlackRight) / (double)max;
+                }
+            }
+
+            /// <summary>片目にしか出ていないか。**片目落ちの signature。**</summary>
+            public bool OneEyeOnly => (NonBlackLeft == 0) != (NonBlackRight == 0);
+
+            public string Row()
+                => string.Join("\t", new[]
+                {
+                    Case,
+                    MeanLeft.ToString("F2", CultureInfo.InvariantCulture),
+                    MeanRight.ToString("F2", CultureInfo.InvariantCulture),
+                    NonBlackLeft.ToString(CultureInfo.InvariantCulture),
+                    NonBlackRight.ToString(CultureInfo.InvariantCulture),
+                    Ratio.ToString("F4", CultureInfo.InvariantCulture),
+                    OneEyeOnly ? "**片目だけ**" : "-",
+                });
+        }
+
+        /// <summary>左右を撮って量だけ出す。**画像を残すなら name を渡す。**</summary>
+        Amounts MeasurePair(string dir, string caseName, string saveAs, StringBuilder report)
+        {
+            Texture2D left = CaptureEye(ScreenCapture.StereoScreenCaptureMode.LeftEye,
+                                        report, caseName + " L");
+            Texture2D right = CaptureEye(ScreenCapture.StereoScreenCaptureMode.RightEye,
+                                         report, caseName + " R");
+
+            var a = new Amounts { Case = caseName };
+            if (left == null || right == null)
+            {
+                return a;
+            }
+
+            byte[] l = ToRgb(left);
+            byte[] r = ToRgb(right);
+            a.Total = l.Length / 3;
+            Amount(l, out a.MeanLeft, out a.NonBlackLeft);
+            Amount(r, out a.MeanRight, out a.NonBlackRight);
+
+            if (!string.IsNullOrEmpty(saveAs))
+            {
+                WritePng(dir, saveAs + "_L.png", left);
+                WritePng(dir, saveAs + "_R.png", right);
+                WriteSideBySide(dir, saveAs + "_LR.png", left, right);
+            }
+
+            Destroy(left);
+            Destroy(right);
+            return a;
+        }
+
+        static void Amount(byte[] rgb, out double mean, out int nonBlack)
+        {
+            long sum = 0;
+            nonBlack = 0;
+            for (int i = 0; i < rgb.Length; i += 3)
+            {
+                sum += rgb[i] + rgb[i + 1] + rgb[i + 2];
+                if (System.Math.Max(rgb[i], System.Math.Max(rgb[i + 1], rgb[i + 2])) >= 8)
+                {
+                    nonBlack++;
+                }
+            }
+
+            mean = sum / (double)rgb.Length;
+        }
+
+        /// <summary>左右を横に並べた 1 枚。**人間が見るための絵。**</summary>
+        static void WriteSideBySide(string dir, string name, Texture2D left, Texture2D right)
+        {
+            int w = left.width + right.width;
+            int h = System.Math.Max(left.height, right.height);
+            var joined = new Texture2D(w, h, TextureFormat.RGB24, false);
+
+            var clear = new Color32[w * h];
+            joined.SetPixels32(clear);
+            joined.SetPixels32(0, 0, left.width, left.height, left.GetPixels32());
+            joined.SetPixels32(left.width, 0, right.width, right.height, right.GetPixels32());
+            joined.Apply();
+
+            WritePng(dir, name, joined);
+            Destroy(joined);
+        }
+
+        /// <summary>
+        /// **セッション D の測定。量ベースのみ。**
+        ///
+        /// 正常 -> 層アイソレーション -> 故意破壊 を 1 プロセスの中で回す。
+        /// **判定はしない。数値表と画像を出すだけ。**
+        /// </summary>
+        IEnumerator RunSessionD(string dir, StringBuilder report)
+        {
+            var diagnostics = FindAnyObjectByType<XrDiagnostics>();
+            if (diagnostics == null)
+            {
+                report.AppendLine("== セッション D ==");
+                report.AppendLine("  XrDiagnostics が見つからない。測れない。");
+                yield break;
+            }
+
+            string view = StandaloneCapture.ArgValue("-scenario");
+            if (string.IsNullOrEmpty(view))
+            {
+                view = "default";
+            }
+
+            report.AppendLine("== Q1 層ごとの描画量 (層アイソレーション) ==");
+            report.AppendLine("  **段別プローブの画素数は使っていない。**"
+                              + " 数十画素では偽の片目落ちが出る (12-2d の実測)。");
+            report.AppendLine("  ケース\t左 平均\t右 平均\t左 黒でない\t右 黒でない\t左右比\t片目だけ");
+
+            var rows = new List<Amounts>();
+
+            diagnostics.SetIsolation(0);
+            yield return null;
+            yield return new WaitForEndOfFrame();
+            Amounts normal = MeasurePair(dir, "normal", view + "_00_normal", report);
+            rows.Add(normal);
+
+            for (int i = 0; i < 4; i++)
+            {
+                diagnostics.SetIsolation(i + 1);
+                yield return null;
+                yield return new WaitForEndOfFrame();
+                rows.Add(MeasurePair(dir, "only-" + XrDiagnosticsModel.LayerNames[i],
+                                     view + "_01_only-" + XrDiagnosticsModel.LayerNames[i], report));
+            }
+
+            // 外景 3 段だけ / コックピット段だけ (Q2 で使う)。
+            diagnostics.SetIsolation(-4);
+            yield return null;
+            yield return new WaitForEndOfFrame();
+            Amounts outside = MeasurePair(dir, "outside(Deep+Near+Nearfield)", null, report);
+            rows.Add(outside);
+
+            diagnostics.SetIsolation(4);
+            yield return null;
+            yield return new WaitForEndOfFrame();
+            Amounts panel = MeasurePair(dir, "cockpit-only", null, report);
+            rows.Add(panel);
+
+            diagnostics.SetIsolation(0);
+            yield return null;
+
+            foreach (Amounts a in rows)
+            {
+                report.AppendLine("  " + a.Row());
+            }
+
+            // ---- Q2 ----
+            report.AppendLine();
+            report.AppendLine("== Q2 窓の外景と計器盤の面積 (目ごと) ==");
+            report.AppendLine("  量\t左 [px]\t右 [px]\t左 割合\t右 割合");
+            report.AppendLine("  " + string.Join("\t", new[]
+            {
+                "窓の外景 (外 3 段)",
+                outside.NonBlackLeft.ToString(CultureInfo.InvariantCulture),
+                outside.NonBlackRight.ToString(CultureInfo.InvariantCulture),
+                Share(outside.NonBlackLeft, outside.Total),
+                Share(outside.NonBlackRight, outside.Total),
+            }));
+            report.AppendLine("  " + string.Join("\t", new[]
+            {
+                "計器盤 (Cockpit 段)",
+                panel.NonBlackLeft.ToString(CultureInfo.InvariantCulture),
+                panel.NonBlackRight.ToString(CultureInfo.InvariantCulture),
+                Share(panel.NonBlackLeft, panel.Total),
+                Share(panel.NonBlackRight, panel.Total),
+            }));
+            report.AppendLine();
+            report.AppendLine("  PanelWithinBudget (2〜30 %): 左 "
+                              + XrDiagnosticsModel.PanelWithinBudget(panel.NonBlackLeft, panel.Total)
+                              + " / 右 "
+                              + XrDiagnosticsModel.PanelWithinBudget(panel.NonBlackRight, panel.Total));
+
+            // ---- 故意破壊 ----
+            report.AppendLine();
+            report.AppendLine("== 故意破壊 (1 プロセスの中で切り替え) ==");
+            report.AppendLine("  ケース\t左 平均\t右 平均\t左 黒でない\t右 黒でない\t左右比\t片目だけ\t正常との差 [px]");
+
+            yield return RunFaults(dir, view, diagnostics, normal, report);
+
+            report.AppendLine();
+            report.AppendLine("== 測れていないもの (盲点) ==");
+            report.AppendLine("  片目だけ深度クリアを飛ばす: **実装できていない。**"
+                              + " 深度クリアはカメラ単位で、目ごとに分ける口が Unity/URP に無い。");
+            report.AppendLine("  SPI -> Multi-pass: **実行時に切り替える口が無い。**"
+                              + " MockHMDBuildSettings はビルド時に焼かれる。"
+                              + " 同等の対照は 12-0d でビルドを 2 通り作って取ってある。");
+            report.AppendLine("  視差 (Q3): **測らない。** ミラーと目テクスチャの対応が未知"
+                              + "（→ CLAUDE.md §0-B）。目視と 12-1 の理論値で判定する。");
+        }
+
+        static string Share(int count, int total)
+            => total <= 0
+                ? "---"
+                : (100.0 * count / total).ToString("F2", CultureInfo.InvariantCulture) + " %";
+
+        IEnumerator RunFaults(string dir, string view, XrDiagnostics diagnostics,
+                              Amounts normal, StringBuilder report)
+        {
+            (XrDiagnostics.Fault Fault, XrLayer Layer, XrDiagnostics.Eye Eye, string Name, bool Save)[] cases =
+            {
+                (XrDiagnostics.Fault.NoDepthClear, XrLayer.Cockpit, XrDiagnostics.Eye.Left,
+                 "深度クリアを外す", false),
+                (XrDiagnostics.Fault.SwapOverlayOrder, XrLayer.Cockpit, XrDiagnostics.Eye.Left,
+                 "描画順の入れ替え", false),
+                (XrDiagnostics.Fault.EmptyCullingMask, XrLayer.Cockpit, XrDiagnostics.Eye.Left,
+                 "Cockpit の mask を空に", false),
+                (XrDiagnostics.Fault.EmptyCullingMask, XrLayer.Deep, XrDiagnostics.Eye.Left,
+                 "プロキシ殻の破壊 (Deep mask)", false),
+                (XrDiagnostics.Fault.SkyboxOff, XrLayer.Deep, XrDiagnostics.Eye.Left,
+                 "星空を消す", false),
+                (XrDiagnostics.Fault.BaseCameraOff, XrLayer.Deep, XrDiagnostics.Eye.Left,
+                 "Base カメラを止める", false),
+
+                (XrDiagnostics.Fault.DropLayerInOneEye, XrLayer.Deep, XrDiagnostics.Eye.Left,
+                 "片目 Deep 落ち (左)", false),
+                (XrDiagnostics.Fault.DropLayerInOneEye, XrLayer.Deep, XrDiagnostics.Eye.Right,
+                 "片目 Deep 落ち (右)", false),
+                (XrDiagnostics.Fault.DropLayerInOneEye, XrLayer.Near, XrDiagnostics.Eye.Left,
+                 "片目 Near 落ち (左)", true),
+                (XrDiagnostics.Fault.DropLayerInOneEye, XrLayer.Near, XrDiagnostics.Eye.Right,
+                 "片目 Near 落ち (右)", false),
+                (XrDiagnostics.Fault.DropLayerInOneEye, XrLayer.Nearfield, XrDiagnostics.Eye.Left,
+                 "片目 Nearfield 落ち (左)", false),
+                (XrDiagnostics.Fault.DropLayerInOneEye, XrLayer.Nearfield, XrDiagnostics.Eye.Right,
+                 "片目 Nearfield 落ち (右)", false),
+                (XrDiagnostics.Fault.DropLayerInOneEye, XrLayer.Cockpit, XrDiagnostics.Eye.Left,
+                 "片目 Cockpit 落ち (左)", true),
+                (XrDiagnostics.Fault.DropLayerInOneEye, XrLayer.Cockpit, XrDiagnostics.Eye.Right,
+                 "片目 Cockpit 落ち (右)", false),
+
+                (XrDiagnostics.Fault.SkipDepthClearInOneEye, XrLayer.Cockpit, XrDiagnostics.Eye.Left,
+                 "片目だけ深度クリアを飛ばす", false),
+            };
+
+            int index = 0;
+            foreach (var c in cases)
+            {
+                index++;
+                diagnostics.SetFault(c.Fault, c.Layer, c.Eye);
+                yield return null;
+                yield return null;
+                yield return new WaitForEndOfFrame();
+
+                string save = c.Save
+                    ? view + "_1" + index.ToString(CultureInfo.InvariantCulture) + "_" + c.Fault
+                    : null;
+                Amounts a = MeasurePair(dir, c.Name, save, report);
+
+                int moved = System.Math.Abs(a.NonBlackLeft - normal.NonBlackLeft)
+                            + System.Math.Abs(a.NonBlackRight - normal.NonBlackRight);
+
+                string note = c.Fault == XrDiagnostics.Fault.DropLayerInOneEye
+                              || c.Fault == XrDiagnostics.Fault.SkipDepthClearInOneEye
+                    ? (diagnostics.PerEyeFaultApplied ? "" : " **効いていない**")
+                    : "";
+
+                report.AppendLine("  " + a.Row() + "\t"
+                                  + moved.ToString(CultureInfo.InvariantCulture) + note);
+
+                diagnostics.ClearFault();
+                yield return null;
+            }
+        }
+
+        // ================= セッション D ここまで =================
 
         /// <summary>SPI の 3 点セット。**満たさない理由を文字列で返す**（満たせば null）。</summary>
         public static string GateFailure(XrBoot.StereoFacts facts)

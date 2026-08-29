@@ -346,15 +346,52 @@ namespace SolarSystem.Unity
                     break;
 
                 case Fault.DropLayerInOneEye:
+                    // **XR のときだけ効く (Step D)。**
+                    // その段のカメラを片目だけに描かせる。平面では stereoEnabled が
+                    // false なので触らない（no-op のまま）。
+                    ApplyDropLayerInOneEye();
+                    break;
+
                 case Fault.SkipDepthClearInOneEye:
-                    // **平面では何もしない。** 目が 1 つしかないので壊しようがない。
-                    // XR を入れたら、ここで片目のビューだけを触る。
+                    // **実装できていない。盲点として残す (Step D)。**
+                    // 深度クリアはカメラ単位で、目ごとに分ける口が Unity/URP に無い。
+                    // `stereoTargetEye` は描画先の目を選ぶだけでクリアを分けられない。
                     PerEyeFaultApplied = false;
                     break;
             }
 
             _faultApplied = true;
         }
+
+        /// <summary>
+        /// **片目だけ層を描かない (Step D)。**
+        /// その段のカメラの `stereoTargetEye` を反対の目だけにする。
+        /// XR が動いていなければ何もしない。
+        /// </summary>
+        void ApplyDropLayerInOneEye()
+        {
+            Camera cam = CameraOf(_faultLayer);
+            if (cam == null || !cam.stereoEnabled)
+            {
+                PerEyeFaultApplied = false;
+                return;
+            }
+
+            _savedTargetEye = cam.stereoTargetEye;
+            _targetEyeSaved = true;
+            _targetEyeCamera = cam;
+
+            // 左目を落とすなら右目だけに描く。
+            cam.stereoTargetEye = _faultEye == Eye.Left
+                ? StereoTargetEyeMask.Right
+                : StereoTargetEyeMask.Left;
+
+            PerEyeFaultApplied = true;
+        }
+
+        StereoTargetEyeMask _savedTargetEye;
+        bool _targetEyeSaved;
+        Camera _targetEyeCamera;
 
         /// <summary>故意破壊を戻す。**元に戻せることまでが道具の責任。**</summary>
         public void ClearFault()
@@ -400,6 +437,13 @@ namespace SolarSystem.Unity
 
             _faultApplied = false;
             _fault = Fault.None;
+            if (_targetEyeSaved && _targetEyeCamera != null)
+            {
+                _targetEyeCamera.stereoTargetEye = _savedTargetEye;
+            }
+
+            _targetEyeSaved = false;
+            _targetEyeCamera = null;
         }
 
         void ApplyIsolationAfterFaultCleared()
