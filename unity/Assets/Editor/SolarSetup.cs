@@ -167,6 +167,17 @@ public static class SolarSetup
         Debug.Log("[SolarSetup] MeasureModelUnits OK");
     }
 
+    /// <summary>
+    /// ステーションを 6 方向から正投影で撮る (Step 13-3 コミット2)。**口の特定はしない。**
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.CaptureStationOrtho
+    /// </summary>
+    public static void CaptureStationOrtho()
+    {
+        SolarSystem.Editor.StationOrthoCapture.Run();
+        Debug.Log("[SolarSetup] CaptureStationOrtho OK");
+    }
+
     /// <summary>発光しているメッシュが座席から見えるかを測る (Step 11-4a の調査)。</summary>
     public static void ProbeCockpitVisibility()
     {

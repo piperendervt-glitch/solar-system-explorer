@@ -65,13 +65,28 @@ namespace SolarSystem.Core
         /// <summary>箱ステーションの Id。**アセットが無いときのフォールバック。**</summary>
         public const string BoxId = "box";
 
+        /// <summary>
+        /// F4 の「ステーションの倍率」の既定値 (Step 13-3 コミット2)。
+        /// **係数なので定義に依らず 1.0**（= 定義の `Scale` そのまま）。
+        /// パネル側で数値を二重定義しないための出所。
+        /// </summary>
+        public const double RuntimeScaleFactorDefault = 1.0;
+
         readonly RequiredDouble _scale;
+        readonly RequiredDouble _modelRadius;
         readonly RequiredDouble _portStandoff;
         readonly RequiredDouble _requestRange;
         readonly NavLight[] _navLights;
         readonly WindowEmissive[] _windowEmissives;
 
+        /// <summary>
+        /// **F4 専用の実行時上書き (Step 13-3 コミット2)。** null なら `Scale` を使う。
+        /// アセットにもコードの定数にも書き戻さない（F4 の運用 / §0-C）。
+        /// </summary>
+        double? _runtimeScale;
+
         StationDefinition(string id, string prefabGuid, RequiredDouble scale,
+                          RequiredDouble modelRadius,
                           Vec3d portLocal, Vec3d portForward, Vec3d portUp,
                           RequiredDouble portStandoff, RequiredDouble requestRange,
                           NavLight[] navLights, WindowEmissive[] windowEmissives,
@@ -80,6 +95,7 @@ namespace SolarSystem.Core
             Id = id;
             PrefabGuid = prefabGuid;
             _scale = scale;
+            _modelRadius = modelRadius;
             PortLocal = portLocal;
             PortForward = portForward;
             PortUp = portUp;
@@ -97,7 +113,7 @@ namespace SolarSystem.Core
         /// **読んだ時点で例外になる。** 「書いたか」ではなく「読めるか」で塞ぐ。
         /// </summary>
         public static StationDefinition Create(
-            string id, string prefabGuid, RequiredDouble scale,
+            string id, string prefabGuid, RequiredDouble scale, RequiredDouble modelRadius,
             Vec3d portLocal, Vec3d portForward, Vec3d portUp,
             RequiredDouble portStandoff, RequiredDouble requestRange,
             NavLight[] navLights, WindowEmissive[] windowEmissives, string fallbackId)
@@ -107,7 +123,8 @@ namespace SolarSystem.Core
                 throw new ArgumentException("Id が空", nameof(id));
             }
 
-            return new StationDefinition(id, prefabGuid, scale, portLocal, portForward, portUp,
+            return new StationDefinition(id, prefabGuid, scale, modelRadius,
+                                         portLocal, portForward, portUp,
                                          portStandoff, requestRange,
                                          navLights, windowEmissives, fallbackId);
         }
@@ -128,8 +145,56 @@ namespace SolarSystem.Core
         /// </summary>
         public double Scale => _scale.Value;
 
+        /// <summary>
+        /// **実際に効く倍率 (Step 13-3 コミット2)。** 既定は `Scale`。
+        /// F4 で振っている間だけ上書きが入る。**描画も判定もここを読む。**
+        /// </summary>
+        public double EffectiveScale => _runtimeScale ?? Scale;
+
+        /// <summary>F4 が実行時に振るときだけ呼ぶ。**アセットには書き戻さない。**</summary>
+        public void SetRuntimeScale(double value)
+        {
+            if (!(value > 0.0))
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "倍率は正");
+            }
+
+            _runtimeScale = value;
+        }
+
+        /// <summary>F4 の R（既定へ戻す）で呼ぶ。</summary>
+        public void ResetRuntimeScale() => _runtimeScale = null;
+
+        /// <summary>F4 で振られているか。**HUD とテストが「振ったまま」を見分ける口。**</summary>
+        public bool HasRuntimeScale => _runtimeScale.HasValue;
+
+        /// <summary>
+        /// **構造物の外接球の半径 [プレハブ単位]。** ピボット基準。
+        /// 箱は 0.25、Cobble のモデルは 45.0777（13-3a の実測）。
+        /// **units ではない。** units は `RadiusUnits`。
+        /// </summary>
+        public double ModelRadius => _modelRadius.Value;
+
+        /// <summary>
+        /// **構造物の外接球の半径 [units]。** `ModelRadius * EffectiveScale`。
+        /// **定数として焼かない。** Scale を振ったら必ず追随する。
+        /// </summary>
+        public double RadiusUnits => ModelRadius * EffectiveScale;
+
+        /// <summary>
+        /// near clip を満たす `PortStandoff` の下限 [units]。
+        /// **半径は Scale を掛けた後の値**（`RadiusUnits`）から出す。
+        /// </summary>
+        public double MinStandoff(double nearClip) => RadiusUnits + nearClip;
+
         /// <summary>ポート位置（プレハブ原点基準）。</summary>
         public Vec3d PortLocal { get; }
+
+        /// <summary>
+        /// **ポート位置 [units]。`PortLocal * EffectiveScale`。**
+        /// 世界位置を別途持たない。ワールドへ写すのは `SpaceStation`（`StationBasis` 経由）。
+        /// </summary>
+        public Vec3d PortLocalUnits => PortLocal * EffectiveScale;
 
         /// <summary>
         /// ポート正面。**上方と 2 軸で持つ**（`EyeForward` / `EyeUp` と同じ理由。
@@ -165,7 +230,8 @@ namespace SolarSystem.Core
         public string FallbackId { get; }
 
         public override string ToString()
-            => $"{Id} (scale={_scale} / standoff={_portStandoff} / range={_requestRange}"
+            => $"{Id} (scale={_scale} / modelRadius={_modelRadius}"
+               + $" / standoff={_portStandoff} / range={_requestRange}"
                + $" / navLights={_navLights.Length} / emissives={_windowEmissives.Length})";
     }
 }

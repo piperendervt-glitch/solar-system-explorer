@@ -26,6 +26,11 @@ namespace SolarSystem.Core
             // メートル単位のモデルを入れるときは 0.001（1 unit = 1 km）。
             scale: RequiredDouble.Positive(1.0),
 
+            // **箱の外形半径 [プレハブ単位]。** 箱は Scale 1.0 なので units と同値。
+            // `SceneBuilder` はこの値でプリミティブを組み、`StationView` が
+            // `EffectiveScale` を transform に掛ける。**両方がここを読む。**
+            modelRadius: RequiredDouble.Positive(SolarSystemModel.StationRadiusKm),
+
             // 箱はプレハブを持たないので、ポートは原点＋母天体と反対側 (+Y)。
             portLocal: Vec3d.Zero,
             portForward: new Vec3d(0.0, 1.0, 0.0),

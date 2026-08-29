@@ -185,6 +185,12 @@ Unity 単位で何になるか」まで。** 作者が 41.94 m を意図した�
 **コックピットの 1000 倍の描画空間（1 m = 1 unit）とモデルの寸法は別の話。**
 上の数字はすべて**モデルのプレハブ単位（= メートル）**。
 
+#### 13-3a: **単位はメートルで確定**（人間の判断 / 2026-08-29）
+
+**プレハブ単位はメートルとして扱う。** もう一方の読み（FBX の `UnitScaleFactor = 1` を
+額面どおり cm と取る）だとステーションの全長が **62.5 cm** になり、それは宇宙ステーション
+ではない。**この 1 点で決めた。**
+
 #### 13-3a: Scale を振ったときの数字（**参考。選んでいない**）
 
 **ステーションのピボット基準の半径 45.0777 プレハブ単位（= m）を入力にした計算。**
@@ -207,6 +213,58 @@ bbox の最小面（24.84 x 41.94 プレハブ単位）を口と見なすと、�
 どれでも比は 15.5〜208.7 倍で**入らない**。**これは想定どおりで、Scale の可否を
 何も言っていない**（bbox の最小面は構造物の断面であって口ではない）。
 **口を特定してから、口の実寸が 2.41〜4.82 m になる Scale を逆算すること。**
+
+#### 13-3b: 口を特定するための絵と、Scale の配線
+
+**絵**: [docs/screenshots/demo4/](docs/screenshots/demo4/) に 7 枚。
+再現は `.\tools\run_unity.ps1 -Method SolarSetup.CaptureStationOrtho`。
+一覧は [verify/station-renderers.txt](verify/station-renderers.txt)。
+
+| | |
+| --- | --- |
+| 投影 | **正投影**（透視だと奥行きで歪んで開口の実寸が読めない） |
+| 方向 | ±X / ±Y / ±Z の 6 枚 ＋ 発光レンダラーだけの 1 枚（6 面を 2 列 3 行で敷いた 1 ファイル） |
+| 目盛 | 画像に焼いてある（`TinyFont`。OnGUI は RT に写らない / §0-B）。**1 px = 0.0684 m（±X / ±Y）/ 0.0459 m（±Z）** |
+| 単位 | メートル。原点は bbox 中心 |
+
+**形（絵から読める事実）**: Z 方向 62.5 m のトラス状の縦列に、
+**直径 25 m 級のリング**（`module7`。z ≈ -1.0）と、
+**X 方向 41.9 m の太陽電池アレイ 2 枚**（`module4` / `module4.001`。z ≈ +12.3 と +17.8）が付く。
+`module14`（z ≈ -29.9 / 長さ 13.3 m）が -Z 端側で最も長い。**口の指名はしていない。**
+
+**発光を持つ 4 件の位置**（13-4 の窓・航法灯の制約）:
+
+| マテリアル | 中心 (x, y, z) [m] | サイズ [m] |
+| --- | --- | --- |
+| `module6` | (0.030, -2.574, 3.799) | 5.477 x 7.917 x 4.718 |
+| `module7`（リング） | (0.029, 0.248, -0.972) | 24.858 x 24.839 x 4.837 |
+| `module10` | (0.030, 0.240, -14.509) | 2.890 x 2.890 x 3.611 |
+| `module11` | (0.030, -3.195, -14.420) | 2.045 x 4.432 x 2.045 |
+
+**配線**: `Scale` / `PortLocal` / `PortStandoff` / `RequestRange` を定義から読む形にした。
+
+| | |
+| --- | --- |
+| 倍率の出所 | `StationDefinition.EffectiveScale`（既定は `Scale` / F4 の間だけ上書き） |
+| 描画 | `SceneBuilder` が**プレハブ単位**で形を組み、`StationView` が `EffectiveScale` を `transform.localScale` に掛ける |
+| 判定 | `RadiusUnits = ModelRadius * EffectiveScale` / `MinStandoff(nearClip) = RadiusUnits + nearClip` / `PortLocalUnits = PortLocal * EffectiveScale` |
+| ポート位置 | `AbsolutePosition + Basis.ToWorld(PortLocalUnits) + PortDirection * PortStandoff`。**世界位置を別途持たない** |
+| 姿勢 | `StationBasis`（Core）。**描画も判定も同じものを読む。** `Quaternion.LookRotation` と一致することを `StationBasisTests` が突き合わせている |
+| F4 | 「ステーションの倍率 (x)」0.10〜4.00 / 刻み 0.05 / 既定 1.00。**係数**であって絶対値ではない（定義ごとに Scale の桁が違うため） |
+
+**`SpaceStation` は半径を持たなくなった。** `RadiusKm => Definition.RadiusUnits`。
+コンストラクタから `radiusKm` を外したので、**定数として焼く経路が無い。**
+
+**ステーションはワールド +Y に置かれており、これは `LookRotation` の縮退のケース。**
+`StationBasis` は Unity が返す値（ローカル +X → (1,0,0)）に合わせてある。
+**推測ではなく `StationBasisTests` で実測して合わせた。**
+
+**箱は `PortLocal = 0` / `Scale = 1.0` のままなので、絵も数字も動いていない**
+（平面 36 枚 0 px / ポート面 12000.3・8000.3 / 半径 0.25）。**仮の値は置いていない。**
+
+**`PortForward` / `PortUp` はまだ読み手が無い。** 姿勢（どの軸をポートへ向け、
+ロールをどう決めるか）は 13-3 コミット3 の範囲。**箱の `PortLocal` が 0 なので、
+ロールが何であっても現在のポート位置は動かない。**
 
 #### 13-2 から 13-4 への宿題: 4K テクスチャ 46 枚と VRAM
 

@@ -26,16 +26,17 @@ namespace SolarSystem.Tests.EditMode
         }
 
         [Test]
-        public void 項目数は46件()
+        public void 項目数は47件()
         {
             // 43 - 音量 4 + 画面の発光 1 + 割り当て 1 = 41 (Step 11-3)。
             // 割り当ての 3 択は 11-3c で外した（案 A に確定）ので 40。
             // さらに**切り分けの道具 4 つ**（テスト柄 / RT 直接表示 / RT 表示の面 /
             // 計器の向き）で 44。11-4 で補助光の 2 項目（ON/OFF・強さ）を足して 46。
+            // **13-3 コミット2 でステーションの倍率を 1 つ足して 47。**
             //
             // **1080p の段: フォント 14 は 43 項目まで / 13 は 45 まで / 12 は 48 まで。**
             // 道具 3 つを外せば 43 = フォント 14 に戻る（判断は人間）。
-            Assert.That(RealItemCount(), Is.EqualTo(46));
+            Assert.That(RealItemCount(), Is.EqualTo(47));
         }
 
         [Test]
@@ -45,7 +46,7 @@ namespace SolarSystem.Tests.EditMode
             // 行数 = 見出し 4 + 項目 N + 空行 1 + 天体 4。フォント 14 (行高 20) で
             // 収まるのは N <= 43 まで、13 (行高 19) なら N <= 45。
             //
-            // **いまは 46 項目なので 12。** 道具 3 つを外せば 43 でフォント 14。
+            // **いまは 47 項目なので 12**（12 は 48 項目まで収まる）。
             // 道具を外して 41 に戻れば 14 に戻る。**期待値を書き換えたのは意図した変更。**
             DebugPanelLayout l = DebugPanelLayoutSolver.Solve(
                 1920, 1080, HeaderLines, RealItemCount(), BodyLines, 620f, 0);

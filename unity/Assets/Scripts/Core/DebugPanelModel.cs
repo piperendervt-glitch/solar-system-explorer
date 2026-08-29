@@ -243,6 +243,18 @@ namespace SolarSystem.Core
         public const string FillIntensityId = "num.fillIntensity";
 
         /// <summary>
+        /// **ステーションの倍率 (Step 13-3 コミット2)。**
+        ///
+        /// 定義の Scale に掛ける係数で、**絶対値ではない。**
+        /// 定義ごとに Scale の桁が違う（箱 1.0 / メートル単位のモデル 0.001 前後）ので、
+        /// 1 本の目盛で絶対値を振ると片方で使えない。
+        ///
+        /// **描画も判定も StationDefinition.EffectiveScale を読む**ので、
+        /// ここを振ると半径・ポート位置・MinStandoff が同時に動く。
+        /// </summary>
+        public const string StationScaleId = "num.stationScale";
+
+        /// <summary>
         /// **画面のテスト柄 (Step 11-3b の切り分け道具)。**
         /// ON にすると 5 面の RT の中身を計器の表示から生成したテスト柄へ差し替える。
         /// 枠線・格子・真円・四隅の印・基準線の文字が入っており、
@@ -420,6 +432,12 @@ namespace SolarSystem.Core
             m._items.Add(DebugItem.MakeToggle(FillLightId, "補助光", true));
             m._items.Add(DebugItem.MakeNumber(FillIntensityId, "補助光の強さ",
                 fillIntensity, 0.0, 2.0, 0.05, "F2"));
+
+            // ---- ステーション (Step 13-3 コミット2) ----
+            // **既定は 1.0 = 定義の Scale そのまま。** 係数なので定義に依らず 1.0。
+            // 値は Core の定数から読む（パネル側で二重定義しない）。
+            m._items.Add(DebugItem.MakeNumber(StationScaleId, "ステーションの倍率 (x)",
+                StationDefinition.RuntimeScaleFactorDefault, 0.10, 4.00, 0.05, "F2"));
 
             m._items.Add(DebugItem.MakeToggle(ScreenPatternId, "画面のテスト柄", false));
             m._items.Add(DebugItem.MakeToggle(ScreenRtViewId, "RT を直接表示", false));

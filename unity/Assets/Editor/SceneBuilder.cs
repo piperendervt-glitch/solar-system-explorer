@@ -300,7 +300,10 @@ namespace SolarSystem.Editor
             root.transform.SetParent(parent, false);
             root.layer = layer;
 
-            float r = (float)station.RadiusKm;
+            // **形はプレハブ単位で組む (Step 13-3 コミット2)。**
+            // units への換算は `StationView` が `EffectiveScale` を transform に掛ける。
+            // ここで `RadiusKm`（= ModelRadius * Scale）を使うと倍率が二重に掛かる。
+            float r = (float)station.Definition.ModelRadius;
             Material hull = MaterialLibrary.SolidMaterial("StationHull", new Color(0.62f, 0.64f, 0.68f));
             Material port = MaterialLibrary.SolidMaterial("StationPort", new Color(0.20f, 0.70f, 0.45f));
 

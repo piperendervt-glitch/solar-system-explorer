@@ -75,10 +75,22 @@ namespace SolarSystem.Unity
 
             transform.localPosition = new Vector3((float)local.X, (float)local.Y, (float)local.Z);
 
-            // ポートが深宇宙側を向くように据える。
-            Vec3d port = Station.PortDirection;
-            transform.localRotation = Quaternion.LookRotation(
-                new Vector3((float)port.X, (float)port.Y, (float)port.Z));
+            // **姿勢は Core の基底から作る (Step 13-3 コミット2)。**
+            // 判定側（`SpaceStation.PortPosition`）と同じものを読ませる。
+            // `Quaternion.LookRotation(PortDirection)` と同じ基底であることは
+            // `StationBasisTests` が突き合わせて縛っている。
+            StationBasis basis = Station.Basis;
+            transform.localRotation = Quaternion.LookRotation(ToUnity(basis.Forward),
+                                                              ToUnity(basis.Up));
+
+            // **倍率も定義から読む (Step 13-3 コミット2)。**
+            // 形は `ModelRadius`（プレハブ単位）で組まれており、ここで units へ写す。
+            // **半径・ポート位置・MinStandoff も同じ `EffectiveScale` から出る**ので、
+            // 絵と数字が別のものを見ることはない。
+            float scale = (float)Station.Definition.EffectiveScale;
+            transform.localScale = new Vector3(scale, scale, scale);
         }
+
+        static Vector3 ToUnity(Vec3d v) => new Vector3((float)v.X, (float)v.Y, (float)v.Z);
     }
 }

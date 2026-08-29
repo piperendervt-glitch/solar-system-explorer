@@ -84,12 +84,12 @@ namespace SolarSystem.Core
             // 差別化（灯の色・周期）は 13-4 の定数で行う。ここでは入れない。
             StationDefinition definition = StationCatalog.Box();
 
+            // **半径は定義から導く (Step 13-3 コミット2)。** ここでは渡さない。
+            // `StationRadiusKm` は `StationCatalog.Box()` の `modelRadius` の出所。
             model._stations.Add(new SpaceStation(
-                "Earth Station", model.Earth, offset, EarthStationDistanceKm, StationRadiusKm,
-                definition));
+                "Earth Station", model.Earth, offset, EarthStationDistanceKm, definition));
             model._stations.Add(new SpaceStation(
-                "Mars Station", model.Mars, offset, MarsStationDistanceKm, StationRadiusKm,
-                definition));
+                "Mars Station", model.Mars, offset, MarsStationDistanceKm, definition));
 
             return model;
         }

@@ -203,13 +203,20 @@ namespace SolarSystem.Tests.EditMode
 
             // 定義に書き忘れても、**読んだ時点で**落ちる。
             StationDefinition broken = StationDefinition.Create(
-                "broken", null, default,
+                "broken", null, default, default,
                 Vec3d.Zero, new Vec3d(0, 1, 0), new Vec3d(0, 0, 1),
                 default, default, null, null, null);
 
             Assert.Throws<InvalidOperationException>(() => { var _ = broken.Scale; });
             Assert.Throws<InvalidOperationException>(() => { var _ = broken.PortStandoff; });
             Assert.Throws<InvalidOperationException>(() => { var _ = broken.RequestRange; });
+
+            // **13-3 コミット2 で足した項目も同じ塞ぎが効くこと。**
+            Assert.Throws<InvalidOperationException>(() => { var _ = broken.ModelRadius; });
+            Assert.Throws<InvalidOperationException>(() => { var _ = broken.RadiusUnits; });
+            Assert.Throws<InvalidOperationException>(() => { var _ = broken.EffectiveScale; });
+            Assert.Throws<InvalidOperationException>(() => { var _ = broken.PortLocalUnits; });
+            Assert.Throws<InvalidOperationException>(() => { var _ = broken.MinStandoff(0.01); });
         }
 
         [Test]
@@ -228,7 +235,7 @@ namespace SolarSystem.Tests.EditMode
             // **読む経路が無ければ塞ぎにならない。** 定義そのものを必須にする。
             Assert.Throws<ArgumentNullException>(() => new SpaceStation(
                 "no definition", SolarSystemModel.CreateOpposition().Earth,
-                new Vec3d(0, 1, 0), 12000.0, 0.25, null));
+                new Vec3d(0, 1, 0), 12000.0, null));
         }
 
         // ---- 値を振ったら下流が動くか (Step 13-1a 追補) ----
@@ -255,6 +262,7 @@ namespace SolarSystem.Tests.EditMode
         static StationDefinition Varied() => StationDefinition.Create(
             "test-varied", null,
             RequiredDouble.Positive(TestScale),
+            RequiredDouble.Positive(SolarSystemModel.StationRadiusKm),
             Vec3d.Zero, new Vec3d(0.0, 1.0, 0.0), new Vec3d(0.0, 0.0, 1.0),
             RequiredDouble.Positive(TestStandoff),
             RequiredDouble.Positive(TestRange),
@@ -315,8 +323,7 @@ namespace SolarSystem.Tests.EditMode
             SolarSystemModel model = Model();
             var station = new SpaceStation(
                 "test", model.Earth, new Vec3d(0.0, 1.0, 0.0),
-                SolarSystemModel.EarthStationDistanceKm, SolarSystemModel.StationRadiusKm,
-                Varied());
+                SolarSystemModel.EarthStationDistanceKm, Varied());
 
             Assert.That(station.PortStandoffKm, Is.EqualTo(TestStandoff));
             Assert.That(station.PortPosition.Y - station.AbsolutePosition.Y,
@@ -332,16 +339,141 @@ namespace SolarSystem.Tests.EditMode
             Assert.That(away, Is.EqualTo(44.87).Within(1e-9));
         }
 
+        // ---- Scale の追随 (Step 13-3 コミット2) ----
+        //
+        // 13-1a の「Scale にはまだ下流の読み手が無い」を置き換えたもの。
+        // **Scale を振ったら半径・ポート位置・MinStandoff が追随することを数表で縛る。**
+
         [Test]
-        public void Scaleにはまだ下流の読み手が無い()
+        public void Scaleを振ると半径が追随する()
         {
-            // **値は持っているが、使う先がまだ無い**（13-3 でプレハブを置くときに使う）。
-            // grep で `StationDefinition.Scale` を読んでいる実装は 0 件（13-1a 時点）。
-            // **したがって Scale は「振っても下流が動く」ことをまだ示せない。**
-            // 使い始めたらこのテストを追随テストに置き換えること。
-            Assert.That(Varied().Scale, Is.EqualTo(TestScale));
-            Assert.That(Box().Scale, Is.EqualTo(1.0));
+            //   定義   ModelRadius   Scale   RadiusUnits
+            //   箱     0.25          1.00    0.25      （現行と厳密一致）
+            //   試験   0.25          2.50    0.625
+            Assert.That(Box().ModelRadius, Is.EqualTo(0.25));
+            Assert.That(Box().RadiusUnits, Is.EqualTo(0.25),
+                        "**箱の半径が移設前と違う**");
+
+            Assert.That(Varied().ModelRadius, Is.EqualTo(0.25));
+            Assert.That(Varied().RadiusUnits, Is.EqualTo(0.625).Within(1e-12),
+                        "**Scale が半径に効いていない**");
+
+            // **定数として焼かれていないこと。** 焼かれていたら箱と同じ 0.25 になる。
+            Assert.That(Varied().RadiusUnits, Is.Not.EqualTo(Box().RadiusUnits));
         }
+
+        [Test]
+        public void Scaleを振るとMinStandoffが追随する()
+        {
+            //   半径は Scale を掛けた後の値から出す。
+            //   定義   RadiusUnits   nearClip   MinStandoff
+            //   箱     0.25          0.01       0.26      （既存の数表と一致）
+            //   試験   0.625         0.01       0.635
+            const double nearClip = 0.01;
+
+            Assert.That(Box().MinStandoff(nearClip), Is.EqualTo(0.26).Within(1e-12));
+            Assert.That(Varied().MinStandoff(nearClip), Is.EqualTo(0.635).Within(1e-12));
+
+            // 既存の自由関数（半径 + nearClip）と一致すること。式が二重にならないこと。
+            Assert.That(Box().MinStandoff(nearClip),
+                        Is.EqualTo(MinStandoff(Box().RadiusUnits, nearClip)).Within(1e-15));
+        }
+
+        [Test]
+        public void Scaleを振るとポート位置が追随する()
+        {
+            // ポート位置 = 中心 + 基底(PortLocal * Scale) + ポート方向 * PortStandoff
+            //
+            //   PortLocal        Scale   基底で写した後      ポート面までの寄与
+            //   (0, 0, 0)        1.00    (0, 0, 0)          0        （箱＝現行）
+            //   (0, 0, 2)        1.00    ポート方向 * 2     +2.0
+            //   (0, 0, 2)        2.50    ポート方向 * 5     +5.0
+            //
+            // **ローカル +Z がポート方向**（`StationBasis` の規約）。
+            SolarSystemModel model = Model();
+            var portDirection = new Vec3d(0.0, 1.0, 0.0);
+
+            StationDefinition offset1 = WithPortLocal(new Vec3d(0.0, 0.0, 2.0), 1.0);
+            StationDefinition offset25 = WithPortLocal(new Vec3d(0.0, 0.0, 2.0), 2.5);
+
+            Assert.That(offset1.PortLocalUnits.Z, Is.EqualTo(2.0).Within(1e-12));
+            Assert.That(offset25.PortLocalUnits.Z, Is.EqualTo(5.0).Within(1e-12),
+                        "**Scale がポート位置に効いていない**");
+
+            var s1 = new SpaceStation("t1", model.Earth, portDirection,
+                                      SolarSystemModel.EarthStationDistanceKm, offset1);
+            var s25 = new SpaceStation("t25", model.Earth, portDirection,
+                                       SolarSystemModel.EarthStationDistanceKm, offset25);
+
+            // ローカル +Z はポート方向（+Y）へ写るので、Y に出る。
+            Assert.That(s1.PortPosition.Y - s1.AbsolutePosition.Y,
+                        Is.EqualTo(2.0 + TestStandoff).Within(1e-9));
+            Assert.That(s25.PortPosition.Y - s25.AbsolutePosition.Y,
+                        Is.EqualTo(5.0 + TestStandoff).Within(1e-9));
+        }
+
+        [Test]
+        public void 箱はPortLocalが0なので移設前と厳密に同じ()
+        {
+            // **この回の成立条件。** ポート位置の式を変えたが、箱では値が動かない。
+            SolarSystemModel model = Model();
+
+            foreach (SpaceStation station in model.Stations)
+            {
+                Assert.That(station.Definition.PortLocal, Is.EqualTo(Vec3d.Zero));
+                Assert.That(station.PortPosition.Y - station.AbsolutePosition.Y,
+                            Is.EqualTo(0.3).Within(1e-9), station.Name);
+                Assert.That(station.RadiusKm, Is.EqualTo(0.25), station.Name);
+            }
+        }
+
+        [Test]
+        public void F4の倍率は描画と判定の両方に効く()
+        {
+            // **F4 は `EffectiveScale` を書き換える。** 半径・ポート位置・MinStandoff は
+            // すべてそこから出るので、1 箇所を振ると全部動く。
+            //
+            //   倍率   EffectiveScale   RadiusUnits   MinStandoff(0.01)
+            //   1.00   1.00             0.25          0.26
+            //   2.00   2.00             0.50          0.51
+            //   0.50   0.50             0.125         0.135
+            StationDefinition box = Box();
+            Assert.That(box.HasRuntimeScale, Is.False, "最初から振られている");
+
+            box.SetRuntimeScale(box.Scale * 2.0);
+            Assert.That(box.EffectiveScale, Is.EqualTo(2.0));
+            Assert.That(box.RadiusUnits, Is.EqualTo(0.5).Within(1e-12));
+            Assert.That(box.MinStandoff(0.01), Is.EqualTo(0.51).Within(1e-12));
+            Assert.That(box.HasRuntimeScale, Is.True);
+
+            box.SetRuntimeScale(box.Scale * 0.5);
+            Assert.That(box.RadiusUnits, Is.EqualTo(0.125).Within(1e-12));
+
+            box.ResetRuntimeScale();
+            Assert.That(box.HasRuntimeScale, Is.False);
+            Assert.That(box.EffectiveScale, Is.EqualTo(1.0), "**R で既定へ戻らない**");
+            Assert.That(box.RadiusUnits, Is.EqualTo(0.25));
+        }
+
+        [Test]
+        public void 実行時の倍率は0以下を受け付けない()
+        {
+            StationDefinition box = Box();
+            Assert.Throws<ArgumentOutOfRangeException>(() => box.SetRuntimeScale(0.0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => box.SetRuntimeScale(-1.0));
+            Assert.That(box.HasRuntimeScale, Is.False, "失敗した代入が残っている");
+        }
+
+        /// <summary>試験用: ポート位置と倍率だけを振った定義。</summary>
+        static StationDefinition WithPortLocal(Vec3d portLocal, double scale)
+            => StationDefinition.Create(
+                "test-port", null,
+                RequiredDouble.Positive(scale),
+                RequiredDouble.Positive(SolarSystemModel.StationRadiusKm),
+                portLocal, new Vec3d(0.0, 0.0, 1.0), new Vec3d(0.0, 1.0, 0.0),
+                RequiredDouble.Positive(TestStandoff),
+                RequiredDouble.Positive(TestRange),
+                new NavLight[0], new WindowEmissive[0], StationDefinition.BoxId);
 
         [Test]
         public void 試験用の定義はカタログに入っていない()

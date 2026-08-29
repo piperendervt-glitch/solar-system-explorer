@@ -105,6 +105,31 @@ namespace SolarSystem.Unity
 
             if (_stations != null)
             {
+                // **倍率は定義へ流す (Step 13-3 コミット2)。**
+                // 定義は地球・火星で共有されているので 1 回で両方に効く。
+                // 描画（`StationView` の localScale）も判定（半径・ポート位置・
+                // MinStandoff）も `EffectiveScale` を読むので、両方が同時に動く。
+                double factor = model.NumberOf(DebugPanelModel.StationScaleId);
+                foreach (StationView v in _stations.Views)
+                {
+                    StationDefinition def = v != null && v.Station != null
+                        ? v.Station.Definition
+                        : null;
+                    if (def == null)
+                    {
+                        continue;
+                    }
+
+                    if (System.Math.Abs(factor - StationDefinition.RuntimeScaleFactorDefault) < 1e-12)
+                    {
+                        def.ResetRuntimeScale();
+                    }
+                    else
+                    {
+                        def.SetRuntimeScale(def.Scale * factor);
+                    }
+                }
+
                 bool visible = model.BoolOf("show.stations");
                 foreach (StationView view in _stations.Views)
                 {
