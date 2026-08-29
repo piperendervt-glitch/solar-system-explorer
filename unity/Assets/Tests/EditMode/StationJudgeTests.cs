@@ -295,18 +295,20 @@ namespace SolarSystem.Tests.EditMode
         [Test]
         public void ドッキング距離の目盛()
         {
-            // **下限は Nearfield の near clip と同値。** 判定リグの都合ではなく
-            // ゲーム本体の制約（これより近い絵は原理的に発生しない）。
+            // **下限は 1 m。near clip より内側まで寄れる。**
+            // 一度は下限を near clip にしていたが、判定に使うには近づけ方が
+            // 足りなかったので外した（実機で振った人間の判断）。
+            Assert.That(StationJudge.DockingDistanceMin, Is.EqualTo(0.001));
             Assert.That(StationJudge.DockingDistanceMin,
-                        Is.EqualTo(StationJudge.NearfieldNearClipUnits));
-            Assert.That(StationJudge.DockingDistanceMin, Is.EqualTo(0.010));
+                        Is.LessThan(StationJudge.NearfieldNearClipUnits),
+                        "**near clip の内側へ入れなくなっている**");
             Assert.That(StationJudge.DockingDistanceMax, Is.EqualTo(0.200));
-            Assert.That(StationJudge.DockingDistanceStep, Is.EqualTo(0.005));
+            Assert.That(StationJudge.DockingDistanceStep, Is.EqualTo(0.001));
 
-            // 刻みが範囲を割り切ること（押しても端数が残らない）。
+            // 刻みが範囲を割り切ること（押しても端数が残らない）。199 段。
             double span = StationJudge.DockingDistanceMax - StationJudge.DockingDistanceMin;
             Assert.That(span / StationJudge.DockingDistanceStep,
-                        Is.EqualTo(38.0).Within(1e-9));
+                        Is.EqualTo(199.0).Within(1e-9));
 
             // 初期値は目盛の上に乗っていること。
             double steps = (StationJudge.ProvisionalStandoffUnits
@@ -316,15 +318,21 @@ namespace SolarSystem.Tests.EditMode
         }
 
         [Test]
-        public void 距離は下限を割らない()
+        public void 距離は0と負を弾く()
         {
-            // **割れる実装にしない。** 0 や負を渡しても下限で止まる。
+            // **Clamp の役目は 0 と負を弾くことだけ**（0 以下だとカメラの手前に置けない）。
+            // near clip の下限は外した。
             Assert.That(StationJudge.ClampDockingDistance(0.0),
                         Is.EqualTo(StationJudge.DockingDistanceMin));
             Assert.That(StationJudge.ClampDockingDistance(-1.0),
                         Is.EqualTo(StationJudge.DockingDistanceMin));
-            Assert.That(StationJudge.ClampDockingDistance(0.009),
-                        Is.EqualTo(StationJudge.DockingDistanceMin));
+
+            // **near clip の内側は通す。** ここが前と変わったところ。
+            Assert.That(StationJudge.ClampDockingDistance(0.009), Is.EqualTo(0.009));
+            Assert.That(StationJudge.ClampDockingDistance(0.002), Is.EqualTo(0.002));
+            Assert.That(StationJudge.InsideNearClip(0.009), Is.True);
+            Assert.That(StationJudge.InsideNearClip(0.010), Is.False);
+            Assert.That(StationJudge.InsideNearClip(0.015), Is.False);
 
             Assert.That(StationJudge.ClampDockingDistance(1.0),
                         Is.EqualTo(StationJudge.DockingDistanceMax));
@@ -340,12 +348,16 @@ namespace SolarSystem.Tests.EditMode
             // 機首側の端 z = 2.8831 まで / 13-3a の実測）。
             //
             //   目からの距離 [units]   [m]     機首からの隙間 [m]
-            //   0.010                   10.0     5.6809   （下限）
+            //   0.001                    1.0    -3.3191   （下限。**機首がポート面より先**）
+            //   0.0043191                4.3    0         （機首がポート面にちょうど接する）
+            //   0.010                   10.0     5.6809   （near clip）
             //   0.015                   15.0    10.6809   （初期値）
             //   0.050                   50.0    45.6809
             //   0.200                  200.0   195.6809   （上限）
             Assert.That(StationJudge.ShipNoseAheadOfEyeMeters, Is.EqualTo(4.3191));
 
+            Assert.That(StationJudge.NoseClearanceMeters(0.001),
+                        Is.EqualTo(-3.3191).Within(1e-9));
             Assert.That(StationJudge.NoseClearanceMeters(0.010),
                         Is.EqualTo(5.6809).Within(1e-9));
             Assert.That(StationJudge.NoseClearanceMeters(0.015),
@@ -355,9 +367,13 @@ namespace SolarSystem.Tests.EditMode
             Assert.That(StationJudge.NoseClearanceMeters(0.200),
                         Is.EqualTo(195.6809).Within(1e-9));
 
-            // **下限でも機首は構造物に触れていない。**
+            // 隙間が 0 になる距離。**下限を下げたので負の領域が目盛に入っている。**
+            Assert.That(StationJudge.NoseClearanceMeters(
+                            StationJudge.ShipNoseAheadOfEyeMeters / 1000.0),
+                        Is.EqualTo(0.0).Within(1e-9));
             Assert.That(StationJudge.NoseClearanceMeters(StationJudge.DockingDistanceMin),
-                        Is.GreaterThan(0.0));
+                        Is.LessThan(0.0),
+                        "**下限で機首がポート面より手前になっていない**");
         }
     }
 }

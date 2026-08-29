@@ -278,8 +278,15 @@ namespace SolarSystem.Unity
                           + $"= {distanceUnits * 1000.0:F1} m"
                           + $"  /  機首から {StationJudge.NoseClearanceMeters(distanceUnits):F1} m"
                           + $"  (機首は目の {StationJudge.ShipNoseAheadOfEyeMeters:F4} m 前)");
-            sb.AppendLine($"           下限 {StationJudge.DockingDistanceMin * 1000.0:F0} m "
-                          + $"= Nearfield の near clip。これより近い絵はこのゲームでは出ない");
+            // **near clip の内側かどうかを事実として出す。**
+            // 下限は 1 m まで下げてある（判定に使うには 10 m では足りなかった）。
+            // 内側では手前の構造物が描かれないので、それを知らずに形を読まない。
+            sb.AppendLine(StationJudge.InsideNearClip(distanceUnits)
+                ? $"           **near clip ({StationJudge.NearfieldNearClipUnits * 1000.0:F0} m) の内側。"
+                  + "手前の構造物は描かれない**"
+                : $"           near clip ({StationJudge.NearfieldNearClipUnits * 1000.0:F0} m) の外。"
+                  + $"目盛は {StationJudge.DockingDistanceMin * 1000.0:F0}〜"
+                  + $"{StationJudge.DockingDistanceMax * 1000.0:F0} m");
             sb.AppendLine($"  全長   : {StationJudge.ToMeters(StationJudge.StationLengthMeters, scale):F2} m"
                           + $"  全幅 {StationJudge.ToMeters(StationJudge.StationWidthMeters, scale):F2} m"
                           + $"  半径 {StationJudge.RadiusUnits(scale):F5} units"

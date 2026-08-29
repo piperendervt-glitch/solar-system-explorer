@@ -115,21 +115,35 @@ namespace SolarSystem.Core
         public const double NearfieldNearClipUnits = 0.01;
 
         /// <summary>
-        /// **ドッキング視点の距離の下限 [units]。= near clip。**
+        /// **ドッキング視点の距離の下限 [units] = 1 m。**
         ///
-        /// これは判定リグの都合ではなく**ゲーム本体の制約**。
-        /// Nearfield 段の near clip より内側は構造物が描かれないので、
-        /// **プレイヤーがステーションを見られる最短距離はドッキング後も 10 m。**
-        /// それより近い絵はこのゲームでは原理的に発生しない。
-        /// **下限を割れる実装にしない。**
+        /// ■ near clip より内側まで寄れる（**前の指定を撤回した**）
+        /// 一度は下限を near clip（0.010 units = 10 m）にしていたが、
+        /// **判定に使うには近づけ方が足りなかった**（実機で振った人間の判断）。
+        /// near clip の内側ではモデルの手前側が描かれないが、
+        /// **船とステーションの大小を見る**にはそれでも寄りたい。
+        ///
+        /// **ゲーム本体の near clip は変えていない。** 変えたのは
+        /// 判定リグが取れる距離の範囲だけ。`NearfieldNearClipUnits` は
+        /// 「いま内側に入っているか」を F1 に出すために残してある。
         /// </summary>
-        public const double DockingDistanceMin = NearfieldNearClipUnits;
+        public const double DockingDistanceMin = 0.001;
 
         /// <summary>ドッキング視点の距離の上限 [units] = 200 m。</summary>
         public const double DockingDistanceMax = 0.200;
 
-        /// <summary>ドッキング視点の距離の刻み [units] = 5 m。</summary>
-        public const double DockingDistanceStep = 0.005;
+        /// <summary>
+        /// ドッキング視点の距離の刻み [units] = 1 m。
+        /// **上限まで押す回数は増える**（199 段）。上側だけ粗くする案は今回採らない。
+        /// </summary>
+        public const double DockingDistanceStep = 0.001;
+
+        /// <summary>
+        /// その距離が Nearfield の near clip の内側か。
+        /// **内側では手前の構造物が描かれない。** F1 がこれを出す。
+        /// </summary>
+        public static bool InsideNearClip(double distanceUnits)
+            => distanceUnits < NearfieldNearClipUnits;
 
         /// <summary>
         /// **船の機首が目より何メートル前にあるか (Demo 3 / 13-3a の実測)。**
@@ -142,7 +156,11 @@ namespace SolarSystem.Core
         public static double NoseClearanceMeters(double distanceUnits)
             => distanceUnits * 1000.0 - ShipNoseAheadOfEyeMeters;
 
-        /// <summary>距離を下限・上限へ丸める。**下限は割らない。**</summary>
+        /// <summary>
+        /// 距離を下限・上限へ丸める。
+        /// **役目は 0 と負を弾くこと**（0 以下だとカメラの手前に置けない）。
+        /// near clip の下限は 13-3b の途中で外した。
+        /// </summary>
         public static double ClampDockingDistance(double value)
             => Math.Max(DockingDistanceMin, Math.Min(DockingDistanceMax, value));
 
