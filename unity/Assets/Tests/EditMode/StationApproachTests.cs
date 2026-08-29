@@ -162,5 +162,77 @@ namespace SolarSystem.Tests.EditMode
                         "**ポート面より前方に頂点がある。** HullAheadOfPort = 0 が嘘になる");
             Assert.That(c.HullAheadOfPortLocal, Is.EqualTo(0.0));
         }
+
+        // ---- AP の到着半径との関係 (S2 の宿題 / Step 13-3b-2) ----
+
+        [Test]
+        public void APの到着半径とRequestRangeの関係()
+        {
+            // **2 つは別の原点から測っている。**
+            //   AP の到着     RemainingDistance は **ポート位置** から
+            //   ドッキング要求 DistanceFrom は **構造物の中心** から
+            //
+            // 原点の差 = PortLocalUnits + PortStandoff
+            //   箱     0        + 0.3   = 0.3
+            //   Cobble 0.19775  + 0.015 = 0.21275
+            //
+            // AP が Arrived になった瞬間の「中心からの距離」は最大で
+            //   ArrivalRadius + 原点の差
+            // になる。これが RequestRange を超えると**止まってから要求が通らない。**
+            StationDefinition c = Cobble();
+
+            double offset = c.PortLocalUnits.Magnitude + c.PortStandoff;
+            Assert.That(offset, Is.EqualTo(0.21275).Within(1e-4));
+
+            double worst = UniverseConstants.ArrivalRadiusUnits + offset;
+            Assert.That(worst, Is.EqualTo(20.21275).Within(1e-4));
+
+            // **いまは RequestRange = ArrivalRadius なので、余裕は 0。**
+            // 船が惰性で内側へ入るぶんで通っている（PlayMode の往復で実測）。
+            Assert.That(c.RequestRange, Is.EqualTo(UniverseConstants.ArrivalRadiusUnits));
+
+            // **番人。** RequestRange を AP の到着半径より小さくすると、
+            // AP は遠くで止まったまま要求が通らなくなる。
+            Assert.That(c.RequestRange,
+                        Is.GreaterThanOrEqualTo(UniverseConstants.ArrivalRadiusUnits),
+                        "**RequestRange が AP の到着半径より小さい。**"
+                        + " AP は AutopilotSolver の 5 箇所で"
+                        + " UniverseConstants.ArrivalRadiusUnits を読んでおり、"
+                        + " 定義側の値を見ていない。片方だけ下げると"
+                        + "「止まってから要求が通らない」壊れ方をする");
+
+            StationDefinition box = StationCatalog.Box();
+            Assert.That(box.PortLocalUnits.Magnitude + box.PortStandoff,
+                        Is.EqualTo(0.3).Within(1e-12));
+            Assert.That(box.RequestRange,
+                        Is.GreaterThanOrEqualTo(UniverseConstants.ArrivalRadiusUnits));
+        }
+
+        [Test]
+        public void RequestRangeの候補の数表()
+        {
+            // **選んでいない。人間が指定する。** 数だけ残す。
+            //   候補   [units]  実寸    半径 0.36062 の  全長 0.50033 の  出港 (x1.2)
+
+            //   (a)     20.0    20 km   55.5 倍          40.0 倍          24.0
+            //   (b)      2.0     2 km    5.5 倍           4.0 倍           2.4
+            //   (c)      1.0     1 km    2.8 倍           2.0 倍           1.2
+            //   (d)      0.5   500 m     1.4 倍           1.0 倍           0.6
+            StationDefinition c = Cobble();
+
+            Assert.That(c.RadiusUnits, Is.EqualTo(0.36062).Within(1e-5));
+
+            double length = 62.5408 * c.Scale;
+            Assert.That(length, Is.EqualTo(0.50033).Within(1e-5));
+
+            Assert.That(20.0 / c.RadiusUnits, Is.EqualTo(55.5).Within(0.1));
+            Assert.That(20.0 / length, Is.EqualTo(40.0).Within(0.1));
+            Assert.That(2.0 / length, Is.EqualTo(4.0).Within(0.01));
+            Assert.That(1.0 / length, Is.EqualTo(2.0).Within(0.01));
+            Assert.That(0.5 / length, Is.EqualTo(1.0).Within(0.01));
+
+            Assert.That(DockingSolver.UndockDistance(20.0), Is.EqualTo(24.0).Within(1e-12));
+            Assert.That(DockingSolver.UndockDistance(1.0), Is.EqualTo(1.2).Within(1e-12));
+        }
     }
 }
