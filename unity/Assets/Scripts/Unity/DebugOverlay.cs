@@ -124,6 +124,14 @@ namespace SolarSystem.Unity
             sb.AppendLine($"速度     : {speed:0.###} km/s  ({UniverseConstants.KmPerSecToBeta(speed):0.####} c)  スラスト {_rig.LastThrust:+0.0;-0.0; 0.0}");
             sb.AppendLine($"火星まで : {distance:E4} units");
             sb.AppendLine($"表示     : {mode}   角直径 {angular}");
+
+            // **フレーム時間 (Step 13-0b)。** 埋まっていなければ「---」を出す。
+            // 0 ms と書くと「速い」と誤読されるので、数字にしない。
+            sb.AppendLine(FrameTimeProbe.Enabled
+                ? (FrameTimeProbe.HasLatest
+                    ? $"フレーム : CPU {FrameTimeProbe.LatestCpuMs:0.00} ms / GPU {FrameTimeProbe.LatestGpuMs:0.00} ms"
+                    : "フレーム : --- (FrameTimingManager が埋まっていない)")
+                : "フレーム : 計測 OFF (-frameTimeOff)");
             SpaceStation station = _rig.TargetStation(_root.Model);
             if (station != null)
             {
