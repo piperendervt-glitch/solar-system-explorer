@@ -274,6 +274,25 @@ if (-not (Test-Path -LiteralPath $resultsFile -PathType Leaf)) {
                 Write-Host "[run_tests] テストは 0 件です (テストアセンブリが空)。Step 0 ではこれが正常。"
             }
 
+            # ---- Inconclusive の警告 (Step 12-C) ----
+            #
+            # 判定は failed 件数を正としているので、Inconclusive は成功扱いで通過する。
+            # XR まわりのテストは batchmode で Inconclusive になる (CLAUDE.md §0-B) ため、
+            # 「確かめられなかった」が黙って緑に見えないよう、必ず名前を列挙する。
+            if ($inconclCount -gt 0) {
+                Write-Host "[run_tests] WARNING: Inconclusive $inconclCount 件 (「確かめられなかった」。緑ではない)" -ForegroundColor Yellow
+                foreach ($t in @($xmlDoc.SelectNodes("//test-case[@result='Inconclusive']"))) {
+                    Write-Host ("[INCONCLUSIVE] {0}" -f $t.GetAttribute('fullname')) -ForegroundColor Yellow
+                    $rsn = $t.SelectSingleNode('reason/message')
+                    if ($null -ne $rsn) {
+                        foreach ($line in ($rsn.InnerText -split "`r?`n")) {
+                            if ($line.Trim()) { Write-Host ("               {0}" -f $line.Trim()) }
+                        }
+                    }
+                }
+                Write-Host "[run_tests] これらは exe 実行の数値表と画像で確かめること (CLAUDE.md §0-B)。"
+            }
+
             # ---- 失敗テストの列挙 ----
             $failures = @($xmlDoc.SelectNodes("//test-case[@result='Failed']"))
             foreach ($t in $failures) {

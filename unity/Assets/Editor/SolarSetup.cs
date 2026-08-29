@@ -99,6 +99,37 @@ public static class SolarSetup
         Debug.Log("[SolarSetup] DumpScreenTextures OK");
     }
 
+    /// <summary>
+    /// xr-stack シナリオ（平面版 / Step 12 の準備）。
+    /// 正常時の画像一式・測定値・**故意破壊の前後の数値**を出す。
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.CaptureXrStack
+    /// </summary>
+    public static void CaptureXrStack()
+    {
+        SolarSystem.Editor.XrStackCapture.Run();
+        Debug.Log("[SolarSetup] CaptureXrStack OK");
+    }
+
+    /// <summary>
+    /// XR の設定アセットを作る (Step 12-0)。**GUI を使わずに構成する。**
+    /// 自動起動は切ってあり、立ち上げるのは -xr / -xrMock のときだけ。
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.ConfigureXr
+    /// </summary>
+    public static void ConfigureXr()
+    {
+        SolarSystem.Editor.XrSetup.Run();
+        Debug.Log("[SolarSetup] ConfigureXr OK");
+    }
+
+    /// <summary>MockHMD が batchmode の Editor で初期化できるかを確かめる (Step 12-0c)。</summary>
+    public static void ProbeXrMock()
+    {
+        SolarSystem.Editor.XrProbe.Run();
+        Debug.Log("[SolarSetup] ProbeXrMock OK");
+    }
+
     /// <summary>暗い場面で内装が潰れていないかを画素で測る (Step 11-4)。</summary>
     public static void MeasureCockpitLighting()
     {

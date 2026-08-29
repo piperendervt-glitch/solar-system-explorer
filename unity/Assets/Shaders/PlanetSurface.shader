@@ -66,6 +66,11 @@ Shader "SolarSystem/PlanetSurface"
             HLSLPROGRAM
             #pragma vertex Vertex
             #pragma fragment Fragment
+            
+            // **Single Pass Instanced (Step 12-2d)。**
+            // これが無いと STEREO_INSTANCING_ON のバリアントが作られず、
+            // 下のマクロを書いても左目 (スライス 0) にしか描かれない。
+            #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -94,6 +99,7 @@ Shader "SolarSystem/PlanetSurface"
                 float3 normalOS   : NORMAL;
                 float4 tangentOS  : TANGENT;
                 float2 uv         : TEXCOORD0;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct Varyings
@@ -104,11 +110,14 @@ Shader "SolarSystem/PlanetSurface"
                 float3 normalWS   : TEXCOORD2;
                 float3 tangentWS  : TEXCOORD3;
                 float3 bitangentWS: TEXCOORD4;
+                UNITY_VERTEX_OUTPUT_STEREO
             };
 
             Varyings Vertex(Attributes input)
             {
                 Varyings output = (Varyings)0;
+                UNITY_SETUP_INSTANCE_ID(input);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
 
                 VertexPositionInputs pos = GetVertexPositionInputs(input.positionOS.xyz);
                 VertexNormalInputs nrm = GetVertexNormalInputs(input.normalOS, input.tangentOS);
@@ -124,6 +133,8 @@ Shader "SolarSystem/PlanetSurface"
 
             half4 Fragment(Varyings input) : SV_Target
             {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+
                 float2 uv = input.uv;
 
                 // **_BaseColor の RGB は使わない。** MaterialPropertyBlock が毎フレーム

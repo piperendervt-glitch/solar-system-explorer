@@ -43,6 +43,10 @@ crashlytics-build.properties
 # `run_unity.ps1 -Method SolarSetup.DumpScreenTextures` でいつでも作り直せる。
 /verify/rt/*
 
+# XR 診断の出力 (Step 12 の準備)。
+# `run_unity.ps1 -Method SolarSetup.CaptureXrStack` でいつでも作り直せる。
+/verify/xr/*
+
 # 外部アセットの原本 (Step 6)。リポジトリには入れない。
 # 入手元・ライセンス・ファイル名は docs/02-assets.md に記録する。
 # unity/Assets/ へ取り込んだ複製だけを追跡する。

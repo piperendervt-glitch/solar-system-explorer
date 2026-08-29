@@ -161,8 +161,49 @@ namespace SolarSystem.Tests.EditMode
         {
             "Audio", "Editor", "Input", "Materials", "Scenes", "Scripts",
             "Settings", "Shaders", "Tests", "TextMesh Pro", "Textures",
-            "TutorialInfo", "ThirdParty",
+            "TutorialInfo", "ThirdParty", "XR",
         };
+
+        /// <summary>
+        /// **`Assets/XR/` に置いてよい拡張子 (Step 12-0)。**
+        ///
+        /// ■ なぜ許可リストに XR を足したか
+        /// XR パッケージ（xr.management / xr.openxr / xr.mock-hmd）を入れると、
+        /// Unity が `Assets/XR/` を自動生成してローダ選択と設定を置く。
+        /// **中身は第三者アセットではなくプロジェクトの設定**で、番人テストが
+        /// 守っている「ベンダーのアセットを public リポジトリへ再配布しない」
+        /// という守備範囲には掛からない。`.gitignore` に入れるとローダの選択が
+        /// 別マシンで失われるので、**追跡する**。
+        ///
+        /// ■ ただし「XR ならなんでも通る」にはしない
+        /// フォルダ名だけを許すと、以後そこに何が置かれても素通りする。
+        /// **設定アセットと .meta だけ**に絞り、テクスチャ・メッシュ・FBX・
+        /// .unitypackage の類が入ったら落ちるようにする。
+        /// </summary>
+        static readonly string[] AllowedXrExtensions = { ".asset", ".meta" };
+
+        [Test]
+        public void XRフォルダには設定アセットしか置かない()
+        {
+            string xr = Path.Combine(Application.dataPath, "XR");
+            if (!Directory.Exists(xr))
+            {
+                Assert.Ignore("Assets/XR/ が無い（XR パッケージ未導入）");
+            }
+
+            string[] offending = Directory
+                .GetFiles(xr, "*", SearchOption.AllDirectories)
+                .Where(f => !AllowedXrExtensions.Contains(
+                           Path.GetExtension(f), StringComparer.OrdinalIgnoreCase))
+                .Select(f => f.Substring(Application.dataPath.Length + 1))
+                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            Assert.That(offending, Is.Empty,
+                        "**Assets/XR/ に設定アセット以外がある。** "
+                        + "許可は " + string.Join(" / ", AllowedXrExtensions) + ": "
+                        + string.Join(", ", offending));
+        }
 
         [Test]
         public void Assets直下に想定外のフォルダが無い()

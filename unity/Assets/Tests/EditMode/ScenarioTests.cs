@@ -118,9 +118,20 @@ namespace SolarSystem.Tests.EditMode
             // 実測でハマった穴: ポート正面に立つとステーション本体が
             // 地球の中央に 428x400 px の矩形として写り込んだ。
             // 視線から 45 度以内にステーションが来ないことを定義側で保証する。
+            //
+            // **`station-close` だけは除く (Step 12-2b)。**
+            // あれは**ステーションを見るための場面**で、画面中央に既知の距離の
+            // 物を置くことが目的（頭姿勢の段配布が絵に届いたかを測る）。
+            // 塞がないことを求めると場面が成り立たない。**規則を緩めるのではなく、
+            // 目的の違う 1 件を名指しで外す。**
             SolarSystemModel model = SolarSystemModel.CreateOpposition();
             foreach (Scenario s in ScenarioLibrary.Create(model))
             {
+                if (s.Name == ScenarioLibrary.StationCloseName)
+                {
+                    continue;
+                }
+
                 Vec3d view = (s.Start.LookAt - s.Start.Position).Normalized;
                 foreach (SpaceStation station in model.Stations)
                 {

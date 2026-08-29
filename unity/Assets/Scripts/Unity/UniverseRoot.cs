@@ -30,6 +30,9 @@ namespace SolarSystem.Unity
 
         /// <summary>計器を映す 5 面 (Step 11-3)。**10 Hz の描画をここから呼ぶ。**</summary>
         [SerializeField] CockpitScreens _screens;
+
+        /// <summary>XR 診断 (Step 12 の準備)。**閉じている間は何もしない。**</summary>
+        [SerializeField] XrDiagnostics _xrDiagnostics;
         [SerializeField] StationViewSet _stations;
         [SerializeField] PostProcessPreset _post;
         [SerializeField] AudioRouting _audio;
@@ -369,6 +372,12 @@ namespace SolarSystem.Unity
             {
                 _screens.Tick(Clock != null ? Clock.ElapsedSeconds : 0.0);
             }
+
+            // XR 診断 (Step 12 の準備)。**F5 で開くまで測らない。**
+            if (_xrDiagnostics != null)
+            {
+                _xrDiagnostics.Tick(Clock != null ? Clock.ElapsedSeconds : 0.0);
+            }
         }
 
         /// <summary>シーン生成 (Editor) から参照を差し込むための口。</summary>
@@ -388,7 +397,8 @@ namespace SolarSystem.Unity
             CameraStackController stack = null,
             SunFlareController sunFlare = null,
             DebugPanel debugPanel = null,
-            CockpitScreens screens = null)
+            CockpitScreens screens = null,
+            XrDiagnostics xrDiagnostics = null)
         {
             _shiftDriver = shiftDriver;
             _shipTransform = shipTransform;
@@ -397,6 +407,7 @@ namespace SolarSystem.Unity
             _shipRig = shipRig;
             _instruments = instruments;
             _screens = screens;
+            _xrDiagnostics = xrDiagnostics;
             _stations = stations;
             _post = post;
             _audio = audio;
