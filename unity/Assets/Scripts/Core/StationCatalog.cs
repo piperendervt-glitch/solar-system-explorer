@@ -47,7 +47,8 @@ namespace SolarSystem.Core
                 SolarSystemModel.StationRadiusKm * BoxStandoffMultiplier),
             requestRange: RequiredDouble.Positive(DefaultRequestRangeUnits),
 
-            // **13-4 で使う。今は空。** 型と読む経路だけ用意してある。
+            // **空のままで確定 (Step 13 クローズ)。** 13-4 で埋める予定だったが
+            // 13-4 は実施しない。型と読む経路だけ残す。空は `StationDefinitionTests` が縛る。
             navLights: new NavLight[0],
             windowEmissives: new WindowEmissive[0],
 
@@ -153,9 +154,10 @@ namespace SolarSystem.Core
         /// 原点を中心からポートへ揃えたので、下駄（Cobble 0.19775 + 0.015）が外れ、
         /// **「ポートから何 units で要求できるか」という意味のある量になった。**
         ///
-        /// ■ **2.0 は出発点であって確定値ではない**
-        /// 遊びの感触と 13-5 の誘導灯の長さで決まる値なので、
-        /// **F4 で振って人間が決める。** 箱と Cobble で同じ値を使う。
+        /// ■ **2.0 で確定 (Step 13 クローズ)**
+        /// 13-5 の誘導灯の長さと合わせて決める予定だったが、**13-5 は実施しない。**
+        /// 誘導灯が無いので列の長さは判断に効かず、**2.0 のまま確定した。**
+        /// 箱と Cobble で同じ値を使う。F4 の「要求可能距離」で振れるのはそのまま。
         ///
         /// ■ AP の到着半径は 20 のまま
         /// **到着後に手動で寄る区間が残るのは意図した設計**

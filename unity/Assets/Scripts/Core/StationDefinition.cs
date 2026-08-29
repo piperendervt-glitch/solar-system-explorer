@@ -2,7 +2,7 @@ using System;
 
 namespace SolarSystem.Core
 {
-    /// <summary>航法灯 1 灯 (Step 13-1a)。**13-4 で使う。今は空配列。**</summary>
+    /// <summary>航法灯 1 灯 (Step 13-1a)。**使っていない。空配列で確定** (Step 13 クローズ)。</summary>
     public readonly struct NavLight
     {
         public NavLight(Vec3d localPosition, Rgb color, double periodSeconds, double phase01)
@@ -25,7 +25,7 @@ namespace SolarSystem.Core
         public double Phase01 { get; }
     }
 
-    /// <summary>窓の発光 1 件 (Step 13-1a)。**13-4 で使う。今は空配列。**</summary>
+    /// <summary>窓の発光 1 件 (Step 13-1a)。**使っていない。空配列で確定** (Step 13 クローズ)。</summary>
     public readonly struct WindowEmissive
     {
         public WindowEmissive(string materialName, double intensity)
@@ -55,10 +55,14 @@ namespace SolarSystem.Core
     ///
     /// ■ 地球と火星は**同じ定義を共有する**
     /// 位置と姿勢は配置側（`SpaceStation`）が持つ。差別化（灯の色・周期）は
-    /// 13-4 の定数で行うので、この回では入れない。
+    /// 13-4 の定数で行う予定だったが、**13-4 は実施しないので差別化は無い。**
     ///
-    /// ■ `NavLights` / `WindowEmissives` は**まだ使っていない**
-    /// 型と読む経路だけ用意してある（13-4 で使う）。空配列が既定。
+    /// ■ `NavLights` / `WindowEmissives` は**空のままで確定**
+    /// **空が意図。** 13-4（遠景と発光）で埋める予定だったが、
+    /// **13-4 は実施しない**（人間が指示した項目ではないため / Step 13 クローズ）。
+    /// 型と読む経路は残してある。将来使い始めたときに気づけるよう、
+    /// **空であることを `StationDefinitionTests` が縛っている**（中身を入れると落ちる）。
+    /// 落ちたら「使い始めた」ということなので、テストのほうを直す。
     /// </summary>
     public sealed class StationDefinition
     {
@@ -289,10 +293,10 @@ namespace SolarSystem.Core
         /// </summary>
         public double RequestRange => _requestRange.Value;
 
-        /// <summary>航法灯。**13-4 で使う。今は空。**</summary>
+        /// <summary>航法灯。**空で確定**（13-4 は実施しない）。テストが空を縛っている。</summary>
         public NavLight[] NavLights => _navLights;
 
-        /// <summary>窓の発光。**13-4 で使う。今は空。**</summary>
+        /// <summary>窓の発光。**空で確定**（13-4 は実施しない）。テストが空を縛っている。</summary>
         public WindowEmissive[] WindowEmissives => _windowEmissives;
 
         /// <summary>取り込まれていなかったときに落ちる先の Id。箱自身は null。</summary>

@@ -75,7 +75,7 @@ namespace SolarSystem.Editor
 
         /// <summary>
         /// **Emission を持つマテリアル（実測）。** 4 件しかない。
-        /// 13-4 の窓・航法灯はこの制約の中で作ることになる。
+        /// 13-4 の窓・航法灯はこの制約の中で作るはずだった。**13-4 は実施しない。**
         /// </summary>
         public static readonly string[] EmissiveMaterials =
         {

@@ -118,7 +118,7 @@ namespace SolarSystem.Tests.EditMode
         {
             SolarSystemModel model = Model();
 
-            // **同一インスタンス。** 差別化（灯の色・周期）は 13-4 の定数で行う。
+            // **同一インスタンス。** 差別化（灯の色・周期）は 13-4 で入れる予定だったが実施しない。
             Assert.That(model.Stations[0].Definition,
                         Is.SameAs(model.Stations[1].Definition));
 
@@ -291,8 +291,9 @@ namespace SolarSystem.Tests.EditMode
         [Test]
         public void NavLightsとWindowEmissivesはまだ空()
         {
-            // **13-4 で使う。** 型と読む経路だけ用意してあることの記録。
-            // 中身が入ったらこのテストが落ちて、使い始めたことに気づける。
+            // **空のままで確定 (Step 13 クローズ)。** 13-4 で使う予定だったが実施しない。
+            // 型と読む経路だけ残してある。**このテストは残す**
+            // — 中身が入ったら落ちて、使い始めたことに気づけるため。
             Assert.That(Box().NavLights, Is.Empty, "NavLights はまだ使っていない");
             Assert.That(Box().WindowEmissives, Is.Empty, "WindowEmissives はまだ使っていない");
         }

@@ -363,7 +363,7 @@ namespace SolarSystem.Editor
         {
             Renderer[] emissive = all.Where(IsEmissive).ToArray();
 
-            sb.AppendLine("-- 発光マテリアルを持つレンダラー（13-4 の窓・航法灯の制約）--");
+            sb.AppendLine("-- 発光マテリアルを持つレンダラー（13-4 の制約だった。13-4 は実施しない）--");
             if (emissive.Length == 0)
             {
                 sb.AppendLine("  **0 件。** 発光マテリアルが付いたレンダラーが見つからない");

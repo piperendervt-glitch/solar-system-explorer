@@ -10,7 +10,8 @@ namespace SolarSystem.Editor
 {
     /// <summary>
     /// **取り込んだステーションアセットの棚卸し (Step 13-2)。**
-    /// 13-3（配置・スケール・ポート）と 13-4（遠景と発光）の入力になる。
+    /// 13-3（配置・スケール・ポート）の入力。**13-4（遠景と発光）は実施しないので、
+    /// 発光まわりの出力は使われていない。**
     ///
     /// **候補を挙げるだけで、指名はしない。** 窓・航法灯・ドッキング口が
     /// どれかは人間が決める。
@@ -155,7 +156,7 @@ namespace SolarSystem.Editor
             }
 
             sb.AppendLine();
-            sb.AppendLine("-- 発光を持つマテリアル（13-4 の入力）--");
+            sb.AppendLine("-- 発光を持つマテリアル（13-4 の入力だった。13-4 は実施しない）--");
             foreach (MaterialEntry e in entries.Values.Where(e => e.Emission).OrderBy(e => e.Name))
             {
                 sb.AppendLine($"  {e.Name} / 発光マップ {e.EmissionMap}");
