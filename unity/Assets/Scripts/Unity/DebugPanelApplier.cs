@@ -22,6 +22,9 @@ namespace SolarSystem.Unity
         [SerializeField] CockpitShake _shake;
         [SerializeField] PostProcessPreset _post;
         [SerializeField] StationViewSet _stations;
+
+        /// <summary>判定リグ (Step 13-3b)。**-stationJudge のときだけ活きている。**</summary>
+        [SerializeField] StationJudgeRig _judge;
         [SerializeField] Material _earthSurface;
         [SerializeField] Material _marsSurface;
         [SerializeField] Material _clouds;
@@ -73,6 +76,9 @@ namespace SolarSystem.Unity
             _screens = screens;
             _lights = lights;
         }
+
+        /// <summary>判定リグを差し込む (Step 13-3b)。リグはシーン生成の後半で組まれる。</summary>
+        public void BindJudge(StationJudgeRig judge) => _judge = judge;
 
         /// <summary>1 フレームぶん反映する。</summary>
         public void Apply(DebugPanelModel model)
@@ -302,6 +308,25 @@ namespace SolarSystem.Unity
                 // 確定しており、値は AudioMix の定数がそのまま効く。
                 // 追従の時定数だけは Demo 3 でも触れるように残す。
                 _audio.EngineLagSeconds = model.NumberOf(DebugPanelModel.EngineLagId);
+            }
+
+            // ---- 判定ビュー (Step 13-3b) ----
+            // **Definition には書かない。** リグの実行時の値だけを動かす。
+            if (_judge != null)
+            {
+                _judge.SetScale(model.NumberOf(DebugPanelModel.JudgeScaleId));
+
+                DebugItem view = model.Find(DebugPanelModel.JudgeViewId);
+                if (view != null)
+                {
+                    _judge.SetViewpoint(view.Index == 1
+                        ? JudgeViewpoint.Overview
+                        : JudgeViewpoint.Docking);
+                }
+
+                _judge.SetMarkers(model.BoolOf(DebugPanelModel.JudgeShipFrameId),
+                                  model.BoolOf(DebugPanelModel.JudgeRingsId),
+                                  model.BoolOf(DebugPanelModel.JudgeGridId));
             }
 
             if (_lights != null)

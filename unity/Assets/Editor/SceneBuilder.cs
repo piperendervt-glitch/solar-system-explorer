@@ -230,6 +230,14 @@ namespace SolarSystem.Editor
                                CockpitBuilder.BuildProbes(stack, deepLayer, 0,
                                                          nearfieldLayer, cockpitLayer));
 
+            // ---- 判定リグ (Step 13-3b) ----
+            // **接続面と Scale を人間が絵で決めるための道具。**
+            // 既定は非アクティブ。-stationJudge が無ければ絵に一切出ない。
+            StationJudgeRig judge = StationJudgeBuilder.Build(
+                rootGo.transform, nearfieldCam, nearfieldLayer);
+            applier.BindJudge(judge);
+            overlay.BindJudge(judge);
+
             // ---- exe からのスクショ用 (Step 7) ----
             // 引数が無ければ何もしない。見た目には影響しない。
             rootGo.AddComponent<StandaloneCapture>();
@@ -244,7 +252,7 @@ namespace SolarSystem.Editor
             universeRoot.Configure(shiftDriver, shipGo.transform, solarSystemView, aimer, rig,
                                    cockpit.Panel, stationSet, preset, audioRouting,
                                    overlay, scenarioRunner, shake, stack, sunFlare, debugPanel,
-                                   cockpit.Screens, xrDiagnostics);
+                                   cockpit.Screens, xrDiagnostics, judge);
 
             // 登録漏れの検査 (docs/01-architecture.md §2-5)。
             shiftDriver.CollectFromScene();

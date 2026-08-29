@@ -1,3 +1,4 @@
+using System.Text;
 using SolarSystem.Core;
 using UnityEngine;
 
@@ -49,6 +50,11 @@ namespace SolarSystem.Unity
 
         /// <summary>どの定義で組まれたか (Step 11-0c)。**実機で取り違えに気づくため。**</summary>
         [SerializeField] CockpitIdentity _cockpit;
+
+        /// <summary>判定リグ (Step 13-3b)。**-stationJudge のときだけ行が増える。**</summary>
+        [SerializeField] StationJudgeRig _judge;
+
+        public void BindJudge(StationJudgeRig judge) => _judge = judge;
 
         public void BindCockpit(CockpitIdentity cockpit) => _cockpit = cockpit;
 
@@ -173,6 +179,8 @@ namespace SolarSystem.Unity
                 sb.AppendLine($"コックピット: {_cockpit.Describe()}");
             }
 
+            AppendJudge(sb);
+
             // **音は「鳴ったかどうか」を目で確かめられない (CLAUDE.md 0-B)。**
             // 聴き分けに自信が持てないときに、画面で裏を取れるようにする。
             AudioRouting audio = _root.Audio;
@@ -217,7 +225,12 @@ namespace SolarSystem.Unity
 
             if (!SuppressMainHud)
             {
-                GUI.Label(new Rect(12f, 12f, 900f, 220f), BuildText(), _style);
+                // **枠は画面いっぱいに取る (Step 13-3b で直した)。**
+                // 900x220 の固定枠だったので、行が増えるたびに下が黙って切れていた
+                // （実測: FLARE / コックピット / 音 / 操作 の 4 行が出ていなかった）。
+                // **測定器が計算した値を表示できていない**状態なので直す。
+                GUI.Label(new Rect(12f, 12f, Screen.width - 24f, Screen.height - 24f),
+                          BuildText(), _style);
             }
 
             string check = BuildCheckText();
@@ -238,6 +251,54 @@ namespace SolarSystem.Unity
             }
 
             GUI.Label(new Rect(Screen.width - 512f - 12f, 12f, 512f, 160f), check, _checkStyle);
+        }
+
+        /// <summary>
+        /// **判定ビューの数値 (Step 13-3b)。**
+        /// 接続面と Scale を決めた後に「その値がどういう数字だったか」を
+        /// 数表へ残せるようにするための行。**-stationJudge のときだけ出る。**
+        /// </summary>
+        void AppendJudge(StringBuilder sb)
+        {
+            if (_judge == null || !_judge.gameObject.activeSelf)
+            {
+                return;
+            }
+
+            double scale = _judge.Scale;
+
+            sb.AppendLine($"判定     : Scale {scale:F5}  視点 {_judge.Viewpoint}  "
+                          + $"距離 {_judge.LastDistanceUnits:F5} units"
+                          + (_judge.HasModel ? "" : "  **モデル無し**"));
+            sb.AppendLine($"  全長   : {StationJudge.ToMeters(StationJudge.StationLengthMeters, scale):F2} m"
+                          + $"  全幅 {StationJudge.ToMeters(StationJudge.StationWidthMeters, scale):F2} m"
+                          + $"  半径 {StationJudge.RadiusUnits(scale):F5} units"
+                          + $"  MinStandoff {StationJudge.MinStandoffUnits(scale):F5} units");
+
+            AppendCandidate(sb, "(a) 金の円 ", PortFaceCandidate.GoldDisc, scale);
+            AppendCandidate(sb, "(b) 突円盤 ", PortFaceCandidate.ProtrudingPlate, scale);
+            AppendCandidate(sb, "(c) 胴     ", PortFaceCandidate.ModuleBody, scale);
+
+            const double closeDistance = 0.5;
+            sb.AppendLine($"  station-close (D={closeDistance} units / "
+                          + $"{StationJudge.ReferenceWidth}x{StationJudge.ReferenceHeight} / "
+                          + $"画角 {StationJudge.ReferenceFovDegrees:F0} 度) : "
+                          + $"角直径 {StationJudge.AngularDiameterDegrees(scale, closeDistance):F1} 度  "
+                          + $"被覆 {StationJudge.CoveragePercent(scale, closeDistance):F1} %");
+            sb.AppendLine($"  船の全幅 {StationJudge.ShipWidthMeters:F4} m / "
+                          + $"物差し {StationJudge.RatioMin:F1}〜{StationJudge.RatioMax:F1} 倍"
+                          + "   輪の色: (a) 金 / (b) 青 / (c) 桃");
+        }
+
+        static void AppendCandidate(StringBuilder sb, string label,
+                                    PortFaceCandidate candidate, double scale)
+        {
+            StationJudge.ScaleRangeFor(candidate, out double lo, out double hi);
+
+            sb.AppendLine($"  {label}: {StationJudge.OpeningMeters(candidate, scale):F3} m  "
+                          + $"船幅比 {StationJudge.RatioToShipWidth(candidate, scale):F2}"
+                          + (StationJudge.WithinRule(candidate, scale) ? " [物差し内]" : "")
+                          + $"  物差しを満たす Scale {lo:F5}〜{hi:F5}");
         }
     }
 }

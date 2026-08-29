@@ -33,6 +33,12 @@ namespace SolarSystem.Unity
 
         /// <summary>XR 診断 (Step 12 の準備)。**閉じている間は何もしない。**</summary>
         [SerializeField] XrDiagnostics _xrDiagnostics;
+
+        /// <summary>
+        /// 接続面と Scale を絵で決めるための判定リグ (Step 13-3b)。
+        /// **-stationJudge が無ければ非アクティブのまま。**
+        /// </summary>
+        [SerializeField] StationJudgeRig _stationJudge;
         [SerializeField] StationViewSet _stations;
         [SerializeField] PostProcessPreset _post;
         [SerializeField] AudioRouting _audio;
@@ -85,6 +91,22 @@ namespace SolarSystem.Unity
         void Awake()
         {
             Initialize();
+
+            // 判定リグ (Step 13-3b)。**-stationJudge のときだけ有効化する。**
+            // 無指定なら非アクティブのままで、絵にも数字にも出ない。
+            //
+            // **引数を読んだ結果をログに残す。** 「引数を書いた」と
+            // 「経路が通っている」は別（§0-A2 の一般則）。
+            bool judgeRequested = StationJudgeRig.Requested();
+            Debug.Log($"[StationJudge] rig={(_stationJudge != null ? "あり" : "無し")}"
+                      + $" / requested={judgeRequested}"
+                      + $" / args={string.Join(" ", System.Environment.GetCommandLineArgs())}");
+
+            if (_stationJudge != null && judgeRequested)
+            {
+                _stationJudge.gameObject.SetActive(true);
+                Debug.Log($"[StationJudge] 有効化した / model={_stationJudge.HasModel}");
+            }
 
             // シナリオ指定があればそちらを初期状態にする (Step 8-0)。
             // 引数が無ければ従来どおりセーブから始める。**通常プレイの挙動は変えない。**
@@ -378,6 +400,12 @@ namespace SolarSystem.Unity
             {
                 _xrDiagnostics.Tick(Clock != null ? Clock.ElapsedSeconds : 0.0);
             }
+
+            // 判定リグ (Step 13-3b)。**-stationJudge のときだけ活きている。**
+            if (_stationJudge != null && _stationJudge.gameObject.activeSelf)
+            {
+                _stationJudge.Apply();
+            }
         }
 
         /// <summary>シーン生成 (Editor) から参照を差し込むための口。</summary>
@@ -398,7 +426,8 @@ namespace SolarSystem.Unity
             SunFlareController sunFlare = null,
             DebugPanel debugPanel = null,
             CockpitScreens screens = null,
-            XrDiagnostics xrDiagnostics = null)
+            XrDiagnostics xrDiagnostics = null,
+            StationJudgeRig stationJudge = null)
         {
             _shiftDriver = shiftDriver;
             _shipTransform = shipTransform;
@@ -408,6 +437,7 @@ namespace SolarSystem.Unity
             _instruments = instruments;
             _screens = screens;
             _xrDiagnostics = xrDiagnostics;
+            _stationJudge = stationJudge;
             _stations = stations;
             _post = post;
             _audio = audio;

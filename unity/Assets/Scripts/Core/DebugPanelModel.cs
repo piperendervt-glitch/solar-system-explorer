@@ -255,6 +255,27 @@ namespace SolarSystem.Core
         public const string StationScaleId = "num.stationScale";
 
         /// <summary>
+        /// **判定ビューの Scale (Step 13-3b)。** 0.001〜0.008 を刻み 0.00025 で連続に振る。
+        /// 段の切り替えにしないのは、境目がどこかを目で見るため。
+        /// **`StationDefinition` には書かない。** 値は人間が決める。
+        /// </summary>
+        public const string JudgeScaleId = "num.judgeScale";
+
+        /// <summary>判定ビューの視点 (Step 13-3b)。</summary>
+        public const string JudgeViewId = "judge.view";
+
+        public static readonly string[] JudgeViewOptions = { "ドッキング", "全景" };
+
+        /// <summary>船の断面枠 1.6075 x 1.6312 m (Step 13-3b)。**比較対象そのもの。**</summary>
+        public const string JudgeShipFrameId = "judge.shipFrame";
+
+        /// <summary>候補 3 円の輪 (Step 13-3b)。金 / 青 / 桃。</summary>
+        public const string JudgeRingsId = "judge.rings";
+
+        /// <summary>ポート面の 1 m グリッド (Step 13-3b)。</summary>
+        public const string JudgeGridId = "judge.grid";
+
+        /// <summary>
         /// **画面のテスト柄 (Step 11-3b の切り分け道具)。**
         /// ON にすると 5 面の RT の中身を計器の表示から生成したテスト柄へ差し替える。
         /// 枠線・格子・真円・四隅の印・基準線の文字が入っており、
@@ -438,6 +459,16 @@ namespace SolarSystem.Core
             // 値は Core の定数から読む（パネル側で二重定義しない）。
             m._items.Add(DebugItem.MakeNumber(StationScaleId, "ステーションの倍率 (x)",
                 StationDefinition.RuntimeScaleFactorDefault, 0.10, 4.00, 0.05, "F2"));
+
+            // ---- 判定ビュー (Step 13-3b) ----
+            // **-stationJudge のときだけ効く。** 値は Core の定数から読む。
+            m._items.Add(DebugItem.MakeNumber(JudgeScaleId, "判定 Scale",
+                StationJudge.ScaleInitial, StationJudge.ScaleMin, StationJudge.ScaleMax,
+                StationJudge.ScaleStep, "F5"));
+            m._items.Add(DebugItem.MakeChoice(JudgeViewId, "判定の視点", JudgeViewOptions, 0));
+            m._items.Add(DebugItem.MakeToggle(JudgeShipFrameId, "判定 船の断面枠", true));
+            m._items.Add(DebugItem.MakeToggle(JudgeRingsId, "判定 候補 3 円", true));
+            m._items.Add(DebugItem.MakeToggle(JudgeGridId, "判定 1m グリッド", true));
 
             m._items.Add(DebugItem.MakeToggle(ScreenPatternId, "画面のテスト柄", false));
             m._items.Add(DebugItem.MakeToggle(ScreenRtViewId, "RT を直接表示", false));
