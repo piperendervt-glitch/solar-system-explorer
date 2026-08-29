@@ -517,6 +517,60 @@ XR はトラッキング位置も眼間も**メートルで**カメラに掛け�
 プローブ 1 個・整数画素からの 1 標本であることも効いている）。
 **式は変えていない。**
 
+### 12-2d: 自前シェーダを SPI 対応にした（被測定物への最初の修正）
+
+**12-C2 で確定した原因を直した。** `Assets/Shaders/` の 4 本に
+SPI のマクロを足した（`#pragma multi_compile_instancing` と
+`UNITY_VERTEX_INPUT_INSTANCE_ID` / `UNITY_SETUP_INSTANCE_ID` /
+`UNITY_VERTEX_OUTPUT_STEREO` / `UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO` /
+`UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX`）。
+
+| シェーダ | 入れたか | 理由 |
+| --- | --- | --- |
+| `PlanetSurface` | **入れた** | 場面のメッシュ。SPI で左目にしか描かれていなかった |
+| `PlanetClouds` | **入れた** | 同上 |
+| `SunSurface` | **入れた** | 同上 |
+| `SunCorona` | **入れた** | 同上 |
+| `ScreenWarp` | **入れない** | `Graphics.Blit` で 2D の RenderTexture へ描くだけで、**XR の目の経路を通らない。** 目のインデックスを渡す先が無い |
+
+**`#pragma multi_compile_instancing` が要る。** これが無いと
+`STEREO_INSTANCING_ON` のバリアントが作られず、マクロを書いても
+左目（スライス 0）にしか描かれない。
+
+**対照（MockHMD / cockpit-view / 640x480 / 目ごとの描画量）:**
+
+| | 左 平均 | 右 平均 | 右/左 | 左 黒でない [px] | 右 黒でない [px] |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 修正前（シェーダを戻して再ビルド） | 37.17 | **8.02** | **0.216** | 165,111 | 95,773 |
+| **修正後（本物のシェーダ）** | 35.14 | **34.87** | **0.992** | 162,873 | 162,932 |
+| 修正後 + `-xrSwapShader`（URP/Lit） | 51.43 | 50.99 | 0.991 | 203,588 | 202,953 |
+
+**本物のシェーダが差し替え版と同じ左右比になった**（0.992 対 0.991）。
+明るさの絶対値が違うのは URP/Lit が地球を白く描くためで、これは想定どおり。
+右目の絵にも地球が写っている。
+
+**平面の 36 枚は 0 px。** SPI のマクロが XR 無効時に no-op であることを実測で
+確かめた（「はず」で通していない）。
+
+### ゲートはフレーム数ではなく条件で待つ (Step 12-2d)
+
+**フレーム数で待ってはいけない。** 12-2b で入れた `Time.captureFramerate = 60` は
+フレームを実時間より速く進めるので、同じ 150 フレームでも実機では目のテクスチャが
+埋まる前に撮影に入る（実機の撮影が 2 回とも MultiPass / Tex2D 256x256 /
+`stereoEnabled=False` / f 0 / 眼間 0 で落ちた）。
+
+`XrStereoCapture` は **`GateFailure` が消えるまで待ち、実時間 30 秒で打ち切る**
+（`GateTimeoutSeconds`）。待ったフレーム数と実時間を `[XrGate]` と
+`xr-stack.txt` に記録する。
+
+| 実行形態 | 埋まるまで |
+| --- | --- |
+| MockHMD | **1 フレーム / 0.112 秒**（実測 2 回とも） |
+| 実機 (OpenXR) | 未測定。ログの `[XrGate]` 行で分かる |
+
+**ゲートが落ちて撮影しないのは設計どおり。** MultiPass の絵を掴んで
+「測れた」と誤認するより落ちるほうが正しい。
+
 ### `Assets/XR/` について
 
 XR パッケージを入れると Unity が自動生成する（ローダ選択と設定）。**第三者アセットでは

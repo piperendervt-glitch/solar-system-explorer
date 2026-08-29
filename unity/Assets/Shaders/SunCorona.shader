@@ -48,6 +48,11 @@ Shader "SolarSystem/SunCorona"
             HLSLPROGRAM
             #pragma vertex Vertex
             #pragma fragment Fragment
+            
+            // **Single Pass Instanced (Step 12-2d)。**
+            // これが無いと STEREO_INSTANCING_ON のバリアントが作られず、
+            // 下のマクロを書いても左目 (スライス 0) にしか描かれない。
+            #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
@@ -64,17 +69,21 @@ Shader "SolarSystem/SunCorona"
             {
                 float4 positionOS : POSITION;
                 float2 uv         : TEXCOORD0;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
                 float2 uv         : TEXCOORD0;
+                UNITY_VERTEX_OUTPUT_STEREO
             };
 
             Varyings Vertex(Attributes input)
             {
                 Varyings output;
+                UNITY_SETUP_INSTANCE_ID(input);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
                 output.positionCS = GetVertexPositionInputs(input.positionOS.xyz).positionCS;
                 output.uv = TRANSFORM_TEX(input.uv, _BaseMap);
                 return output;
@@ -82,6 +91,8 @@ Shader "SolarSystem/SunCorona"
 
             half4 Fragment(Varyings input) : SV_Target
             {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+
                 // テクスチャは中心 1 / 縁 0 の (1 - r)。
                 half distance01 = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv).r;
 

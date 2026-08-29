@@ -44,6 +44,11 @@ Shader "SolarSystem/PlanetClouds"
             HLSLPROGRAM
             #pragma vertex Vertex
             #pragma fragment Fragment
+            
+            // **Single Pass Instanced (Step 12-2d)。**
+            // これが無いと STEREO_INSTANCING_ON のバリアントが作られず、
+            // 下のマクロを書いても左目 (スライス 0) にしか描かれない。
+            #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -62,6 +67,7 @@ Shader "SolarSystem/PlanetClouds"
                 float4 positionOS : POSITION;
                 float3 normalOS   : NORMAL;
                 float2 uv         : TEXCOORD0;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct Varyings
@@ -69,11 +75,14 @@ Shader "SolarSystem/PlanetClouds"
                 float4 positionCS : SV_POSITION;
                 float2 uv         : TEXCOORD0;
                 float3 normalWS   : TEXCOORD1;
+                UNITY_VERTEX_OUTPUT_STEREO
             };
 
             Varyings Vertex(Attributes input)
             {
                 Varyings output = (Varyings)0;
+                UNITY_SETUP_INSTANCE_ID(input);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
                 output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
                 output.normalWS = TransformObjectToWorldNormal(input.normalOS);
                 output.uv = TRANSFORM_TEX(input.uv, _BaseMap);
@@ -82,6 +91,8 @@ Shader "SolarSystem/PlanetClouds"
 
             half4 Fragment(Varyings input) : SV_Target
             {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+
                 // 輝度をアルファとして読む。RGB は同一なので .r で足りる。
                 half luminance = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv).r;
                 half alpha = saturate(luminance * _CloudOpacity) * _BaseColor.a;

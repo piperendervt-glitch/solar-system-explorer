@@ -74,6 +74,18 @@ namespace SolarSystem.Unity
         /// <summary>撮影の経路そのものが成立しなかったときの終了コード。</summary>
         public const int CaptureFailedExitCode = 4;
 
+        /// <summary>
+        /// **XR が目のテクスチャを作るまで待つ上限 [秒] (Step 12-2d)。**
+        ///
+        /// フレーム数で待ってはいけない。12-2b で入れた `captureFramerate = 60` は
+        /// **フレームを実時間より速く進める**ので、同じ 150 フレームでも実機では
+        /// 値が埋まる前に撮影に入ってしまう（実機の撮影が 2 回とも
+        /// MultiPass / Tex2D 256x256 / stereoEnabled=False で落ちた）。
+        ///
+        /// **条件で待ち、実時間で打ち切る。**
+        /// </summary>
+        public const float GateTimeoutSeconds = 30f;
+
         IEnumerator Start()
         {
             string dir = StandaloneCapture.ArgValue(DirArg);
@@ -90,10 +102,30 @@ namespace SolarSystem.Unity
                 frames = parsed;
             }
 
+            // ---- 1. XR が目のテクスチャを作るまで待つ (Step 12-2d) ----
+            //
+            // **フレーム数で待たない。** captureFramerate はフレームを実時間より
+            // 速く進めるので、フレーム数で待つと実機では値が埋まる前に撮ってしまう。
+            float waitStarted = Time.realtimeSinceStartup;
+            int waitStartedFrame = Time.frameCount;
+            XrBoot.StereoFacts facts = XrBoot.ReadStereoFacts();
+
+            while (GateFailure(facts) != null
+                   && Time.realtimeSinceStartup - waitStarted < GateTimeoutSeconds)
+            {
+                yield return null;
+                facts = XrBoot.ReadStereoFacts();
+            }
+
+            float gateSeconds = Time.realtimeSinceStartup - waitStarted;
+            int gateFrames = Time.frameCount - waitStartedFrame;
+            Debug.Log($"[XrGate] 待った: {gateFrames} フレーム / {gateSeconds:F3} 秒 / {facts}");
+
+            // ---- 2. 落ち着かせる ----
+            //
             // **実行をまたいで同じ絵にする (Step 12-2b)。**
             // 既定では Time.deltaTime が実測時間なので、同じ設定で 2 回撮っても
-            // 微振動の位相が違い、内装で 47,000 px 動く（12-2 の実測）。
-            // その土俵では「配布 on/off で差が無い」ことを示せない。
+            // 微振動の位相が違い、内装で 47,000 px 動く。
             // 固定の刻みで進めてから、撮影の直前に世界を止める。
             Time.captureFramerate = 60;
 
@@ -109,7 +141,7 @@ namespace SolarSystem.Unity
             Directory.CreateDirectory(dir);
 
             // ---- 条件を採る（撮影の入口）----
-            XrBoot.StereoFacts facts = XrBoot.ReadStereoFacts();
+            facts = XrBoot.ReadStereoFacts();
             Debug.Log("[XrFacts] 撮影の入口 / " + facts);
 
             var stack = FindAnyObjectByType<CameraStackController>();
@@ -121,6 +153,11 @@ namespace SolarSystem.Unity
 
             var report = new StringBuilder();
             WriteConditions(report, facts, optics);
+
+            report.AppendLine("== 目のテクスチャが埋まるまで ==");
+            report.AppendLine($"  待った: {gateFrames} フレーム / {gateSeconds:F3} 秒"
+                              + $" (上限 {GateTimeoutSeconds} 秒)");
+            report.AppendLine();
             WriteCameraState(report, stack);
 
             WriteRenderState(report, stack);
