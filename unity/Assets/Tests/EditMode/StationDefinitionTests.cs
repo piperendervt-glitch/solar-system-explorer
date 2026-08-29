@@ -231,6 +231,132 @@ namespace SolarSystem.Tests.EditMode
                 new Vec3d(0, 1, 0), 12000.0, 0.25, null));
         }
 
+        // ---- 値を振ったら下流が動くか (Step 13-1a 追補) ----
+        //
+        // **箱 1 件だけでは「移設できたか」を確かめられない。**
+        // 箱の値は移設前のグローバル定数と同じなので、**どこかが古い定数を読んだままでも
+        // 値が一致してテストが通ってしまう。** 「未設定なら例外」は読む経路があることしか
+        // 示しておらず、**その値が下流まで届いていること**は別（§0-A）。
+        //
+        // そこで箱と違う値の定義を作り、判定と派生値が追随することを見る。
+        // **箱の値の整数倍を避ける**（偶然の一致で通らないように）。
+        //   PortStandoff  0.47   (箱 0.30)
+        //   RequestRange 37.00   (箱 20.00)
+        //   Scale         2.50   (箱 1.00)
+
+        const double TestStandoff = 0.47;
+        const double TestRange = 37.0;
+        const double TestScale = 2.5;
+
+        /// <summary>
+        /// 試験用の定義。**`StationCatalog` の一覧には入れない**
+        /// （実行時のカタログを汚さないため、ここでだけ作る）。
+        /// </summary>
+        static StationDefinition Varied() => StationDefinition.Create(
+            "test-varied", null,
+            RequiredDouble.Positive(TestScale),
+            Vec3d.Zero, new Vec3d(0.0, 1.0, 0.0), new Vec3d(0.0, 0.0, 1.0),
+            RequiredDouble.Positive(TestStandoff),
+            RequiredDouble.Positive(TestRange),
+            new NavLight[0], new WindowEmissive[0], StationDefinition.BoxId);
+
+        [Test]
+        public void 値を振ると判定の境界が追随する()
+        {
+            //   定義          通る    拒否      出港距離
+            //   箱   20.0     20.0    20.001    24.0    （既存の数表）
+            //   試験 37.0     37.0    37.001    44.4
+            double range = Varied().RequestRange;
+            Assert.That(range, Is.EqualTo(TestRange), "定義から読めていない");
+
+            Assert.That(DockingSolver.RejectionReason(37.0, 0.5, 0.0, range), Is.Empty);
+            Assert.That(DockingSolver.RejectionReason(37.001, 0.5, 0.0, range),
+                        Does.StartWith("距離が遠い"));
+
+            // **箱の値なら通ってしまう距離が、ここでは通ること。**
+            // 古い定数 (20) を読んでいたら 25.0 は拒否されて落ちる。
+            Assert.That(DockingSolver.RejectionReason(25.0, 0.5, 0.0, range), Is.Empty,
+                        "**25.0 が拒否された = どこかが箱の 20 を読んでいる**");
+
+            // 拒否の文言にも定義の値が出ること。
+            Assert.That(DockingSolver.RejectionReason(50.0, 0.5, 0.0, range),
+                        Does.Contain("37"), "文言が古い値を出している");
+        }
+
+        [Test]
+        public void 値を振ると派生値が追随する()
+        {
+            //   RequestRange   UndockDistance = range * 1.2
+            //   20.0           24.0   （箱 / 既存の数表）
+            //   37.0           44.4
+            Assert.That(DockingSolver.UndockDistance(TestRange), Is.EqualTo(44.4).Within(1e-12));
+
+            // 比が箱と同じであること（式ごと差し替わっていないこと）。
+            Assert.That(DockingSolver.UndockDistance(TestRange) / TestRange,
+                        Is.EqualTo(DockingSolver.UndockDistance(20.0) / 20.0).Within(1e-12));
+
+            var solver = new DockingSolver();
+            solver.Step(37.0, 0.5, 0.0, false, false, 1.0 / 60.0, TestRange);
+            Assert.That(solver.State, Is.EqualTo(DockingState.Approaching), "37.0 で入る");
+
+            solver.Step(44.4, 0.5, 0.0, false, false, 1.0 / 60.0, TestRange);
+            Assert.That(solver.State, Is.EqualTo(DockingState.Approaching), "44.4 では抜けない");
+
+            solver.Step(44.401, 0.5, 0.0, false, false, 1.0 / 60.0, TestRange);
+            Assert.That(solver.State, Is.EqualTo(DockingState.Free), "44.4 を超えたら抜ける");
+        }
+
+        [Test]
+        public void 値を振るとポート位置が追随する()
+        {
+            // ポート面 = 中心 + ポート方向 * PortStandoff
+            //   箱   0.30 -> 中心 +Y に 0.30   （既存の数表: 12000.3）
+            //   試験 0.47 -> 中心 +Y に 0.47
+            SolarSystemModel model = Model();
+            var station = new SpaceStation(
+                "test", model.Earth, new Vec3d(0.0, 1.0, 0.0),
+                SolarSystemModel.EarthStationDistanceKm, SolarSystemModel.StationRadiusKm,
+                Varied());
+
+            Assert.That(station.PortStandoffKm, Is.EqualTo(TestStandoff));
+            Assert.That(station.PortPosition.Y - station.AbsolutePosition.Y,
+                        Is.EqualTo(TestStandoff).Within(1e-9),
+                        "**ポート面が定義に追随していない**");
+            Assert.That(station.RequestRangeUnits, Is.EqualTo(TestRange));
+
+            // 出港先の距離（ShipRig が組み立てる式と同じ形）。
+            //   箱   0.30 + 24.0 = 24.30
+            //   試験 0.47 + 44.4 = 44.87
+            double away = station.PortStandoffKm
+                          + DockingSolver.UndockDistance(station.RequestRangeUnits);
+            Assert.That(away, Is.EqualTo(44.87).Within(1e-9));
+        }
+
+        [Test]
+        public void Scaleにはまだ下流の読み手が無い()
+        {
+            // **値は持っているが、使う先がまだ無い**（13-3 でプレハブを置くときに使う）。
+            // grep で `StationDefinition.Scale` を読んでいる実装は 0 件（13-1a 時点）。
+            // **したがって Scale は「振っても下流が動く」ことをまだ示せない。**
+            // 使い始めたらこのテストを追随テストに置き換えること。
+            Assert.That(Varied().Scale, Is.EqualTo(TestScale));
+            Assert.That(Box().Scale, Is.EqualTo(1.0));
+        }
+
+        [Test]
+        public void 試験用の定義はカタログに入っていない()
+        {
+            // **実行時のカタログを汚さない。** 試験用はテストの中だけで作る。
+            Assert.That(Box().Id, Is.EqualTo(StationDefinition.BoxId));
+            Assert.That(Varied().Id, Is.Not.EqualTo(Box().Id));
+
+            foreach (SpaceStation station in Model().Stations)
+            {
+                Assert.That(station.Definition.Id, Is.EqualTo(StationDefinition.BoxId),
+                            station.Name + " が箱以外の定義を使っている");
+            }
+        }
+
         // ---- 移設していない値（範囲の記録）----
 
         [Test]
