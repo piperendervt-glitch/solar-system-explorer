@@ -156,6 +156,17 @@ public static class SolarSetup
         Debug.Log("[SolarSetup] InventoryStation OK");
     }
 
+    /// <summary>
+    /// 取り込んだモデルの単位を実測する (Step 13-3 コミット1)。**配線はしない。**
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.MeasureModelUnits
+    /// </summary>
+    public static void MeasureModelUnits()
+    {
+        SolarSystem.Editor.ModelUnitProbe.Run();
+        Debug.Log("[SolarSetup] MeasureModelUnits OK");
+    }
+
     /// <summary>発光しているメッシュが座席から見えるかを測る (Step 11-4a の調査)。</summary>
     public static void ProbeCockpitVisibility()
     {

@@ -1,0 +1,268 @@
+== モデルの単位の実測 (Step 13-3 コミット1) ==
+**配線はしていない。数字を出すだけ。**
+この世界は 1 unit = 1 km。コックピットは 1000 倍の描画空間
+（そこでは 1 m = 1 unit）にあるが、**それはモデル自身の寸法とは別の話。**
+
+############################################################
+## ステーション (Cobble Games)
+############################################################
+
+プレハブ : Assets/ThirdParty/CobbleGames/SpaceStationFree/Prefabs/Space Station.prefab
+ルート Transform の localScale : (1.0000, 1.0000, 1.0000)
+
+-- (1) 元モデルとインポータの設定 --
+  Assets/ThirdParty/CobbleGames/SpaceStationFree/Meshes/Spaceship.fbx
+    useFileScale (Convert Units) : True
+    globalScale  (Scale Factor)  : 1
+    bakeAxisConversion           : False
+    fileScale (ファイルが申告する倍率 / 読み取り専用) : 0.01
+    -> インポータがメッシュに掛ける実効倍率 = 0.01  (useFileScale なら fileScale x globalScale、そうでなければ globalScale)
+    FBX GlobalSettings UnitScaleFactor : 1  = 1 ファイル単位が 1 cm（1.0 = cm / 100.0 = m）
+    OriginalUnitScaleFactor            : 1
+
+-- (2) Transform 階層に掛かっている倍率と、生メッシュの寸法 --
+  **累積倍率はルートの localScale を含まない**（プレハブのローカル空間で測るため）。
+
+  レンダラー / 累積倍率 / 生メッシュの bounds.size [メッシュ単位] / 掛けた後 [プレハブ単位]
+  module1/antena / (100.0000, 100.0000, 100.0000) / (0.0109, 0.0072, 0.0045) / (1.0891, 0.7153, 0.4547)
+  module1 / (100.0000, 100.0000, 100.0000) / (0.0169, 0.0294, 0.0244) / (1.6888, 2.9422, 2.4418)
+  module10 / (100.0000, 100.0000, 100.0000) / (0.0289, 0.0289, 0.0361) / (2.8898, 2.8898, 3.6113)
+  module11 / (100.0000, 100.0000, 100.0000) / (0.0204, 0.0443, 0.0204) / (2.0447, 4.4318, 2.0447)
+  module12 / (100.0000, 100.0000, 100.0000) / (0.0196, 0.0207, 0.0405) / (1.9639, 2.0650, 4.0528)
+  module13 / (100.0000, 100.0000, 100.0000) / (0.0460, 0.0430, 0.0294) / (4.6042, 4.3004, 2.9404)
+  module14 / (100.0000, 100.0000, 100.0000) / (0.0341, 0.0277, 0.1329) / (3.4124, 2.7724, 13.2865)
+  module15 / (64.9205, 64.9205, 64.9205) / (0.0310, 0.0313, 0.0200) / (2.0109, 2.0315, 1.2980)
+  module3 / (100.0000, 100.0000, 100.0000) / (0.0965, 0.0836, 0.0172) / (9.6538, 8.3555, 1.7174)
+  module4 / (100.0000, 100.0000, 100.0000) / (0.4188, 0.0218, 0.0552) / (41.8769, 2.1752, 5.5162)
+  module4.001 / (100.0000, 100.0000, 100.0000) / (0.4188, 0.0218, 0.0552) / (41.8769, 2.1752, 5.5162)
+  module5 / (100.0000, 100.0000, 100.0000) / (0.0218, 0.0211, 0.0339) / (2.1793, 2.1120, 3.3914)
+  module6 / (100.0000, 100.0000, 100.0000) / (0.0548, 0.0792, 0.0472) / (5.4772, 7.9166, 4.7183)
+  module7 / (98.4963, 98.4963, 98.4963) / (0.2524, 0.2522, 0.0491) / (24.8576, 24.8393, 4.8369)
+  module8 / (111.8566, 111.8566, 111.8566) / (0.0200, 0.0201, 0.0386) / (2.2371, 2.2478, 4.3208)
+  module9 / (100.0000, 100.0000, 100.0000) / (0.0268, 0.0270, 0.0506) / (2.6837, 2.6985, 5.0609)
+
+  累積倍率の内訳（値: 件数）: 100: 13 / 64.92: 1 / 98.496: 1 / 111.857: 1
+  **最も多い倍率** : 100（13 / 16 件）
+  **単一の実効倍率は存在しない**（作者がモジュールごとに振っている）。以下の換算は最も多い倍率を代表値として使う。
+
+-- (3) プレハブのローカル空間での bbox --
+  size (X, Y, Z)          : (41.9387, 24.8393, 62.5408)
+  ピボットからの中心オフセット : (0.0300, 0.2481, -6.5522)
+  min / max               : (-20.9394, -12.1716, -37.8226) / (20.9994, 12.6677, 24.7182)
+  **全幅（X の寸法）**      : 41.9387
+  最大の寸法              : 62.5408
+  外接球の半径（bbox 中心基準）: 39.6459
+  外接球の半径（**ピボット基準**）: 45.0777   ← ステーションはピボットに置かれるので、MinStandoff に効くのはこちら
+
+############################################################
+## コックピット (Hi-Rez)
+############################################################
+
+プレハブ : Assets/ThirdParty/EbalStudios/HiRezSpaceshipsCreatorFree/Prefabs/Modules/Cockpit3_WithInterior.prefab
+ルート Transform の localScale : (1.0000, 1.0000, 1.0000)
+
+-- (1) 元モデルとインポータの設定 --
+  Assets/ThirdParty/EbalStudios/HiRezSpaceshipsCreatorFree/Meshes/FreeExampleModules.FBX
+    useFileScale (Convert Units) : True
+    globalScale  (Scale Factor)  : 1
+    bakeAxisConversion           : False
+    fileScale (ファイルが申告する倍率 / 読み取り専用) : 0.01
+    -> インポータがメッシュに掛ける実効倍率 = 0.01  (useFileScale なら fileScale x globalScale、そうでなければ globalScale)
+    FBX GlobalSettings UnitScaleFactor : 1  = 1 ファイル単位が 1 cm（1.0 = cm / 100.0 = m）
+    OriginalUnitScaleFactor            : 1
+
+-- (2) Transform 階層に掛かっている倍率と、生メッシュの寸法 --
+  **累積倍率はルートの localScale を含まない**（プレハブのローカル空間で測るため）。
+
+  レンダラー / 累積倍率 / 生メッシュの bounds.size [メッシュ単位] / 掛けた後 [プレハブ単位]
+  Cockpit3_Body / (1.0000, 1.0000, 1.0000) / (1.6075, 1.6312, 5.7662) / (1.6075, 1.6312, 5.7662)
+  Cockpit3_Glass / (1.0000, 1.0000, 1.0000) / (1.3245, 0.6780, 2.5973) / (1.3245, 0.6780, 2.5973)
+  Cockpit3_Interior / (1.0000, 1.0000, 1.0000) / (1.2831, 1.3965, 2.6386) / (1.2831, 1.3965, 2.6386)
+  Cockpit3_InteriorDetails/CockpitEquipments_Buttons/CockpitEquipments_Button4-1 / (0.8500, 0.8500, 0.8500) / (0.0312, 0.0042, 0.0090) / (0.0265, 0.0035, 0.0077)
+  Cockpit3_InteriorDetails/CockpitEquipments_Buttons/CockpitEquipments_Button4-2 / (0.8500, 0.8500, 0.8500) / (0.0312, 0.0042, 0.0090) / (0.0265, 0.0035, 0.0077)
+  Cockpit3_InteriorDetails/CockpitEquipments_Buttons/CockpitEquipments_Button4-3 / (0.8500, 0.8500, 0.8500) / (0.0312, 0.0042, 0.0090) / (0.0265, 0.0035, 0.0077)
+  Cockpit3_InteriorDetails/CockpitEquipments_Buttons/CockpitEquipments_Button4-4 / (0.8500, 0.8500, 0.8500) / (0.0312, 0.0042, 0.0090) / (0.0265, 0.0035, 0.0077)
+  Cockpit3_InteriorDetails/CockpitEquipments_Buttons/CockpitEquipments_Button4-5 / (0.8500, 0.8500, 0.8500) / (0.0312, 0.0042, 0.0090) / (0.0265, 0.0035, 0.0077)
+  Cockpit3_InteriorDetails/CockpitEquipments_Buttons/CockpitEquipments_Button4-6 / (0.8500, 0.8500, 0.8500) / (0.0312, 0.0042, 0.0090) / (0.0265, 0.0035, 0.0077)
+  Cockpit3_InteriorDetails/CockpitEquipments_Buttons/CockpitEquipments_Button5 / (0.8500, 0.8500, 0.8500) / (0.0312, 0.0042, 0.0090) / (0.0265, 0.0035, 0.0077)
+  Cockpit3_InteriorDetails/CockpitEquipments_Buttons/CockpitEquipments_Button6-1 / (0.8500, 0.8500, 0.8500) / (0.0264, 0.0068, 0.0264) / (0.0224, 0.0058, 0.0224)
+  Cockpit3_InteriorDetails/CockpitEquipments_Buttons/CockpitEquipments_Button6-10 / (0.8500, 0.8500, 0.8500) / (0.0264, 0.0068, 0.0264) / (0.0224, 0.0058, 0.0224)
+  Cockpit3_InteriorDetails/CockpitEquipments_Buttons/CockpitEquipments_Button6-11 / (0.8500, 0.8500, 0.8500) / (0.0264, 0.0068, 0.0264) / (0.0224, 0.0058, 0.0224)
+  Cockpit3_InteriorDetails/CockpitEquipments_Buttons/CockpitEquipments_Button6-2 / (0.8500, 0.8500, 0.8500) / (0.0264, 0.0068, 0.0264) / (0.0224, 0.0058, 0.0224)
+  Cockpit3_InteriorDetails/CockpitEquipments_Buttons/CockpitEquipments_Button6-3 / (0.8500, 0.8500, 0.8500) / (0.0264, 0.0068, 0.0264) / (0.0224, 0.0058, 0.0224)
+  Cockpit3_InteriorDetails/CockpitEquipments_Buttons/CockpitEquipments_Button6-4 / (0.8500, 0.8500, 0.8500) / (0.0264, 0.0068, 0.0264) / (0.0224, 0.0058, 0.0224)
+  Cockpit3_InteriorDetails/CockpitEquipments_Buttons/CockpitEquipments_Button6-5 / (0.8500, 0.8500, 0.8500) / (0.0264, 0.0068, 0.0264) / (0.0224, 0.0058, 0.0224)
+  Cockpit3_InteriorDetails/CockpitEquipments_Buttons/CockpitEquipments_Button6-6 / (0.8500, 0.8500, 0.8500) / (0.0264, 0.0068, 0.0264) / (0.0224, 0.0058, 0.0224)
+  Cockpit3_InteriorDetails/CockpitEquipments_Buttons/CockpitEquipments_Button6-7 / (0.8500, 0.8500, 0.8500) / (0.0264, 0.0068, 0.0264) / (0.0224, 0.0058, 0.0224)
+  Cockpit3_InteriorDetails/CockpitEquipments_Buttons/CockpitEquipments_Button6-8 / (0.8500, 0.8500, 0.8500) / (0.0264, 0.0068, 0.0264) / (0.0224, 0.0058, 0.0224)
+  Cockpit3_InteriorDetails/CockpitEquipments_Buttons/CockpitEquipments_Button6-9 / (0.8500, 0.8500, 0.8500) / (0.0264, 0.0068, 0.0264) / (0.0224, 0.0058, 0.0224)
+  Cockpit3_InteriorDetails/CockpitEquipments_Buttons/CockpitEquipments_Button7 / (0.8500, 0.8500, 0.8500) / (0.0264, 0.0068, 0.0264) / (0.0224, 0.0058, 0.0224)
+  Cockpit3_InteriorDetails/CockpitEquipments_FootStand/CockpitEquipments_FootStand-1 / (1.0000, 1.0000, 1.0000) / (0.1313, 0.1918, 0.2246) / (0.1313, 0.1918, 0.2246)
+  Cockpit3_InteriorDetails/CockpitEquipments_FootStand/CockpitEquipments_FootStand-2 / (1.0000, 1.0000, 1.0000) / (0.1313, 0.1918, 0.2246) / (0.1313, 0.1918, 0.2246)
+  Cockpit3_InteriorDetails/CockpitEquipments_Gauge1/CockpitEquipments_Gauge1-Base / (1.0000, 1.0000, 1.0000) / (0.1000, 0.0653, 0.1000) / (0.1000, 0.0653, 0.1000)
+  Cockpit3_InteriorDetails/CockpitEquipments_Gauge1/CockpitEquipments_Gauge1-Screen / (1.0000, 1.0000, 1.0000) / (0.0765, 0.0765, 0.0000) / (0.0765, 0.0765, 0.0000)
+  Cockpit3_InteriorDetails/CockpitEquipments_Gauge2/CockpitEquipments_Gauge2-Base / (1.0000, 1.0000, 1.0000) / (0.1000, 0.0653, 0.1000) / (0.1000, 0.0653, 0.1000)
+  Cockpit3_InteriorDetails/CockpitEquipments_Gauge2/CockpitEquipments_Gauge2-Screen / (1.0000, 1.0000, 1.0000) / (0.0765, 0.0765, 0.0000) / (0.0765, 0.0765, 0.0000)
+  Cockpit3_InteriorDetails/CockpitEquipments_HUD/CockpitEquipments_HUD-1 / (1.0000, 1.0000, 1.0000) / (0.1412, 0.0271, 0.1412) / (0.1412, 0.0271, 0.1412)
+  Cockpit3_InteriorDetails/CockpitEquipments_HUD/CockpitEquipments_HUD-2 / (1.0000, 1.0000, 1.0000) / (0.1338, 0.1338, 0.0000) / (0.1338, 0.1338, 0.0000)
+  Cockpit3_InteriorDetails/CockpitEquipments_Handles/CockpitEquipments_Handle-1 / (1.0000, 1.0000, 1.0000) / (0.0490, 0.0171, 0.1100) / (0.0490, 0.0171, 0.1100)
+  Cockpit3_InteriorDetails/CockpitEquipments_Handles/CockpitEquipments_Handle-2 / (1.0000, 1.0000, 1.0000) / (0.0490, 0.0171, 0.1100) / (0.0490, 0.0171, 0.1100)
+  Cockpit3_InteriorDetails/CockpitEquipments_Joystick/CockpitEquipments_Joystick2-Base / (1.0000, 1.0000, 1.0000) / (0.0890, 0.0216, 0.0890) / (0.0890, 0.0216, 0.0890)
+  Cockpit3_InteriorDetails/CockpitEquipments_Joystick/CockpitEquipments_Joystick2-Handle / (1.0000, 1.0000, 1.0000) / (0.1145, 0.1909, 0.0894) / (0.1145, 0.1909, 0.0894)
+  Cockpit3_InteriorDetails/CockpitEquipments_Screens/CockpitEquipments_Screen-1 / (1.0000, 1.0000, 1.0000) / (0.3454, 0.1835, 0.0000) / (0.3454, 0.1835, 0.0000)
+  Cockpit3_InteriorDetails/CockpitEquipments_Screens/CockpitEquipments_Screen-2 / (1.0000, 1.0000, 1.0000) / (0.3454, 0.1835, 0.0000) / (0.3454, 0.1835, 0.0000)
+  Cockpit3_InteriorDetails/CockpitEquipments_Screens/CockpitEquipments_ScreenFrame-1 / (1.0000, 1.0000, 1.0000) / (0.4012, 0.2023, 0.0162) / (0.4012, 0.2023, 0.0162)
+  Cockpit3_InteriorDetails/CockpitEquipments_Screens/CockpitEquipments_ScreenFrame-2 / (1.0000, 1.0000, 1.0000) / (0.4012, 0.2023, 0.0162) / (0.4012, 0.2023, 0.0162)
+  Cockpit3_InteriorDetails/CockpitEquipments_Seat/CockpitEquipments_Seat / (1.0000, 1.0000, 1.0000) / (0.6899, 1.1755, 1.0748) / (0.6899, 1.1755, 1.0748)
+  Cockpit3_InteriorDetails/CockpitEquipments_Seat/CockpitEquipments_SeatEjectorHandle / (1.0000, 1.0000, 1.0000) / (0.1340, 0.1417, 0.0978) / (0.1340, 0.1417, 0.0978)
+  Cockpit3_InteriorDetails/CockpitEquipments_Stand / (1.0000, 1.0000, 1.0000) / (0.2517, 0.7375, 0.8095) / (0.2517, 0.7375, 0.8095)
+  Cockpit3_InteriorDetails/CockpitEquipments_Switchs/CockpitEquipments_Switch1-1 / (1.0000, 1.0000, 1.0000) / (0.0542, 0.0224, 0.0550) / (0.0542, 0.0224, 0.0550)
+  Cockpit3_InteriorDetails/CockpitEquipments_Switchs/CockpitEquipments_Switch1-2 / (1.0000, 1.0000, 1.0000) / (0.0542, 0.0224, 0.0550) / (0.0542, 0.0224, 0.0550)
+  Cockpit3_InteriorDetails/CockpitEquipments_Switchs/CockpitEquipments_Switch2-1 / (0.8000, 0.8000, 0.8000) / (0.0542, 0.0261, 0.0550) / (0.0433, 0.0209, 0.0440)
+  Cockpit3_InteriorDetails/CockpitEquipments_Switchs/CockpitEquipments_Switch2-2 / (0.8000, 0.8000, 0.8000) / (0.0542, 0.0261, 0.0550) / (0.0433, 0.0209, 0.0440)
+  Cockpit3_InteriorDetails/CockpitEquipments_Switchs/CockpitEquipments_Switch2-3 / (0.8000, 0.8000, 0.8000) / (0.0542, 0.0261, 0.0550) / (0.0433, 0.0209, 0.0440)
+  Cockpit3_InteriorDetails/CockpitEquipments_Switchs/CockpitEquipments_Switch3-1 / (0.9500, 0.9500, 0.9500) / (0.0320, 0.0280, 0.0166) / (0.0304, 0.0266, 0.0157)
+  Cockpit3_InteriorDetails/CockpitEquipments_Switchs/CockpitEquipments_Switch3-2 / (0.9500, 0.9500, 0.9500) / (0.0320, 0.0280, 0.0166) / (0.0304, 0.0266, 0.0157)
+  Cockpit3_InteriorDetails/CockpitEquipments_Switchs/CockpitEquipments_Switch3-3 / (0.9500, 0.9500, 0.9500) / (0.0320, 0.0280, 0.0166) / (0.0304, 0.0266, 0.0157)
+  Cockpit3_InteriorDetails/CockpitEquipments_Switchs/CockpitEquipments_Switch3-4 / (0.9500, 0.9500, 0.9500) / (0.0320, 0.0280, 0.0166) / (0.0304, 0.0266, 0.0157)
+  Cockpit3_InteriorDetails/CockpitEquipments_Switchs/CockpitEquipments_Switch3-5 / (0.9500, 0.9500, 0.9500) / (0.0320, 0.0280, 0.0166) / (0.0304, 0.0266, 0.0157)
+  Cockpit3_InteriorDetails/CockpitEquipments_ThrottleControl/CockpitEquipments_ThrottleContro1-Base / (1.0000, 1.0000, 1.0000) / (0.1319, 0.0372, 0.0744) / (0.1319, 0.0372, 0.0744)
+  Cockpit3_InteriorDetails/CockpitEquipments_ThrottleControl/CockpitEquipments_ThrottleControl1-Handle1 / (1.0000, 1.0000, 1.0000) / (0.0863, 0.1238, 0.1050) / (0.0863, 0.1238, 0.1050)
+  Cockpit3_InteriorDetails/CockpitEquipments_ThrottleControl/CockpitEquipments_ThrottleControl1-Handle2 / (1.0000, 1.0000, 1.0000) / (0.0863, 0.1238, 0.1050) / (0.0863, 0.1238, 0.1050)
+
+  累積倍率の内訳（値: 件数）: 1: 27 / 0.85: 19 / 0.95: 5 / 0.8: 3
+  **最も多い倍率** : 1（27 / 54 件）
+  **単一の実効倍率は存在しない**（作者がモジュールごとに振っている）。以下の換算は最も多い倍率を代表値として使う。
+
+-- (3) プレハブのローカル空間での bbox --
+  size (X, Y, Z)          : (1.6075, 1.6312, 5.7662)
+  ピボットからの中心オフセット : (0.0000, 0.0000, 0.0000)
+  min / max               : (-0.8038, -0.8156, -2.8831) / (0.8038, 0.8156, 2.8831)
+  **全幅（X の寸法）**      : 1.6075
+  最大の寸法              : 5.7662
+  外接球の半径（bbox 中心基準）: 3.1022
+  外接球の半径（**ピボット基準**）: 3.1022   ← ステーションはピボットに置かれるので、MinStandoff に効くのはこちら
+
+############################################################
+## 単位の導出（**どの設定値からそう言えるのか**）
+############################################################
+
+-- 2 つのアセットの設定は同一 --
+  項目 / ステーション (Cobble) / コックピット (Hi-Rez)
+  FBX UnitScaleFactor : 1 / 1
+  useFileScale        : True / True
+  globalScale         : 1 / 1
+  fileScale           : 0.01 / 0.01
+  プレハブ側の最も多い倍率 : 100 / 1
+  プレハブのルート localScale : (1.0000, 1.0000, 1.0000) / (1.0000, 1.0000, 1.0000)
+
+-- 導出（掛け算） --
+  FBX の UnitScaleFactor = 1 は「1 ファイル単位 = 1 cm」の申告。
+  useFileScale = True なので Unity は fileScale = 0.01 を掛けて
+  メッシュをメートルに直す。**取り込み後のメッシュはメートル。**
+
+  ステーション : メッシュ [m] x プレハブ倍率 100 -> プレハブ単位
+  コックピット : メッシュ [m] x プレハブ倍率 1 -> プレハブ単位
+
+  ルートの localScale は両方とも 1 なので、**プレハブをシーンへ scale 1 で置いたときの寸法 = 上の bbox。**
+  Unity の慣習では 1 unit = 1 m なので、その bbox の数値がそのままメートルになる。
+
+-- 裏取り: 同じ設定のコックピットで寸法が実物大か --
+  **コックピットは Demo 3 で実機に映しており、人が座る寸法として成立していることが分かっている。** そのアセットが
+  ステーションと同一の FBX 単位申告・同一のインポータ設定で、
+  プレハブ倍率だけが違う。だから同じ換算が両方に効く。
+
+  コックピットの実測（プレハブ単位 = メートルと読んだとき）:
+    機体 (Cockpit3_Body) : 1.6075 x 1.6312 x 5.7662 m
+    座席 (CockpitEquipments_Seat) : 0.6899 x 1.1755 x 1.0748 m
+    ボタン (CockpitEquipments_Button6-1) : 0.0224 x 0.0058 x 0.0224 m
+
+-- 結論 --
+  **ステーションのプレハブ単位は Unity のメートル。**
+  scale 1 で置いたときの実寸 = 41.94 x 24.84 x 62.54 m
+
+-- **この導出が抱えている食い違い（隠さない）** --
+  FBX の申告（UnitScaleFactor = 1 = cm）を額面どおりに読むと、
+  ステーションは 41.94 **cm** になる。プレハブの x100 は
+  インポータの x0.01 をちょうど打ち消しており、**結果としてプレハブは FBX の生の数値をそのまま再現している。**
+  つまり作者は「生の数値をメートルとして扱う」つもりで作り、
+  FBX の単位申告のほうが実態と合っていない（書き出し時のよくある不一致）。
+
+  **確定できるのは「scale 1 で置くと Unity 単位で何になるか」まで。**
+  それがメートルであることは Unity の慣習と、同設定のコックピットが実物大であることから来ている。
+  **作者が 41.94 m を意図した、という一次資料は持っていない**（デモシーンは 13-2 で取り込まずに落とした）。
+
+############################################################
+## 目の位置と機体の関係（Demo 3 で確定した EyeLocal）
+############################################################
+
+EyeLocal (CockpitDefinition.HiRezSample / プレハブ原点基準) : (0.0000, 0.4290, -1.4360)
+
+  機体 bbox min / max : (-0.8038, -0.8156, -2.8831) / (0.8038, 0.8156, 2.8831)
+  目が bbox の中で占める位置（0 = min 側 / 1 = max 側）:
+    X : 0.0000  (0.5000)
+    Y : 0.4290  (0.7630)
+    Z : -1.4360  (0.2510)
+
+  目から機首側（+Z / EyeForward）の端まで : 4.3191
+  目から機尾側（-Z）の端まで             : 1.4471
+  目から上（+Y）の端まで                 : 0.3866
+  目から下（-Y）の端まで                 : 1.2446
+
+############################################################
+## 参考: Scale を振ったときの数字（**選ばない。並べるだけ**）
+############################################################
+
+入力（プレハブのローカル単位）:
+  bbox size            : (41.9387, 24.8393, 62.5408)
+  ピボット基準の外接球半径 : 45.0777
+
+-- 実寸と MinStandoff --
+  Scale | 実寸 X x Y x Z [m] | 半径(ピボット基準) [units] | 同 [m] | MinStandoff = 半径 + 0.01 [units]
+  0.001 | 41.9 x 24.8 x 62.5 | 0.04508 | 45.1 | 0.05508
+  0.002 | 83.9 x 49.7 x 125.1 | 0.09016 | 90.2 | 0.10016
+  0.004 | 167.8 x 99.4 x 250.2 | 0.18031 | 180.3 | 0.19031
+  0.008 | 335.5 x 198.7 x 500.3 | 0.36062 | 360.6 | 0.37062
+
+  **前提**: Scale は「プレハブのローカル単位 -> units」の倍率。
+  プレハブのローカル単位が 1 m なら、Scale 0.001 が実寸配置になる
+  （1 unit = 1 km なので 1 m = 0.001 units）。
+
+-- ドッキング口の目安（**実際の口はまだ特定していない**）--
+  **これは「bbox の最も小さい面」を口と見なしただけの目安で、
+  実物のドッキング口ではない。** 実際の口は 13-3 でプレハブの
+  形を見て特定する。ここの比を根拠に Scale を決めないこと。
+
+  bbox の 3 辺を昇順に : 24.8393 / 41.9387 / 62.5408
+  最小の面 = 短い 2 辺 : 24.8393 x 41.9387 [プレハブ単位]
+
+  船の全幅（コックピット bbox の X / メートル） : 1.6075
+  物差し（計画書 13-3）: 開口が船の全幅の 1.5〜3 倍
+  -> **物差しを満たす開口の実寸は 2.411 〜 4.823 m。**
+
+  Scale | 開口 [m] (短辺 x 長辺) | 短辺 / 全幅 | 長辺 / 全幅 | 1.5〜3 に入るか
+  0.001 | 24.84 x 41.94 | 15.452 | 26.089 | 入らない
+  0.002 | 49.68 x 83.88 | 30.904 | 52.178 | 入らない
+  0.004 | 99.36 x 167.75 | 61.808 | 104.356 | 入らない
+  0.008 | 198.71 x 335.51 | 123.616 | 208.713 | 入らない
+
+  **どの Scale でも入らない。** bbox の最小面は構造物の断面であって
+  ドッキング口ではないので、これは想定どおりの結果で、Scale の可否を何も言っていない。
+
+  参考: bbox の最小面が物差しに入るには Scale が 0.0000971 〜 0.0001942 でなければならない
+  （そのとき構造物全体は 6.07 〜 12.14 m になる）。
+  **実際の口は構造物のごく一部なので、口の実寸が 2.41 〜 4.82 m になる Scale を、口を特定してから逆算すること。**
+
+-- 現行の箱との対比 --
+  現行の箱 : 半径 0.250 units (= 250 m) / PortStandoff 0.300 units / RequestRange 20.0 units
+
+  Scale | 半径 [units] | 箱の半径に対する比 | PortStandoff を箱と同じ 1.2 倍にした値 [units]
+  0.001 | 0.04508 | 0.1803 | 0.05409
+  0.002 | 0.09016 | 0.3606 | 0.10819
+  0.004 | 0.18031 | 0.7212 | 0.21637
+  0.008 | 0.36062 | 1.4425 | 0.43275
+
+  **RequestRange 20 units は現行の箱の半径の 80 倍。**
+  半径が小さくなると、要求できる距離だけが相対的に遠くなる
+  （13-1a の宿題「AP の到着半径と RequestRange の関係」に直結）。
+
