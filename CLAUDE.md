@@ -368,6 +368,23 @@ Step が進むたびに追記する。
 
 ---
 
+### Step 13-0: 路線の決定（Demo 4）
+
+**SF 路線に決定。人間の判断。**
+
+| | |
+| --- | --- |
+| 採用 | **Space Station Free 3D Asset (HDRP + URP + Built-In)** / Cobble Games / 無料 |
+| Asset Store ID | 188734（v1.2 / 2021-12-14 / アセットが作られた Unity 2019.4.22f1） |
+| 採らなかった路線 | **ISS（実在 / NASA 3D Resources）。** パブリックドメインで追跡できる唯一の候補だったが、SF 路線を選んだので採らない |
+
+**世界観は実在寄り（NASA 星図・実写惑星・等倍時間）と SF 寄り（船は Hi-Rez）が
+混ざっている。** ここは好みで決めるところで、船に合わせて SF を選んだ。
+
+取得と取り込みの記録は [docs/asset-sources.md](docs/asset-sources.md)。
+
+---
+
 ## 0-A2. Step 12（XR スパイク）の判定
 
 **人間が実機でかぶって判定した。判定: go。**

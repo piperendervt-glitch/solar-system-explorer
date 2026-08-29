@@ -177,6 +177,41 @@ Python の `tarfile` では開けない**（`ReadError: invalid compressed data`
 **プレハブ GUID が解決できるか**で行う。
 
 ---
+## 5. ステーションモデル（Demo 4 / Step 13-1b） — **取得済み・未取り込み**
+
+| | |
+| --- | --- |
+| アセット名 | Space Station Free 3D Asset (HDRP + URP + Built-In) |
+| 提供元 | Cobble Games |
+| Asset Store ID | 188734 |
+| バージョン | 1.2（公開 2021-12-14 / アセットが作られた Unity: 2019.4.22f1） |
+| カテゴリ | 3D Models/Vehicles/Space |
+| 入手日 | 2026-08-29 |
+| ライセンス | **Standard Unity Asset Store EULA**。ゲームに組み込んでの配布は可、**アセット自体の再配布は不可** |
+| ダウンロード物 | `Space Station Free 3D Asset HDRP URP Built-In.unitypackage`（1,966,313,357 バイト = 1875.22 MB） |
+| ダウンロード先 | `%APPDATA%\Unity\Asset Store-5.x\Cobble Games\3D ModelsVehiclesSpace\`（**リポジトリ外**） |
+| 取り込み先 | `unity/Assets/ThirdParty/CobbleGames/`（**追跡除外**。13-2 で取り込む） |
+| プレハブ GUID | 13-2 の棚卸しで確定する |
+
+**アセット名・提供元・ID・バージョンは推測ではなく、`.unitypackage` の gzip FEXTRA に
+埋まっている Asset Store のメタ情報から読み出した値**（Hi-Rez と同じ経路）。
+
+```
+{"link":{"id":"188734","type":"content"},"unity_version":"2019.4.22f1",
+ "pubdate":"14 Dec 2021","version":"1.2","upload_id":"469614","version_id":"657706",
+ "category":{"id":"48","label":"3D Models/Vehicles/Space"},"id":"188734",
+ "title":"Space Station Free 3D Asset","publisher":{"id":"52339","label":"Cobble Games"}}
+```
+
+**採らなかった路線: ISS（NASA 3D Resources）。** 無料でパブリックドメイン、
+リポジトリに追跡できる唯一の候補だったが、13-0 で SF 路線を選んだので採らない。
+
+> **このリポジトリは PUBLIC。** EULA が再配布を禁じるので、
+> `unity/Assets/ThirdParty/` 配下は 1 ファイルも追跡しない。
+> `.gitignore` と EditMode テスト `ThirdPartyTrackingTests` がこれを縛っている。
+
+---
+
 ## 5. 未確認事項
 
 - [x] ~~freesound #343738 / #715475 のライセンス~~ → **不採用にしたので確認不要**（将来使うなら上の注記のとおり要確認）
