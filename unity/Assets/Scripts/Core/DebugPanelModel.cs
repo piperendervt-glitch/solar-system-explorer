@@ -269,6 +269,13 @@ namespace SolarSystem.Core
         public const string StationRollId = "num.stationRoll";
 
         /// <summary>
+        /// **ドッキング要求ができる距離 [units] (Step 13-3b)。原点はポート位置。**
+        /// 遊びの感触と 13-5 の誘導灯の長さで決まる値なので、実際に飛んで決める。
+        /// **既定は出発点であって確定値ではない。**
+        /// </summary>
+        public const string RequestRangeId = "num.requestRange";
+
+        /// <summary>
         /// **判定ビューの Scale (Step 13-3b)。** 0.001〜0.008 を刻み 0.00025 で連続に振る。
         /// 段の切り替えにしないのは、境目がどこかを目で見るため。
         /// **`StationDefinition` には書かない。** 値は人間が決める。
@@ -466,7 +473,7 @@ namespace SolarSystem.Core
             m._items.Add(DebugItem.MakeNumber(BloomScatterId, "bloom 拡散",
                 bloomScatter, 0.0, 1.0, 0.05, "F2"));
             // ---- 計器の画面 (Step 11-3) ----
-            // **発光は bloom のしきい値 0.90 の下が既定。** 文字が滲まないことを優先する。
+            // **発光は bloom のしきい値（決めた当時 0.90 / **13-3b で 3.00 へ変更**） の下が既定。** 文字が滲まないことを優先する。
             m._items.Add(DebugItem.MakeNumber(ScreenEmissionId, "画面の発光強度",
                 screenEmission, 0.0, 2.0, 0.05, "F2"));
 
@@ -482,6 +489,11 @@ namespace SolarSystem.Core
                 StationDefinition.RuntimeScaleFactorDefault, 0.10, 4.00, 0.05, "F2"));
             m._items.Add(DebugItem.MakeNumber(StationRollId, "アレイのロール [度]",
                 0.0, -180.0, 180.0, 5.0, "F0"));
+
+            // **0.2〜20.0 / 刻み 0.1（199 段）。** 20.0 は原点を揃える前の値で、
+            // 0.2 はポート面（Standoff 0.015）のすぐ外。
+            m._items.Add(DebugItem.MakeNumber(RequestRangeId, "要求可能距離 [units]",
+                StationCatalog.DefaultRequestRangeUnits, 0.2, 20.0, 0.1, "F1"));
 
             // ---- 判定ビュー (Step 13-3b) ----
             // **-stationJudge のときだけ効く。** 値は Core の定数から読む。
@@ -576,7 +588,7 @@ namespace SolarSystem.Core
                 return CategoryOrder[2];
             }
 
-            if (id == StationScaleId || id == StationRollId
+            if (id == StationScaleId || id == StationRollId || id == RequestRangeId
                 || id.StartsWith("judge.") || id == JudgeScaleId
                 || id == JudgeDistanceId)
             {

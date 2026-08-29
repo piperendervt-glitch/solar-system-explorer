@@ -166,61 +166,105 @@ namespace SolarSystem.Tests.EditMode
         // ---- AP の到着半径との関係 (S2 の宿題 / Step 13-3b-2) ----
 
         [Test]
-        public void APの到着半径とRequestRangeの関係()
+        public void 要求の判定はポート位置から測る()
         {
-            // **2 つは別の原点から測っている。**
-            //   AP の到着     RemainingDistance は **ポート位置** から
-            //   ドッキング要求 DistanceFrom は **構造物の中心** から
+            // **13-3b で原点を揃えた。**
             //
-            // 原点の差 = PortLocalUnits + PortStandoff
-            //   箱     0        + 0.3   = 0.3
-            //   Cobble 0.19775  + 0.015 = 0.21275
+            //   前: AP は PortPosition から / 要求は **構造物の中心** から
+            //       原点の差 = PortLocalUnits + PortStandoff
+            //         箱     0        + 0.3   = 0.3
+            //         Cobble 0.19775  + 0.015 = 0.21275
+            //       AP 到着時の「中心からの距離」は最大 20.21275 units になりえて、
+            //       RequestRange 20 に対して余裕は 0 だった。
             //
-            // AP が Arrived になった瞬間の「中心からの距離」は最大で
-            //   ArrivalRadius + 原点の差
-            // になる。これが RequestRange を超えると**止まってから要求が通らない。**
-            StationDefinition c = Cobble();
+            //   後: **どちらも PortPosition から。** 下駄が外れたので
+            //       RequestRange は「ポートから何 units で要求できるか」になった。
+            SolarSystemModel model = SolarSystemModel.CreateOpposition(Cobble());
+            SpaceStation earth = model.Stations[0];
 
-            double offset = c.PortLocalUnits.Magnitude + c.PortStandoff;
-            Assert.That(offset, Is.EqualTo(0.21275).Within(1e-4));
+            // ポート位置にいるとき: ポートからは 0、中心からは 0.21275。
+            Assert.That(earth.DistanceFromPort(earth.PortPosition),
+                        Is.EqualTo(0.0).Within(1e-9));
+            Assert.That(earth.DistanceFrom(earth.PortPosition),
+                        Is.EqualTo(0.21275).Within(1e-4));
 
-            double worst = UniverseConstants.ArrivalRadiusUnits + offset;
-            Assert.That(worst, Is.EqualTo(20.21275).Within(1e-4));
+            SolarSystemModel boxModel =
+                SolarSystemModel.CreateOpposition(StationCatalog.Box());
+            SpaceStation boxEarth = boxModel.Stations[0];
 
-            // **いまは RequestRange = ArrivalRadius なので、余裕は 0。**
-            // 船が惰性で内側へ入るぶんで通っている（PlayMode の往復で実測）。
-            Assert.That(c.RequestRange, Is.EqualTo(UniverseConstants.ArrivalRadiusUnits));
-
-            // **番人。** RequestRange を AP の到着半径より小さくすると、
-            // AP は遠くで止まったまま要求が通らなくなる。
-            Assert.That(c.RequestRange,
-                        Is.GreaterThanOrEqualTo(UniverseConstants.ArrivalRadiusUnits),
-                        "**RequestRange が AP の到着半径より小さい。**"
-                        + " AP は AutopilotSolver の 5 箇所で"
-                        + " UniverseConstants.ArrivalRadiusUnits を読んでおり、"
-                        + " 定義側の値を見ていない。片方だけ下げると"
-                        + "「止まってから要求が通らない」壊れ方をする");
-
-            StationDefinition box = StationCatalog.Box();
-            Assert.That(box.PortLocalUnits.Magnitude + box.PortStandoff,
-                        Is.EqualTo(0.3).Within(1e-12));
-            Assert.That(box.RequestRange,
-                        Is.GreaterThanOrEqualTo(UniverseConstants.ArrivalRadiusUnits));
+            Assert.That(boxEarth.DistanceFromPort(boxEarth.PortPosition),
+                        Is.EqualTo(0.0).Within(1e-9));
+            Assert.That(boxEarth.DistanceFrom(boxEarth.PortPosition),
+                        Is.EqualTo(0.3).Within(1e-9));
         }
 
+        [Test]
+        public void 原点を揃える前と後の数表()
+        {
+            // **同じ地点でも、原点が違えば距離が違う。**
+            // ポート位置から d units 手前（ポート方向側）にいる船で比べる。
+            //
+            //   定義     d       ポートから   中心から      要求可能 2.0 で
+            //   Cobble   1.0     1.0          1.21275       ポート基準なら通る
+            //   箱       1.0     1.0          1.3           同上
+            //
+            // **中心基準のままだと、同じ位置でも 0.21275 / 0.3 の下駄を履く。**
+            foreach (StationDefinition def in new[] { Cobble(), StationCatalog.Box() })
+            {
+                SolarSystemModel model = SolarSystemModel.CreateOpposition(def);
+                SpaceStation st = model.Stations[0];
+
+                const double d = 1.0;
+                Vec3d p = st.PortPosition + st.PortDirection * d;
+
+                Assert.That(st.DistanceFromPort(p), Is.EqualTo(d).Within(1e-9), def.Id);
+
+                // **スカラーの和は近似。** ポートのオフセットにはポート方向と
+                // 直交する成分がある（Cobble で X 0.00024 / Y 0.00192 units）ので、
+                // 中心からの距離はベクトル和になり、和より **8e-6 units** 小さい。
+                double offset = def.PortLocalUnits.Magnitude + def.PortStandoff;
+                Assert.That(st.DistanceFrom(p), Is.EqualTo(d + offset).Within(1e-4), def.Id);
+
+                // **ポート基準なら 2.0 の圏内。**
+                Assert.That(st.DistanceFromPort(p),
+                            Is.LessThanOrEqualTo(st.RequestRangeUnits), def.Id);
+            }
+        }
+
+        [Test]
+        public void 要求可能距離は実行時に振れる()
+        {
+            // **F4 で振る。** 判定も HUD も `EffectiveRequestRange` を読む。
+            StationDefinition c = Cobble();
+            Assert.That(c.EffectiveRequestRange, Is.EqualTo(2.0));
+
+            c.SetRuntimeRequestRange(5.0);
+            Assert.That(c.EffectiveRequestRange, Is.EqualTo(5.0));
+            Assert.That(c.RequestRange, Is.EqualTo(2.0), "定義の値は動かない");
+
+            Assert.That(DockingSolver.UndockDistance(c.EffectiveRequestRange),
+                        Is.EqualTo(6.0).Within(1e-12), "出港距離も一緒に動く");
+
+            c.ResetRuntimeRequestRange();
+            Assert.That(c.EffectiveRequestRange, Is.EqualTo(2.0));
+
+            Assert.Throws<System.ArgumentOutOfRangeException>(
+                () => c.SetRuntimeRequestRange(0.0));
+        }
         [Test]
         public void RequestRangeの候補の数表()
         {
             // **選んでいない。人間が指定する。** 数だけ残す。
             //   候補   [units]  実寸    半径 0.36062 の  全長 0.50033 の  出港 (x1.2)
 
-            //   (a)     20.0    20 km   55.5 倍          40.0 倍          24.0
+            //   (a)     20.0    20 km   55.5 倍          40.0 倍          24.0  （原点を揃える前の値）
             //   (b)      2.0     2 km    5.5 倍           4.0 倍           2.4
             //   (c)      1.0     1 km    2.8 倍           2.0 倍           1.2
             //   (d)      0.5   500 m     1.4 倍           1.0 倍           0.6
             StationDefinition c = Cobble();
 
             Assert.That(c.RadiusUnits, Is.EqualTo(0.36062).Within(1e-5));
+            Assert.That(c.RequestRange, Is.EqualTo(2.0), "既定は (b)");
 
             double length = 62.5408 * c.Scale;
             Assert.That(length, Is.EqualTo(0.50033).Within(1e-5));

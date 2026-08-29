@@ -365,7 +365,10 @@ namespace SolarSystem.Unity
                 return;
             }
 
-            double distance = station.DistanceFrom(root.Ship.Position);
+            // **要求の判定はポート位置から測る (Step 13-3b)。**
+            // 中心から測っていたときは、ポートのオフセット（Cobble で 0.19775 units）と
+            // PortStandoff（0.015）ぶんの下駄が RequestRange に乗っていた。
+            double distance = station.DistanceFromPort(root.Ship.Position);
 
             // 機首とポート正面のなす角。ポートは深宇宙側を向いているので、
             // 船はその逆を向いて寄る。

@@ -117,6 +117,7 @@ namespace SolarSystem.Unity
                 // MinStandoff）も `EffectiveScale` を読むので、両方が同時に動く。
                 double factor = model.NumberOf(DebugPanelModel.StationScaleId);
                 double roll = model.NumberOf(DebugPanelModel.StationRollId);
+                double range = model.NumberOf(DebugPanelModel.RequestRangeId);
                 foreach (StationView v in _stations.Views)
                 {
                     StationDefinition def = v != null && v.Station != null
@@ -138,6 +139,9 @@ namespace SolarSystem.Unity
 
                     // **アレイのロール (13-3b)。** 既定 0 で法線が太陽を向く。
                     def.SetArrayRoll(roll);
+
+                    // **要求可能距離 (13-3b)。** 原点はポート位置。
+                    def.SetRuntimeRequestRange(range);
                 }
 
                 bool visible = model.BoolOf("show.stations");

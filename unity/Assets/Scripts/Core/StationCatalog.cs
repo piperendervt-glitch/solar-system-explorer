@@ -15,7 +15,7 @@ namespace SolarSystem.Core
         ///
         /// `PortStandoff` の 0.3 は、これまで `SpaceStation.PortStandoffKm` が
         /// `RadiusKm * 1.2` で出していた値（0.25 * 1.2）。
-        /// `RequestRange` の 20 は `UniverseConstants.ArrivalRadiusUnits`（決定 D-10）。
+        /// `RequestRange` は **13-3b で 20 -> 2.0**（`DefaultRequestRangeUnits`）。
         ///
         /// **実行時に効くのはこの定義のほう。** `UniverseConstants.ArrivalRadiusUnits` は
         /// ここの既定値の出所と、オートパイロットの到着プロファイルに残っている。
@@ -45,7 +45,7 @@ namespace SolarSystem.Core
 
             portStandoff: RequiredDouble.Positive(
                 SolarSystemModel.StationRadiusKm * BoxStandoffMultiplier),
-            requestRange: RequiredDouble.Positive(UniverseConstants.ArrivalRadiusUnits),
+            requestRange: RequiredDouble.Positive(DefaultRequestRangeUnits),
 
             // **13-4 で使う。今は空。** 型と読む経路だけ用意してある。
             navLights: new NavLight[0],
@@ -115,8 +115,8 @@ namespace SolarSystem.Core
         /// <summary>
         /// **Cobble のステーション。13-3b で確定した値を焼いてある。**
         ///
-        /// `RequestRange` は**まだ 20 のまま**（箱と同じ）。
-        /// 13-5 の誘導灯の距離と補間の長さから決まる値なので、人間が指定するまで動かさない。
+        /// `RequestRange` は `DefaultRequestRangeUnits`（2.0）。箱と同じ値を使う。
+        /// **出発点であって確定値ではない。** F4 で振って人間が決める。
         /// </summary>
         public static StationDefinition Cobble() => StationDefinition.Create(
             CobbleId,
@@ -133,7 +133,7 @@ namespace SolarSystem.Core
             portUp: new Vec3d(0.0, 1.0, 0.0),
 
             portStandoff: RequiredDouble.Positive(CobblePortStandoff),
-            requestRange: RequiredDouble.Positive(UniverseConstants.ArrivalRadiusUnits),
+            requestRange: RequiredDouble.Positive(DefaultRequestRangeUnits),
 
             navLights: new NavLight[0],
             windowEmissives: new WindowEmissive[0],
@@ -141,6 +141,27 @@ namespace SolarSystem.Core
             fallbackId: StationDefinition.BoxId);
 
         // ---- 選択 ----
+
+        // ---- 要求可能距離 (Step 13-3b) ----
+
+        /// <summary>
+        /// **ドッキング要求ができる距離 [units]。原点はポート位置。**
+        ///
+        /// ■ 20.0 から 2.0 へ変えた (13-3b)
+        /// 20 は `UniverseConstants.ArrivalRadiusUnits`（決定 D-10）と同値で、
+        /// **AP の到着半径をそのまま流用していた値。**
+        /// 原点を中心からポートへ揃えたので、下駄（Cobble 0.19775 + 0.015）が外れ、
+        /// **「ポートから何 units で要求できるか」という意味のある量になった。**
+        ///
+        /// ■ **2.0 は出発点であって確定値ではない**
+        /// 遊びの感触と 13-5 の誘導灯の長さで決まる値なので、
+        /// **F4 で振って人間が決める。** 箱と Cobble で同じ値を使う。
+        ///
+        /// ■ AP の到着半径は 20 のまま
+        /// **到着後に手動で寄る区間が残るのは意図した設計**
+        /// （計画書「到着後にひと呼吸ある形を残す」）。
+        /// </summary>
+        public const double DefaultRequestRangeUnits = 2.0;
 
         /// <summary>**本番の定義。** アセットが無ければ組む側が箱へ落とす。</summary>
         public static StationDefinition Default() => Cobble();

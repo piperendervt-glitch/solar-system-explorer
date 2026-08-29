@@ -146,6 +146,19 @@ namespace SolarSystem.Unity
                               $"(Tab で切替)");
                 sb.AppendLine($"ドック   : {_rig.Docking.State}  進行 {_rig.Docking.Progress:0.00}  " +
                               $"ずれ角 {_rig.LastAlignmentAngle:0.0} 度  (Enter=要求 / BackSpace=出港)");
+                // **要求の判定に使っている値そのもの (Step 13-3b)。**
+                // 原点は構造物の中心ではなく**ポート位置**。
+                double pd = station.DistanceFromPort(_root.Ship.Position);
+                double range = station.RequestRangeUnits;
+                sb.AppendLine($"ポートまで: {pd:F4} units = {pd * 1000.0:F1} m  "
+                              + $"要求可能 {range:F1} units = {range * 1000.0:F0} m  "
+                              + (pd <= range ? "**圏内**" : "圏外"));
+
+                // 補間は距離に依らず DockSeconds 秒。**変わるのは詰める速さ。**
+                sb.AppendLine($"           出港距離 {DockingSolver.UndockDistance(range):F2} units  "
+                              + $"補間 {DockingSolver.DockSeconds:F1} 秒 "
+                              + $"(要求可能距離を詰めると {range / DockingSolver.DockSeconds:F3} km/s 相当)");
+
                 if (!string.IsNullOrEmpty(_rig.Docking.LastRejection))
                 {
                     sb.AppendLine($"要求NG   : {_rig.Docking.LastRejection}");

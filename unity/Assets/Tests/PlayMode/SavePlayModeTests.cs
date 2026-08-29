@@ -50,8 +50,10 @@ namespace SolarSystem.Tests.PlayMode
             rig.SetTargetIndex(stationIndex);
 
             // 到着圏の内側・停止・ポート正面。
-            root.PlaceObserver(station.AbsolutePosition
-                               + station.PortDirection * (station.PortStandoffKm + 5.0));
+            // **要求の判定はポート位置から測る (Step 13-3b)。**
+            // 以前は中心から PortStandoff + 5.0 に置いていたが、
+            // 要求可能距離が 20 -> 2.0 になったのでポート基準で 1.0 units に置く。
+            root.PlaceObserver(station.PortPosition + station.PortDirection * 1.0);
             Vec3d port = station.PortDirection;
             rig.ShipTransform.rotation = Quaternion.LookRotation(
                 new Vector3((float)-port.X, (float)-port.Y, (float)-port.Z), Vector3.up);

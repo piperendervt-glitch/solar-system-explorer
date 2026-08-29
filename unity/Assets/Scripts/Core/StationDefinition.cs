@@ -37,7 +37,7 @@ namespace SolarSystem.Core
         /// <summary>棚卸し (13-2) で特定するマテリアル名。</summary>
         public string MaterialName { get; }
 
-        /// <summary>発光の強さ。bloom しきい値 0.90 との関係は 13-4 で F4 で決める。</summary>
+        /// <summary>発光の強さ。bloom のしきい値（決めた当時 0.90 / **13-3b で 3.00 へ変更**） との関係は 13-4 で F4 で決める。</summary>
         public double Intensity { get; }
     }
 
@@ -85,6 +85,9 @@ namespace SolarSystem.Core
         /// アセットにもコードの定数にも書き戻さない（F4 の運用 / §0-C）。
         /// </summary>
         double? _runtimeScale;
+
+        /// <summary>**F4 専用の実行時上書き (Step 13-3b)。** null なら `RequestRange`。</summary>
+        double? _runtimeRequestRange;
 
         StationDefinition(string id, string prefabGuid, RequiredDouble scale,
                           RequiredDouble modelRadius, RequiredDouble hullAheadOfPort,
@@ -180,6 +183,26 @@ namespace SolarSystem.Core
 
         /// <summary>F4 の R（既定へ戻す）で呼ぶ。</summary>
         public void ResetRuntimeScale() => _runtimeScale = null;
+
+        /// <summary>
+        /// **実際に効く要求可能距離 [units] (Step 13-3b)。** 既定は `RequestRange`。
+        /// F4 で振っている間だけ上書きが入る。**判定も HUD もここを読む。**
+        /// </summary>
+        public double EffectiveRequestRange => _runtimeRequestRange ?? RequestRange;
+
+        /// <summary>F4 が実行時に振るときだけ呼ぶ。**アセットには書き戻さない。**</summary>
+        public void SetRuntimeRequestRange(double value)
+        {
+            if (!(value > 0.0))
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "要求可能距離は正");
+            }
+
+            _runtimeRequestRange = value;
+        }
+
+        /// <summary>F4 の R（既定へ戻す）で呼ぶ。</summary>
+        public void ResetRuntimeRequestRange() => _runtimeRequestRange = null;
 
         /// <summary>F4 の R。アレイのロールも既定へ戻す。</summary>
         public void ResetArrayRoll() => ArrayRollDegrees = 0.0;

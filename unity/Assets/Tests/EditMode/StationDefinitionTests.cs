@@ -33,20 +33,29 @@ namespace SolarSystem.Tests.EditMode
             //   項目            値      出所（移設前）
             //   Scale           1.0     プリミティブなので倍率なし
             //   PortStandoff    0.3     SpaceStation.PortStandoffKm = RadiusKm * 1.2 = 0.25 * 1.2
-            //   RequestRange   20.0     UniverseConstants.ArrivalRadiusUnits（決定 D-10）
+            //   RequestRange    2.0     StationCatalog.DefaultRequestRangeUnits
+            //
+            // **13-3b で 20.0 -> 2.0。** 要求の判定の原点を構造物の中心から
+            // **ポート位置**へ揃えたので、ポートのオフセットぶんの下駄が外れた。
+            // AP の到着半径 20 は据え置き（到着後に手動で寄る区間が残るのは意図）。
             StationDefinition box = Box();
 
             Assert.That(box.Id, Is.EqualTo(StationDefinition.BoxId));
             Assert.That(box.NeedsPrefab, Is.False, "箱はプレハブを持たない");
             Assert.That(box.Scale, Is.EqualTo(1.0));
             Assert.That(box.PortStandoff, Is.EqualTo(0.3).Within(1e-15));
-            Assert.That(box.RequestRange, Is.EqualTo(20.0));
+            Assert.That(box.RequestRange, Is.EqualTo(2.0));
 
             // **移設前の式と厳密一致すること。** 片方だけ直したら落ちる。
             Assert.That(box.PortStandoff,
                         Is.EqualTo(SolarSystemModel.StationRadiusKm
                                    * StationCatalog.BoxStandoffMultiplier));
-            Assert.That(box.RequestRange, Is.EqualTo(UniverseConstants.ArrivalRadiusUnits));
+            Assert.That(box.RequestRange,
+                        Is.EqualTo(StationCatalog.DefaultRequestRangeUnits));
+
+            // **AP の到着半径とは別物になった (13-3b)。**
+            Assert.That(box.RequestRange,
+                        Is.Not.EqualTo(UniverseConstants.ArrivalRadiusUnits));
         }
 
         [Test]
@@ -60,7 +69,7 @@ namespace SolarSystem.Tests.EditMode
             //   PortLocal       (0.0300, 0.2400, 24.7182)  13-3a の実測
             //   PortForward     +Z / PortUp +Y
             //   PortStandoff     0.015         MinStandoff 0.010 + 余裕 0.005
-            //   RequestRange    20.0           **まだ箱と同じ。13-5 で決める**
+            //   RequestRange     2.0           箱と同じ。**F4 で振って決める出発点**
             StationDefinition c = StationCatalog.Cobble();
 
             Assert.That(c.Id, Is.EqualTo(StationCatalog.CobbleId));
@@ -79,7 +88,7 @@ namespace SolarSystem.Tests.EditMode
             Assert.That(c.PortUp.Y, Is.EqualTo(1.0));
 
             Assert.That(c.PortStandoff, Is.EqualTo(0.015).Within(1e-15));
-            Assert.That(c.RequestRange, Is.EqualTo(20.0), "13-5 で決めるまで箱と同じ");
+            Assert.That(c.RequestRange, Is.EqualTo(2.0), "箱と同じ既定を使う");
         }
 
         [Test]
@@ -123,7 +132,7 @@ namespace SolarSystem.Tests.EditMode
             foreach (SpaceStation station in model.Stations)
             {
                 Assert.That(station.PortStandoffKm, Is.EqualTo(0.3).Within(1e-15), station.Name);
-                Assert.That(station.RequestRangeUnits, Is.EqualTo(20.0), station.Name);
+                Assert.That(station.RequestRangeUnits, Is.EqualTo(2.0), station.Name);
             }
         }
 
@@ -177,51 +186,52 @@ namespace SolarSystem.Tests.EditMode
         [Test]
         public void ドッキング判定の境界の数表()
         {
+            // **距離は 13-3b で 20 -> 2.0 になった（原点もポート位置へ）。**
             //   距離    速さ    角度    受理されるか   理由
-            //   20.0    0.5      0.0    通る            境界ちょうどは通る (<=)
-            //   20.001  0.5      0.0    距離           要求可能距離の外
-            //   10.0    1.0      0.0    通る            速度の境界ちょうど
-            //   10.0    1.001    0.0    速度
-            //   10.0    0.5     30.0    通る            角度の境界ちょうど
-            //   10.0    0.5     30.001  角度
+            //   2.0     0.5      0.0    通る            境界ちょうどは通る (<=)
+            //   2.001   0.5      0.0    距離           要求可能距離の外
+            //   1.0     1.0      0.0    通る            速度の境界ちょうど
+            //   1.0     1.001    0.0    速度
+            //   1.0     0.5     30.0    通る            角度の境界ちょうど
+            //   1.0     0.5     30.001  角度
             double range = Box().RequestRange;
 
-            Assert.That(DockingSolver.RejectionReason(20.0, 0.5, 0.0, range), Is.Empty);
-            Assert.That(DockingSolver.RejectionReason(20.001, 0.5, 0.0, range),
+            Assert.That(DockingSolver.RejectionReason(2.0, 0.5, 0.0, range), Is.Empty);
+            Assert.That(DockingSolver.RejectionReason(2.001, 0.5, 0.0, range),
                         Does.StartWith("距離が遠い"));
 
-            Assert.That(DockingSolver.RejectionReason(10.0, 1.0, 0.0, range), Is.Empty);
-            Assert.That(DockingSolver.RejectionReason(10.0, 1.001, 0.0, range),
+            Assert.That(DockingSolver.RejectionReason(1.0, 1.0, 0.0, range), Is.Empty);
+            Assert.That(DockingSolver.RejectionReason(1.0, 1.001, 0.0, range),
                         Does.StartWith("速すぎる").Or.Not.Empty);
 
             Assert.That(DockingSolver.RejectionReason(
-                            10.0, 0.5, DockingSolver.AttitudeToleranceDegrees, range), Is.Empty);
+                            1.0, 0.5, DockingSolver.AttitudeToleranceDegrees, range), Is.Empty);
             Assert.That(DockingSolver.RejectionReason(
-                            10.0, 0.5, DockingSolver.AttitudeToleranceDegrees + 0.001, range),
+                            1.0, 0.5, DockingSolver.AttitudeToleranceDegrees + 0.001, range),
                         Does.StartWith("ポート正面から"));
         }
 
         [Test]
         public void ヒステリシスと出港距離の数表()
         {
-            //   要求可能距離 20 に対して
-            //     入る    20.0 以下
-            //     抜ける  24.0 より大きい   (20 * LeaveMultiplier 1.2)
-            //     出港    24.0             （UndockDistance）
+            //   **要求可能距離 2.0 に対して (13-3b で 20 -> 2.0)**
+            //     入る    2.0 以下
+            //     抜ける  2.4 より大きい   (2.0 * LeaveMultiplier 1.2)
+            //     出港    2.4             （UndockDistance）
             double range = Box().RequestRange;
 
             Assert.That(DockingSolver.LeaveMultiplier, Is.EqualTo(1.2));
-            Assert.That(DockingSolver.UndockDistance(range), Is.EqualTo(24.0).Within(1e-12));
+            Assert.That(DockingSolver.UndockDistance(range), Is.EqualTo(2.4).Within(1e-12));
 
             var solver = new DockingSolver();
-            solver.Step(20.0, 0.5, 0.0, false, false, 1.0 / 60.0, range);
-            Assert.That(solver.State, Is.EqualTo(DockingState.Approaching), "20.0 で入る");
+            solver.Step(2.0, 0.5, 0.0, false, false, 1.0 / 60.0, range);
+            Assert.That(solver.State, Is.EqualTo(DockingState.Approaching), "2.0 で入る");
 
-            solver.Step(24.0, 0.5, 0.0, false, false, 1.0 / 60.0, range);
-            Assert.That(solver.State, Is.EqualTo(DockingState.Approaching), "24.0 では抜けない");
+            solver.Step(2.4, 0.5, 0.0, false, false, 1.0 / 60.0, range);
+            Assert.That(solver.State, Is.EqualTo(DockingState.Approaching), "2.4 では抜けない");
 
-            solver.Step(24.001, 0.5, 0.0, false, false, 1.0 / 60.0, range);
-            Assert.That(solver.State, Is.EqualTo(DockingState.Free), "24.0 を超えたら抜ける");
+            solver.Step(2.401, 0.5, 0.0, false, false, 1.0 / 60.0, range);
+            Assert.That(solver.State, Is.EqualTo(DockingState.Free), "2.4 を超えたら抜ける");
         }
 
         [Test]
@@ -599,16 +609,29 @@ namespace SolarSystem.Tests.EditMode
         // ---- 移設していない値（範囲の記録）----
 
         [Test]
-        public void オートパイロットの到着半径は移設していない()
+        public void オートパイロットの到着半径は要求可能距離とは別物()
         {
-            // **計画書 13-1a の対象は「解析判定・補間・セーブ」。**
-            // オートパイロットの到着プロファイルはそこに含まれないので、
-            // `UniverseConstants.ArrivalRadiusUnits` のまま残してある。
-            // **箱の定義の値と同値なので、現行の挙動は変わらない。**
-            // 定義ごとに変えたくなったらここが食い違い、このテストが落ちる。
-            Assert.That(UniverseConstants.ArrivalRadiusUnits,
-                        Is.EqualTo(StationCatalog.Box().RequestRange),
-                        "AP の到着半径と箱の要求可能距離が食い違っている");
+            // **13-3b で切り離した。**
+            // それまで AP の到着半径（20 / 決定 D-10）と箱の要求可能距離は
+            // 同値で、要求可能距離は AP の値を流用していただけだった。
+            //
+            //   AP の到着半径    20.0 units   原点は **ポート位置**（据え置き）
+            //   要求可能距離      2.0 units   原点は **ポート位置**（13-3b で揃えた）
+            //
+            // **AP が止まるのは要求可能距離の外。** 到着後に手動で寄る区間が
+            // 残るのは意図した設計（計画書「到着後にひと呼吸ある形を残す」）。
+            Assert.That(UniverseConstants.ArrivalRadiusUnits, Is.EqualTo(20.0));
+            Assert.That(StationCatalog.DefaultRequestRangeUnits, Is.EqualTo(2.0));
+
+            Assert.That(StationCatalog.Box().RequestRange,
+                        Is.LessThan(UniverseConstants.ArrivalRadiusUnits),
+                        "**AP の到着半径が要求可能距離の内側にある。**"
+                        + " 手動で寄る区間が消えている");
+
+            // 手動で詰める距離 = 到着半径 - 要求可能距離。
+            Assert.That(UniverseConstants.ArrivalRadiusUnits
+                        - StationCatalog.DefaultRequestRangeUnits,
+                        Is.EqualTo(18.0).Within(1e-12));
         }
     }
 }

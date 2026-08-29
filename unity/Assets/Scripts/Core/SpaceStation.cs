@@ -108,9 +108,24 @@ namespace SolarSystem.Core
         /// </summary>
         public double PortStandoffKm => Definition.PortStandoff;
 
-        /// <summary>ドッキング要求ができる距離 [units]。**値の出所は定義。**</summary>
-        public double RequestRangeUnits => Definition.RequestRange;
+        /// <summary>
+        /// ドッキング要求ができる距離 [units]。**値の出所は定義。**
+        /// F4 で振っている間は上書きが効く（`EffectiveRequestRange`）。
+        ///
+        /// **原点はポート位置 (Step 13-3b)。** 構造物の中心ではない。
+        /// 中心基準だと、ポートのオフセット（Cobble で 197.7 m）ぶんの下駄を
+        /// 履いた数字を選ぶことになる。
+        /// </summary>
+        public double RequestRangeUnits => Definition.EffectiveRequestRange;
 
+        /// <summary>構造物の**中心**までの距離 [units]。HUD の「目標」行が使う。</summary>
         public double DistanceFrom(Vec3d observer) => Vec3d.Distance(observer, AbsolutePosition);
+
+        /// <summary>
+        /// **ポート位置までの距離 [units] (Step 13-3b)。**
+        /// ドッキング要求の判定はこちらで測る。`PortPosition` はドッキング完了時に
+        /// 船が座る点なので、ここが 0 になったときが「着いた」。
+        /// </summary>
+        public double DistanceFromPort(Vec3d observer) => Vec3d.Distance(observer, PortPosition);
     }
 }

@@ -371,7 +371,7 @@ namespace SolarSystem.Tests.EditMode
                 Assert.That(color.r, Is.EqualTo((float)c[0]).Within(1e-3f),
                             "マテリアルの色が定数と違う（古いアセットが残っている）");
                 Assert.That(color.maxColorComponent, Is.LessThan(0.90f),
-                            "bloom のしきい値 0.90 を超えると白へ寄って分類できない");
+                            "bloom のしきい値（決めた当時 0.90 / **13-3b で 3.00 へ変更**） を超えると白へ寄って分類できない");
             }
         }
 

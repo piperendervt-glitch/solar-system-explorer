@@ -129,7 +129,7 @@ namespace SolarSystem.Unity
             }
         }
 
-        /// <summary>目印の発光の強さ。**bloom のしきい値 0.90 の下**（滲ませない）。</summary>
+        /// <summary>目印の発光の強さ。**bloom のしきい値（決めた当時 0.90 / **13-3b で 3.00 へ変更**） の下**（滲ませない）。</summary>
         const float MarkerEmission = 0.85f;
 
         /// <summary>起動引数に `-stationJudge` があるか。</summary>

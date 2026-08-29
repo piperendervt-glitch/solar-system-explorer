@@ -588,6 +588,9 @@ namespace SolarSystem.Tests.PlayMode
 
         // ================= Step 5 =================
 
+        /// <summary>手動で寄るときのダイヤル段。3 = 1 km/s（手動の上限 / 決定 D-11）。</summary>
+        const int ManualApproachDialIndex = 3;
+
         /// <summary>ステーションへオートパイロットで飛び、ドッキングまで通す。</summary>
         (double seconds, double distance, double speed, System.Collections.Generic.List<string> history)
             FlyAndDock(int stationIndex, int maxSteps)
@@ -604,6 +607,7 @@ namespace SolarSystem.Tests.PlayMode
             history.Add($"AP:{apPrev}");
 
             int steps = 0;
+            bool arrived = false;
             bool aimed = false;
 
             while (steps < maxSteps && _rig.Docking.State != DockingState.Docked)
@@ -611,12 +615,41 @@ namespace SolarSystem.Tests.PlayMode
                 // 到着したらオートパイロットを切り、ポート正面へ機首を向けてから要求する。
                 // 進行方向 (ほぼ +X) とポート正面 (-Y) は 90 度違うので、
                 // 向け直さないと許容角 30 度 (決定 D-18) に入らない。
+                // **到着後は手で寄る (Step 13-3b)。**
+                // AP の到着半径は 20 units のまま、要求可能距離は 2.0 units なので、
+                // **その 18 units は手動で詰める**（計画書「到着後にひと呼吸ある形」）。
+                //
+                // **AP はポート軸の上では止まらない。** 前のステーションから来た
+                // 進行方向のまま 20 units 手前で止まるので、いきなりポート正面へ
+                // 機首を向けると**遠ざかる**（実測: 1 km/s で離れていった）。
+                // 手順は「ポートへ機首を向けて寄る -> 止まる -> ポート正面へ向け直す -> 要求」。
                 bool request = false;
-                if (!aimed && _rig.Autopilot.State == AutopilotState.Arrived)
+                var thrust = 0f;
+
+                if (!arrived && _rig.Autopilot.State == AutopilotState.Arrived)
                 {
                     _rig.Autopilot.Disengage();
-                    AimShip(-station.PortDirection);
-                    aimed = true;
+                    arrived = true;
+                }
+
+                if (arrived && !aimed)
+                {
+                    double toPort = station.DistanceFromPort(_root.Ship.Position);
+                    if (toPort > station.RequestRangeUnits * 0.5)
+                    {
+                        // ポートへ機首を向けて寄る。
+                        AimShip((station.PortPosition - _root.Ship.Position).Normalized);
+                        _rig.Dial.SetIndex(ManualApproachDialIndex);
+                        thrust = 1f;
+                    }
+                    else
+                    {
+                        // 止めてからポート正面へ向け直す。
+                        // **速度が上限を超えていると受理されない。**
+                        _rig.Dial.Stop();
+                        AimShip(-station.PortDirection);
+                        aimed = true;
+                    }
                 }
 
                 if (aimed && _rig.Docking.State == DockingState.Approaching)
@@ -624,10 +657,22 @@ namespace SolarSystem.Tests.PlayMode
                     request = true;
                 }
 
-                _rig.InputOverride = new FlightInput { JumpIndex = -1, DockRequest = request };
+                _rig.InputOverride = new FlightInput
+                {
+                    JumpIndex = -1, DockRequest = request, Thrust = thrust,
+                };
                 _root.Tick(Dt);
                 _rig.InputOverride = null;
                 steps++;
+
+                if (arrived && steps % 600 == 0)
+                {
+                    Debug.Log($"[Step5] 手動接近 step={steps}"
+                              + $" ポートまで {station.DistanceFromPort(_root.Ship.Position):F4}"
+                              + $" 速度 {_root.Ship.SpeedKmPerSec:F4} km/s"
+                              + $" ダイヤル {_rig.Dial.Index} thrust {thrust:F1}"
+                              + $" dock {_rig.Docking.State}");
+                }
 
                 if (_rig.Autopilot.State != apPrev)
                 {
@@ -642,6 +687,7 @@ namespace SolarSystem.Tests.PlayMode
                 }
             }
 
+            history.Add($"ポートまで {station.DistanceFromPort(_root.Ship.Position):F4} units");
             return (steps * Dt, station.DistanceFrom(_root.Ship.Position), _root.Ship.SpeedKmPerSec, history);
         }
 
