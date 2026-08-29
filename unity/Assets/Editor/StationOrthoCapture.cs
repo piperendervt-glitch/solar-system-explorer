@@ -42,6 +42,7 @@ namespace SolarSystem.Editor
         static readonly Color32 Ink = new Color32(255, 255, 255, 255);
         static readonly Color32 Tick = new Color32(160, 200, 255, 255);
         static readonly Color32 BoxLine = new Color32(255, 120, 60, 255);
+        static readonly Color32 Name = new Color32(255, 220, 90, 255);
         static readonly Color BackgroundColor = new Color(0.06f, 0.07f, 0.09f, 1f);
 
         sealed class View
@@ -105,6 +106,12 @@ namespace SolarSystem.Editor
                 Annotate(pixels, bounds, v, orthoSize, "STATION " + Label(v), null);
                 Save(pixels, Path.Combine(outDir, "13-3_ortho_" + v.Name + ".png"));
 
+                // **名前入りの版 (13-3a)。** 絵とレンダラー一覧が一発で対応する。
+                Color32[] named = Render(camera, bounds, v, out float _);
+                Annotate(named, bounds, v, orthoSize, "NAMED " + Label(v), null);
+                DrawRendererNames(named, renderers, bounds.center, orthoSize, v);
+                Save(named, Path.Combine(outDir, "13-3_ortho_" + v.Name + "_named.png"));
+
                 sb.AppendLine("  " + v.Name + " : orthographicSize " +
                               orthoSize.ToString("F3", CultureInfo.InvariantCulture) +
                               " m / 1 px = " +
@@ -112,6 +119,12 @@ namespace SolarSystem.Editor
             }
 
             sb.AppendLine();
+            sb.AppendLine("  **目盛はプレハブ座標 (13-3a の訂正)。**");
+            sb.AppendLine("  以前は画像中心を 0 として振っていたので、上の一覧の座標と");
+            sb.AppendLine("  Z で 6.5522 ずれていた（bbox 中心 -6.5522 が原点ではない）。");
+            sb.AppendLine();
+
+            CaptureHatch(camera, renderers, bounds, outDir, sb);
 
             CaptureEmissiveSheet(camera, instance, renderers, bounds, outDir, sb);
 
@@ -197,25 +210,39 @@ namespace SolarSystem.Editor
 
         // ---- 撮影 ----
 
-        static Color32[] Render(Camera camera, Bounds bounds, View v, out float orthoSize)
+        /// <summary>bbox 全体が入る `orthographicSize`。</summary>
+        static float FrameSize(Bounds bounds, View v)
         {
             Quaternion rotation = Quaternion.LookRotation(-v.Direction, v.UpHint);
-            Vector3 right = rotation * Vector3.right;
-            Vector3 up = rotation * Vector3.up;
-
-            float halfW = HalfExtentAlong(bounds, right);
-            float halfH = HalfExtentAlong(bounds, up);
+            float halfW = HalfExtentAlong(bounds, rotation * Vector3.right);
+            float halfH = HalfExtentAlong(bounds, rotation * Vector3.up);
 
             // 画像は正方形なので aspect 1。縦横の大きいほうに合わせる。
-            orthoSize = Mathf.Max(halfH, halfW) * Margin;
+            return Mathf.Max(halfH, halfW) * Margin;
+        }
 
-            float distance = bounds.extents.magnitude * 3f + 10f;
-            camera.transform.position = bounds.center + v.Direction * distance;
+        static Color32[] Render(Camera camera, Bounds bounds, View v, out float orthoSize)
+        {
+            orthoSize = FrameSize(bounds, v);
+            return Render(camera, bounds.center, orthoSize, v, bounds.extents.magnitude);
+        }
+
+        /// <summary>
+        /// **画像の中心に来るワールド点を明示して撮る。**
+        /// 近接図（ハッチ）では bbox 中心ではなく、見たい部品の中心を渡す。
+        /// </summary>
+        static Color32[] Render(Camera camera, Vector3 frameCenter, float orthoSize,
+                                View v, float sceneRadius)
+        {
+            Quaternion rotation = Quaternion.LookRotation(-v.Direction, v.UpHint);
+
+            float distance = sceneRadius * 3f + 10f;
+            camera.transform.position = frameCenter + v.Direction * distance;
             camera.transform.rotation = rotation;
             camera.orthographic = true;
             camera.orthographicSize = orthoSize;
             camera.nearClipPlane = 0.01f;
-            camera.farClipPlane = distance * 2f + bounds.extents.magnitude * 2f;
+            camera.farClipPlane = distance * 2f + sceneRadius * 2f;
 
             var rt = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32,
                                        RenderTextureReadWrite.sRGB);
@@ -255,6 +282,78 @@ namespace SolarSystem.Editor
             texture.Apply(false, false);
             File.WriteAllBytes(path, texture.EncodeToPNG());
             UnityEngine.Object.DestroyImmediate(texture);
+        }
+
+        // ---- レンダラー名を投影位置に焼く ----
+
+        static void DrawRendererNames(Color32[] pixels, Renderer[] renderers,
+                                      Vector3 frameCenter, float orthoSize, View v)
+        {
+            float pixelsPerMeter = Size / (2f * orthoSize);
+            Quaternion rotation = Quaternion.LookRotation(-v.Direction, v.UpHint);
+            Vector3 right = rotation * Vector3.right;
+            Vector3 up = rotation * Vector3.up;
+
+            foreach (Renderer r in renderers.OrderBy(r => r.name, StringComparer.Ordinal))
+            {
+                Vector3 d = r.bounds.center - frameCenter;
+                int x = Size / 2 + Mathf.RoundToInt(Vector3.Dot(d, right) * pixelsPerMeter);
+                int y = Size / 2 + Mathf.RoundToInt(Vector3.Dot(d, up) * pixelsPerMeter);
+
+                // 中心の印（十字）。名前だけだとどこを指しているか分からない。
+                HLine(pixels, x - 5, y, 11, Name);
+                VLine(pixels, x, y - 5, 11, Name);
+
+                string label = r.name.ToUpperInvariant();
+                TinyFont.Draw(pixels, Size, Size,
+                              x - TinyFont.MeasureWidth(label, 2) / 2, y + 8, label, 2, Name);
+            }
+        }
+
+        // ---- ハッチ（+Z 端）の近接図 ----
+
+        /// <summary>
+        /// **+Z 端の近接図 (13-3a)。** ドッキングポートは +Z と決まったので、
+        /// 開口を目で読めるだけの倍率で撮る。**口の寸法は指名しない。**
+        /// </summary>
+        static void CaptureHatch(Camera camera, Renderer[] renderers, Bounds bounds,
+                                 string outDir, StringBuilder sb)
+        {
+            Renderer front = renderers
+                .OrderByDescending(r => r.bounds.max.z)
+                .FirstOrDefault();
+
+            if (front == null)
+            {
+                sb.AppendLine("-- ハッチの近接図: レンダラーが無い");
+                sb.AppendLine();
+                return;
+            }
+
+            Bounds b = front.bounds;
+            float half = Mathf.Max(b.extents.x, Mathf.Max(b.extents.y, b.extents.z)) * 1.6f;
+
+            sb.AppendLine("-- ハッチの近接図 (+Z 端) --");
+            sb.AppendLine("  最も +Z 側のレンダラー : " + front.name
+                          + " / bounds.max.z = "
+                          + b.max.z.ToString("F4", CultureInfo.InvariantCulture));
+            sb.AppendLine("  近接図の中心 : " + F(b.center)
+                          + " / orthographicSize " + half.ToString("F3", CultureInfo.InvariantCulture)
+                          + " m / 1 px = "
+                          + (2.0 * half / Size).ToString("F5", CultureInfo.InvariantCulture) + " m");
+            sb.AppendLine();
+
+            foreach (View v in Views)
+            {
+                if (v.Name != "posZ" && v.Name != "posY" && v.Name != "posX")
+                {
+                    continue;
+                }
+
+                Color32[] pixels = Render(camera, b.center, half, v, bounds.extents.magnitude);
+                Annotate(pixels, bounds, b.center, v, half, "HATCH " + Label(v), null);
+                Save(pixels, Path.Combine(outDir, "13-3_hatch_" + v.Name + ".png"));
+            }
         }
 
         // ---- 発光の 7 枚目（6 面を 3x2 に敷き詰めた 1 枚）----
@@ -427,6 +526,10 @@ namespace SolarSystem.Editor
         /// </summary>
         static void Annotate(Color32[] pixels, Bounds bounds, View v, float orthoSize,
                              string title, Color32? boxColor)
+            => Annotate(pixels, bounds, bounds.center, v, orthoSize, title, boxColor);
+
+        static void Annotate(Color32[] pixels, Bounds bounds, Vector3 frameCenter, View v,
+                             float orthoSize, string title, Color32? boxColor)
         {
             float metersPerPixel = 2f * orthoSize / Size;
             float pixelsPerMeter = 1f / metersPerPixel;
@@ -437,58 +540,32 @@ namespace SolarSystem.Editor
 
             // 目盛の刻み: 画面上で 60〜240 px になる「切りのいい」長さ。
             float step = NiceStep(pixelsPerMeter);
-            int stepPx = Mathf.RoundToInt(step * pixelsPerMeter);
 
-            // 画像の中心はモデルの bbox 中心。そこを 0 m として左右・上下に振る。
             int cx = Size / 2;
             int cy = Size / 2;
 
-            for (int k = -Size; k <= Size; k++)
-            {
-                int x = cx + k * stepPx;
-                if (x < 0 || x >= Size)
-                {
-                    continue;
-                }
-
-                int len = k == 0 ? 26 : 14;
-                VLine(pixels, x, 0, len, Tick);
-                if (k != 0 && Math.Abs(k) <= 6)
-                {
-                    string label = (k * step).ToString("0.#", CultureInfo.InvariantCulture);
-                    TinyFont.Draw(pixels, Size, Size,
-                                  x - TinyFont.MeasureWidth(label, 2) / 2, len + 4, label, 2, Tick);
-                }
-            }
-
-            for (int k = -Size; k <= Size; k++)
-            {
-                int y = cy + k * stepPx;
-                if (y < 0 || y >= Size)
-                {
-                    continue;
-                }
-
-                int len = k == 0 ? 26 : 14;
-                HLine(pixels, 0, y, len, Tick);
-                if (k != 0 && Math.Abs(k) <= 6)
-                {
-                    string label = (k * step).ToString("0.#", CultureInfo.InvariantCulture);
-                    TinyFont.Draw(pixels, Size, Size, len + 4,
-                                  y - TinyFont.MeasureHeight(2) / 2, label, 2, Tick);
-                }
-            }
+            // **目盛はプレハブ座標で振る (13-3a の訂正)。**
+            // 以前は画像中心を 0 として振っていたので、レンダラー一覧の座標と
+            // Z で 6.5522 ずれていた（bbox 中心が原点ではない）。
+            DrawAxisTicks(pixels, right, frameCenter, pixelsPerMeter, orthoSize, step,
+                          cx, cy, true);
+            DrawAxisTicks(pixels, up, frameCenter, pixelsPerMeter, orthoSize, step,
+                          cx, cy, false);
 
             // bbox の外形（発光の枚では位置の手がかりになる）。
             if (boxColor.HasValue)
             {
                 int halfW = Mathf.RoundToInt(HalfExtentAlong(bounds, right) * pixelsPerMeter);
                 int halfH = Mathf.RoundToInt(HalfExtentAlong(bounds, up) * pixelsPerMeter);
-                Rect32(pixels, cx - halfW, cy - halfH, halfW * 2, halfH * 2, boxColor.Value);
+                int bcx = cx + Mathf.RoundToInt(
+                    Vector3.Dot(bounds.center - frameCenter, right) * pixelsPerMeter);
+                int bcy = cy + Mathf.RoundToInt(
+                    Vector3.Dot(bounds.center - frameCenter, up) * pixelsPerMeter);
+                Rect32(pixels, bcx - halfW, bcy - halfH, halfW * 2, halfH * 2, boxColor.Value);
             }
 
             // スケールバー（右下）。
-            int barPx = stepPx;
+            int barPx = Mathf.RoundToInt(step * pixelsPerMeter);
             int bx = Size - 40 - barPx;
             int by = 46;
             HLine(pixels, bx, by, barPx, Ink);
@@ -501,7 +578,7 @@ namespace SolarSystem.Editor
             // 見出しと軸。
             TinyFont.Draw(pixels, Size, Size, 14, Size - 26, title, 3, Ink);
             TinyFont.Draw(pixels, Size, Size, 14, Size - 52,
-                          "ORTHOGRAPHIC / UNITS: METERS", 2, Ink);
+                          "ORTHOGRAPHIC / METERS / TICKS: PREFAB COORDS", 2, Ink);
             TinyFont.Draw(pixels, Size, Size, 14, Size - 74,
                           "1 PX = " + metersPerPixel.ToString("0.####", CultureInfo.InvariantCulture)
                           + " M", 2, Ink);
@@ -514,6 +591,65 @@ namespace SolarSystem.Editor
             TinyFont.Draw(pixels, Size, Size,
                           Size - TinyFont.MeasureWidth(upLabel, 2) - 14, Size - 48,
                           upLabel, 2, Ink);
+        }
+
+        /// <summary>
+        /// **プレハブ座標で目盛を振る。** 画面軸 `screenAxis` が対応するプレハブ軸を
+        /// 判定し、その軸の値をラベルにする。
+        /// </summary>
+        static void DrawAxisTicks(Color32[] pixels, Vector3 screenAxis, Vector3 frameCenter,
+                                  float pixelsPerMeter, float orthoSize, float step,
+                                  int cx, int cy, bool horizontal)
+        {
+            AxisOf(screenAxis, out int index, out float sign);
+
+            float center = frameCenter[index];
+            float lo = center - orthoSize;
+            float hi = center + orthoSize;
+
+            int kMin = Mathf.CeilToInt(lo / step);
+            int kMax = Mathf.FloorToInt(hi / step);
+
+            for (int k = kMin; k <= kMax; k++)
+            {
+                float value = k * step;
+                int offset = Mathf.RoundToInt(sign * (value - center) * pixelsPerMeter);
+                int len = k == 0 ? 26 : 14;
+                string label = value.ToString("0.#", CultureInfo.InvariantCulture);
+
+                if (horizontal)
+                {
+                    int x = cx + offset;
+                    if (x < 0 || x >= Size)
+                    {
+                        continue;
+                    }
+
+                    VLine(pixels, x, 0, len, Tick);
+                    TinyFont.Draw(pixels, Size, Size,
+                                  x - TinyFont.MeasureWidth(label, 2) / 2, len + 4, label, 2, Tick);
+                }
+                else
+                {
+                    int y = cy + offset;
+                    if (y < 0 || y >= Size)
+                    {
+                        continue;
+                    }
+
+                    HLine(pixels, 0, y, len, Tick);
+                    TinyFont.Draw(pixels, Size, Size, len + 4,
+                                  y - TinyFont.MeasureHeight(2) / 2, label, 2, Tick);
+                }
+            }
+        }
+
+        static void AxisOf(Vector3 v, out int index, out float sign)
+        {
+            if (Mathf.Abs(v.x) > 0.9f) { index = 0; sign = Mathf.Sign(v.x); return; }
+            if (Mathf.Abs(v.y) > 0.9f) { index = 1; sign = Mathf.Sign(v.y); return; }
+            index = 2;
+            sign = Mathf.Sign(v.z);
         }
 
         /// <summary>画面上で 60〜240 px になる切りのいい長さ [m]。</summary>

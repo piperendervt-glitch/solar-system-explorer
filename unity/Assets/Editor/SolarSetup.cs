@@ -178,6 +178,17 @@ public static class SolarSetup
         Debug.Log("[SolarSetup] CaptureStationOrtho OK");
     }
 
+    /// <summary>
+    /// ドッキングポート（+Z 端）の幾何を数値で測る (Step 13-3a)。**口の寸法は指名しない。**
+    ///
+    ///   run_unity.ps1 -Method SolarSetup.ProbeStationPort
+    /// </summary>
+    public static void ProbeStationPort()
+    {
+        SolarSystem.Editor.StationPortProbe.Run();
+        Debug.Log("[SolarSetup] ProbeStationPort OK");
+    }
+
     /// <summary>発光しているメッシュが座席から見えるかを測る (Step 11-4a の調査)。</summary>
     public static void ProbeCockpitVisibility()
     {
