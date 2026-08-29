@@ -218,6 +218,7 @@ namespace SolarSystem.Core
                 TargetStationIndex = 0,
                 ElapsedSeconds = 0.0,
                 VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Static(),
                 DebugHudVisible = false,
                 SunDirectionOverride = offset * -1.0, // 昼側。earth-close-day と同じ
             };
@@ -254,6 +255,7 @@ namespace SolarSystem.Core
                 TargetStationIndex = 0,
                 ElapsedSeconds = 0.0,
                 VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Static(),
                 DebugHudVisible = false,
 
                 // ステーションを正面から照らす（陰にして測れなくならないように）。
@@ -326,6 +328,7 @@ namespace SolarSystem.Core
                 TargetStationIndex = 0,
                 ElapsedSeconds = 0.0,
                 VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Static(),
                 DebugHudVisible = false,
                 SunDirectionOverride = sun,
             };
@@ -368,6 +371,7 @@ namespace SolarSystem.Core
                 TargetStationIndex = 0,
                 ElapsedSeconds = 0.0,
                 VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Static(),
                 DebugHudVisible = false,
                 SunDirectionOverride = offset * -1.0, // 昼側。模様の一致が見やすい
             };
@@ -411,6 +415,7 @@ namespace SolarSystem.Core
                 TargetStationIndex = 0,
                 ElapsedSeconds = elapsedSeconds,
                 VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Static(),
                 DebugHudVisible = false,
                 SunDirectionOverride = offset * -1.0, // 昼側
             };
@@ -506,6 +511,7 @@ namespace SolarSystem.Core
                 TargetStationIndex = 0,
                 ElapsedSeconds = 0.0,
                 VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Static(),
                 DebugHudVisible = false,
                 SunDirectionOverride = null, // 本物の幾何で判定させる
             };
@@ -536,6 +542,7 @@ namespace SolarSystem.Core
                 TargetStationIndex = 0,
                 ElapsedSeconds = 0.0,
                 VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Static(),
                 DebugHudVisible = false,
                 SunDirectionOverride = null, // 本物の幾何で判定させる
             };
@@ -577,6 +584,7 @@ namespace SolarSystem.Core
                 TargetStationIndex = 0,
                 ElapsedSeconds = 0.0,
                 VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Static(),
                 DebugHudVisible = false,
                 SunDirectionOverride = null,
             };
@@ -626,6 +634,7 @@ namespace SolarSystem.Core
                 TargetStationIndex = 1, // 火星ステーション
                 ElapsedSeconds = 0.0,
                 VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Static(),
                 DebugHudVisible = false,
                 SunDirectionOverride = null,
             };
@@ -663,6 +672,7 @@ namespace SolarSystem.Core
                 TargetStationIndex = 0,
                 ElapsedSeconds = 0.0,
                 VerticalFovDegrees = UniverseConstants.ReferenceVerticalFovDegrees,
+                Motion = ScenarioMotion.Static(),
                 DebugHudVisible = false,
                 SunDirectionOverride = null, // 8-0 では使わない
             };

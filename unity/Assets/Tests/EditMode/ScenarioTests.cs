@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using SolarSystem.Core;
@@ -110,6 +111,79 @@ namespace SolarSystem.Tests.EditMode
             Assert.That(ScenarioLibrary.Find(null, "x"), Is.Null);
 
             Assert.That(ScenarioLibrary.IndexOf(all, "no-such-scenario"), Is.EqualTo(-1));
+        }
+
+        // ---- 動きの状態 (Step 13-0b) ----
+
+        [Test]
+        public void すべてのシナリオが動きの状態を明示している()
+        {
+            // **書き忘れを塞ぐのはここ。**
+            // `Motion` を読むこと自体が検査になっている（未設定なら例外）。
+            // `double` の速度を直接持たせていたら、書き忘れは 0 = 静止として
+            // 静かに通ってしまう（Demo 3 の「既定値が無害な値」と同じ型）。
+            foreach (Scenario s in All())
+            {
+                Assert.That(s.Start.Motion.IsSet, Is.True,
+                            s.Name + ": Motion が未設定");
+
+                // 読める（= 例外が出ない）ことも確かめる。
+                Assert.DoesNotThrow(() =>
+                {
+                    double beta = s.Start.Motion.Beta;
+                    Assert.That(beta, Is.InRange(0.0, UniverseConstants.MaxCruiseBeta), s.Name);
+                }, s.Name);
+            }
+        }
+
+        [Test]
+        public void 未設定のMotionは読んだ時点で例外になる()
+        {
+            // **`default` が「静止」にならないこと。** これが対策の本体。
+            var unset = default(ScenarioMotion);
+
+            Assert.That(unset.IsSet, Is.False);
+            Assert.Throws<InvalidOperationException>(() => { var _ = unset.Beta; });
+            Assert.Throws<InvalidOperationException>(() => { var _ = unset.Selected; });
+            Assert.Throws<InvalidOperationException>(() => { var _ = unset.IsMoving; });
+            Assert.Throws<InvalidOperationException>(() => { var _ = unset.SpeedKmPerSec; });
+
+            // 書き忘れたシナリオも、Motion を読んだ時点で落ちる。
+            var forgotten = new ScenarioStart { Position = Vec3d.Zero };
+            Assert.Throws<InvalidOperationException>(() => { var _ = forgotten.Motion.Beta; });
+        }
+
+        [Test]
+        public void 静止と巡航の数表()
+        {
+            //   ファクトリ            β        km/s
+            //   Static()             0        0
+            //   Cruise(0.9)          0.9      269813.2122
+            //   Cruise(0.99)         0.99     296794.53342
+            ScenarioMotion stopped = ScenarioMotion.Static();
+            Assert.That(stopped.Beta, Is.EqualTo(0.0));
+            Assert.That(stopped.SpeedKmPerSec, Is.EqualTo(0.0));
+            Assert.That(stopped.IsMoving, Is.False);
+            Assert.That(stopped.Selected, Is.EqualTo(ScenarioMotion.Kind.Static));
+
+            ScenarioMotion cruise = ScenarioMotion.Cruise(UniverseConstants.DefaultCruiseBeta);
+            Assert.That(cruise.Beta, Is.EqualTo(0.9));
+            Assert.That(cruise.SpeedKmPerSec, Is.EqualTo(269813.2122).Within(1e-6));
+            Assert.That(cruise.IsMoving, Is.True);
+
+            Assert.That(ScenarioMotion.Cruise(UniverseConstants.MaxCruiseBeta).SpeedKmPerSec,
+                        Is.EqualTo(296794.53342).Within(1e-6));
+        }
+
+        [Test]
+        public void 巡航のβは範囲を外れると例外()
+        {
+            // **静止を Cruise(0) で書けないようにする。** Static() を使わせる。
+            Assert.Throws<ArgumentOutOfRangeException>(() => ScenarioMotion.Cruise(0.0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ScenarioMotion.Cruise(-0.1));
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => ScenarioMotion.Cruise(UniverseConstants.MaxCruiseBeta + 1e-9));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ScenarioMotion.Cruise(1.0));
         }
 
         [Test]
